@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3006,
         host: '0.0.0.0',
+        allowedHosts: [
+          'asp.intelliguard.in',
+          'localhost',
+          '.railway.app'
+        ],
         hmr: isProduction ? false : {
           protocol: 'ws',
           host: 'localhost',
@@ -43,6 +48,11 @@ export default defineConfig(({ mode }) => {
       preview: {
         port: 3006,
         host: '0.0.0.0',
+        allowedHosts: [
+          'asp.intelliguard.in',
+          'localhost',
+          '.railway.app'
+        ]
       }
     };
 });
