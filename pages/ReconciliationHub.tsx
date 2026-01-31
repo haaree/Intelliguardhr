@@ -75,6 +75,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   const [activeTab, setActiveTab] = useState<'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit'>('absent');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
 
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{ key: keyof ReconciliationRecord | null; direction: 'asc' | 'desc' | null }>({
@@ -295,6 +296,75 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         setAuditRecords(updateRecords(auditRecords));
         break;
     }
+  };
+
+  const handleSmartReconcile = () => {
+    // Count records that can be auto-accepted
+    const canAutoAccept = (record: ReconciliationRecord) => {
+      const status = record.finalStatus || record.originalStatus;
+      return status === 'Clean' ||
+             status === 'Present' ||
+             status === 'P' ||
+             status === 'Weekly Off' ||
+             status === 'WO' ||
+             status === 'Holiday' ||
+             status === 'H' ||
+             status === 'Worked Off' ||
+             status === 'WOH';
+    };
+
+    const allRecords = [
+      ...presentRecords,
+      ...offDaysRecords,
+      ...workedOffRecords
+    ];
+
+    const autoAcceptable = allRecords.filter(r => !r.isReconciled && canAutoAccept(r));
+    const needsReview = allRecords.filter(r => !r.isReconciled && !canAutoAccept(r));
+    const totalPending = allRecords.filter(r => !r.isReconciled).length;
+
+    if (autoAcceptable.length === 0) {
+      alert('No clean records to auto-accept. All clean records are already reconciled!');
+      return;
+    }
+
+    const message = `Smart Reconcile will auto-accept ${autoAcceptable.length} clean records:\n\n` +
+                   `✅ ${presentRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} Present/Clean\n` +
+                   `✅ ${offDaysRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} Weekly Offs/Holidays\n` +
+                   `✅ ${workedOffRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} Worked Offs\n\n` +
+                   `⚠️  ${needsReview.length} records still need manual review\n\n` +
+                   `This will reduce your workload from ${totalPending} to ${needsReview.length} records!\n\n` +
+                   `Continue?`;
+
+    if (!confirm(message)) {
+      return;
+    }
+
+    setIsProcessing(true);
+
+    // Auto-accept clean records
+    const updateRecords = (recs: ReconciliationRecord[]) => {
+      return recs.map(rec => {
+        if (!rec.isReconciled && canAutoAccept(rec)) {
+          return {
+            ...rec,
+            isReconciled: true,
+            reconciledBy: currentUser,
+            reconciledOn: formatDate(new Date())
+          };
+        }
+        return rec;
+      });
+    };
+
+    setPresentRecords(updateRecords(presentRecords));
+    setOffDaysRecords(updateRecords(offDaysRecords));
+    setWorkedOffRecords(updateRecords(workedOffRecords));
+
+    setTimeout(() => {
+      setIsProcessing(false);
+      alert(`🎉 Smart Reconcile Complete!\n\n✅ Auto-accepted ${autoAcceptable.length} clean records\n⚠️  ${needsReview.length} records still need your review`);
+    }, 500);
   };
 
   const handleAcceptAll = (module: string) => {
@@ -609,18 +679,29 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleFinalizeAll}
-          disabled={!allModulesComplete}
-          className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all ${
-            allModulesComplete
-              ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white hover:from-teal-700 hover:to-emerald-700'
-              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-          }`}
-        >
-          {allModulesComplete ? <Unlock size={18} /> : <Lock size={18} />}
-          <span>Finalize All Reconciliations</span>
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleSmartReconcile}
+            disabled={isProcessing}
+            className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
+          >
+            <CheckCircle2 size={18} />
+            <span>{isProcessing ? 'Processing...' : 'Smart Reconcile'}</span>
+          </button>
+
+          <button
+            onClick={handleFinalizeAll}
+            disabled={!allModulesComplete}
+            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all ${
+              allModulesComplete
+                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white hover:from-teal-700 hover:to-emerald-700'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            {allModulesComplete ? <Unlock size={18} /> : <Lock size={18} />}
+            <span>Finalize All Reconciliations</span>
+          </button>
+        </div>
       </div>
 
       {/* Module Status Overview */}
