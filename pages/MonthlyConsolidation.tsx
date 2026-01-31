@@ -65,7 +65,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [reportingManagerFilter, setReportingManagerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
-  const [viewMode, setViewMode] = useState<'calendar' | 'summary'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'summary' | 'workhours-actual' | 'workhours-shift'>('calendar');
 
   // Check if reconciliation is complete
   const isReconciled = data.isReconciliationComplete;
@@ -327,7 +327,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
 
         // If reconciliation is NOT complete and this day is NOT reconciled, show blank
         let finalRecord = record;
-        if (!data.isReconciliationComplete && !isDayReconciled) {
+        let shouldShowBlank = false;
+        if (!data.isReconciliationComplete && !isDayReconciled && record) {
+          shouldShowBlank = true;
           finalRecord = undefined; // Show blank for unreconciled days
         }
 
@@ -341,6 +343,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
           earlyToleranceUsed
         );
 
+        // Override status to blank if unreconciled
+        const finalStatus = shouldShowBlank ? '-' : status;
+
         // Track tolerance usage
         if (isLate && lateMinutes <= 60 && !lateToleranceUsed) {
           lateToleranceUsed = true;
@@ -353,8 +358,8 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         if (isEarly) earlyCount++;
 
         // If a specific status filter is selected and this day doesn't match, show blank
-        let displayStatus = status;
-        if (statusFilter !== 'All' && !statusMatchesFilter(status)) {
+        let displayStatus = finalStatus;
+        if (statusFilter !== 'All' && !statusMatchesFilter(finalStatus)) {
           displayStatus = '-';
         }
 
@@ -582,11 +587,21 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
 
         <div className="flex items-center space-x-3 flex-wrap gap-y-2">
           <button
-            onClick={() => setViewMode(viewMode === 'calendar' ? 'summary' : 'calendar')}
+            onClick={() => {
+              if (viewMode === 'calendar') setViewMode('summary');
+              else if (viewMode === 'summary') setViewMode('workhours-actual');
+              else if (viewMode === 'workhours-actual') setViewMode('workhours-shift');
+              else setViewMode('calendar');
+            }}
             className="flex items-center space-x-2 bg-white text-slate-600 border border-slate-200 px-4 py-3 rounded-2xl hover:bg-slate-50 transition-all font-black text-xs uppercase tracking-widest"
           >
             <Filter size={18} />
-            <span>{viewMode === 'calendar' ? 'Summary View' : 'Calendar View'}</span>
+            <span>
+              {viewMode === 'calendar' ? 'Summary View' :
+               viewMode === 'summary' ? 'Work Hours (Actual)' :
+               viewMode === 'workhours-actual' ? 'Work Hours (Shift)' :
+               'Calendar View'}
+            </span>
           </button>
 
           <button
@@ -829,7 +844,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
             </table>
           </div>
         </div>
-      ) : (
+      ) : viewMode === 'summary' ? (
         <div className="bg-white rounded-[40px] border border-slate-100 shadow-2xl overflow-hidden">
           <div className="overflow-auto max-h-[800px]">
             <table className="w-full text-left table-auto border-collapse">
@@ -906,6 +921,124 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                   </td>
                   <td className={`px-6 py-4 text-center text-sm border-r border-slate-100 ${getWorkHoursColor(filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0))}`}>
                     {filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      ) : viewMode === 'workhours-actual' ? (
+        /* Work Hours View - Actual (InTime to OutTime) */
+        <div className="bg-white rounded-[40px] border border-slate-100 shadow-2xl overflow-hidden">
+          <div className="overflow-auto max-h-[800px]">
+            <table className="w-full text-left table-auto border-collapse">
+              <thead className="bg-slate-900 text-white text-[9px] uppercase font-black tracking-widest sticky top-0 z-40">
+                <tr>
+                  <th className="px-6 py-5">Employee #</th>
+                  <th className="px-6 py-5">Name</th>
+                  <th className="px-6 py-5">Department</th>
+                  <th className="px-6 py-5 text-center">Total Hours (InTime-OutTime)</th>
+                  <th className="px-6 py-5 text-center">Clean Logs</th>
+                  <th className="px-6 py-5 text-center">Half Day</th>
+                  <th className="px-6 py-5 text-center">Absent</th>
+                  <th className="px-6 py-5 text-center">Working Days</th>
+                  <th className="px-6 py-5 text-center border-r border-slate-800">Attendance %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredData.map((emp) => (
+                  <tr key={emp.employeeNumber} className={`transition-colors ${
+                    emp.hasUnreconciledRecords
+                      ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500'
+                      : 'hover:bg-slate-50'
+                  }`}>
+                    <td className="px-6 py-4 text-xs font-black text-slate-900">{emp.employeeNumber}</td>
+                    <td className={`px-6 py-4 text-xs font-black ${
+                      emp.hasUnreconciledRecords ? 'text-amber-900' : 'text-teal-600'
+                    }`}>{emp.employeeName}</td>
+                    <td className="px-6 py-4 text-[10px] font-bold text-slate-700">{emp.department}</td>
+                    <td className={`px-6 py-4 text-center text-2xl font-black ${getWorkHoursColor(emp.summary.totalWorkHoursActual)}`}>
+                      {emp.summary.totalWorkHoursActual.toFixed(2)} hrs
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-emerald-600">{emp.summary.totalPresent}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-amber-600">{emp.summary.totalHalfDay}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-rose-600">{emp.summary.totalAbsent}</td>
+                    <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">{emp.summary.workingDays}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-teal-600 border-r border-slate-100">{emp.summary.attendancePercentage}%</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                <tr className="font-black">
+                  <td className="px-6 py-4 text-xs text-slate-900" colSpan={3}>TOTAL</td>
+                  <td className={`px-6 py-4 text-center text-2xl ${getWorkHoursColor(filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursActual, 0))}`}>
+                    {filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursActual, 0).toFixed(2)} hrs
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-emerald-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalPresent, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-amber-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalHalfDay, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-rose-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalAbsent, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-slate-700">{filteredData.reduce((sum, emp) => sum + emp.summary.workingDays, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-teal-600 border-r border-slate-100">
+                    {filteredData.length > 0 ? ((filteredData.reduce((sum, emp) => sum + emp.summary.attendancePercentage, 0) / filteredData.length).toFixed(2)) : '0.00'}%
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      ) : (
+        /* Work Hours View - Shift Based (Shift Start to OutTime) */
+        <div className="bg-white rounded-[40px] border border-slate-100 shadow-2xl overflow-hidden">
+          <div className="overflow-auto max-h-[800px]">
+            <table className="w-full text-left table-auto border-collapse">
+              <thead className="bg-slate-900 text-white text-[9px] uppercase font-black tracking-widest sticky top-0 z-40">
+                <tr>
+                  <th className="px-6 py-5">Employee #</th>
+                  <th className="px-6 py-5">Name</th>
+                  <th className="px-6 py-5">Department</th>
+                  <th className="px-6 py-5 text-center">Total Hours (Shift-OutTime)</th>
+                  <th className="px-6 py-5 text-center">Clean Logs</th>
+                  <th className="px-6 py-5 text-center">Half Day</th>
+                  <th className="px-6 py-5 text-center">Absent</th>
+                  <th className="px-6 py-5 text-center">Working Days</th>
+                  <th className="px-6 py-5 text-center border-r border-slate-800">Attendance %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredData.map((emp) => (
+                  <tr key={emp.employeeNumber} className={`transition-colors ${
+                    emp.hasUnreconciledRecords
+                      ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500'
+                      : 'hover:bg-slate-50'
+                  }`}>
+                    <td className="px-6 py-4 text-xs font-black text-slate-900">{emp.employeeNumber}</td>
+                    <td className={`px-6 py-4 text-xs font-black ${
+                      emp.hasUnreconciledRecords ? 'text-amber-900' : 'text-teal-600'
+                    }`}>{emp.employeeName}</td>
+                    <td className="px-6 py-4 text-[10px] font-bold text-slate-700">{emp.department}</td>
+                    <td className={`px-6 py-4 text-center text-2xl font-black ${getWorkHoursColor(emp.summary.totalWorkHoursShift)}`}>
+                      {emp.summary.totalWorkHoursShift.toFixed(2)} hrs
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-emerald-600">{emp.summary.totalPresent}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-amber-600">{emp.summary.totalHalfDay}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-rose-600">{emp.summary.totalAbsent}</td>
+                    <td className="px-6 py-4 text-center text-sm font-bold text-slate-700">{emp.summary.workingDays}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-teal-600 border-r border-slate-100">{emp.summary.attendancePercentage}%</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                <tr className="font-black">
+                  <td className="px-6 py-4 text-xs text-slate-900" colSpan={3}>TOTAL</td>
+                  <td className={`px-6 py-4 text-center text-2xl ${getWorkHoursColor(filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0))}`}>
+                    {filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0).toFixed(2)} hrs
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-emerald-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalPresent, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-amber-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalHalfDay, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-rose-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalAbsent, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-slate-700">{filteredData.reduce((sum, emp) => sum + emp.summary.workingDays, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-teal-600 border-r border-slate-100">
+                    {filteredData.length > 0 ? ((filteredData.reduce((sum, emp) => sum + emp.summary.attendancePercentage, 0) / filteredData.length).toFixed(2)) : '0.00'}%
                   </td>
                 </tr>
               </tfoot>

@@ -61,10 +61,22 @@ export const dataService = {
           weeklyOffs: [],
           leaveRecords: [],
           leaveReconciliations: [],
+          reconciliationRecords: [],
           auditQueue: [],
-          auditLogs: []
+          auditLogs: [],
+          isReconciliationComplete: false
         };
-        resolve(request.result || initialData);
+        const loadedData = request.result;
+        // Ensure reconciliation fields exist in loaded data
+        if (loadedData) {
+          resolve({
+            ...loadedData,
+            reconciliationRecords: loadedData.reconciliationRecords || [],
+            isReconciliationComplete: loadedData.isReconciliationComplete || false
+          });
+        } else {
+          resolve(initialData);
+        }
       };
       request.onerror = () => reject(request.error);
     });
