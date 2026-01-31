@@ -110,6 +110,15 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
   };
 
+  // Get color based on work hours
+  const getWorkHoursColor = (hours: number): string => {
+    if (hours === 0) return 'text-slate-400'; // No data
+    if (hours > 0 && hours < 4) return 'text-rose-600';    // 0-4 hrs: Red
+    if (hours >= 4 && hours < 7) return 'text-amber-600';  // 4-7 hrs: Amber
+    if (hours >= 7 && hours <= 12) return 'text-emerald-600'; // 7-12 hrs: Green
+    return 'text-purple-600'; // Beyond 12 hrs: Purple
+  };
+
   const minutesToTime = (totalMinutes: number): string => {
     const h = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
     const m = (totalMinutes % 60).toString().padStart(2, '0');
@@ -867,8 +876,12 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                     <td className="px-6 py-4 text-center text-sm font-medium text-orange-600">{emp.summary.lateCount}</td>
                     <td className="px-6 py-4 text-center text-sm font-medium text-orange-600">{emp.summary.earlyCount}</td>
                     <td className="px-6 py-4 text-center text-sm font-medium text-rose-500">{emp.summary.totalShortageHours.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-center text-sm font-black text-indigo-600">{emp.summary.totalWorkHoursActual.toFixed(2)}</td>
-                    <td className="px-6 py-4 text-center text-sm font-black text-violet-600 border-r border-slate-100">{emp.summary.totalWorkHoursShift.toFixed(2)}</td>
+                    <td className={`px-6 py-4 text-center text-sm font-black ${getWorkHoursColor(emp.summary.totalWorkHoursActual)}`}>
+                      {emp.summary.totalWorkHoursActual.toFixed(2)}
+                    </td>
+                    <td className={`px-6 py-4 text-center text-sm font-black border-r border-slate-100 ${getWorkHoursColor(emp.summary.totalWorkHoursShift)}`}>
+                      {emp.summary.totalWorkHoursShift.toFixed(2)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -888,8 +901,12 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                   <td className="px-6 py-4 text-center text-sm text-orange-600">{filteredData.reduce((sum, emp) => sum + emp.summary.lateCount, 0)}</td>
                   <td className="px-6 py-4 text-center text-sm text-orange-600">{filteredData.reduce((sum, emp) => sum + emp.summary.earlyCount, 0)}</td>
                   <td className="px-6 py-4 text-center text-sm text-rose-500">{filteredData.reduce((sum, emp) => sum + emp.summary.totalShortageHours, 0).toFixed(2)}</td>
-                  <td className="px-6 py-4 text-center text-sm text-indigo-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursActual, 0).toFixed(2)}</td>
-                  <td className="px-6 py-4 text-center text-sm text-violet-600 border-r border-slate-100">{filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0).toFixed(2)}</td>
+                  <td className={`px-6 py-4 text-center text-sm ${getWorkHoursColor(filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursActual, 0))}`}>
+                    {filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursActual, 0).toFixed(2)}
+                  </td>
+                  <td className={`px-6 py-4 text-center text-sm border-r border-slate-100 ${getWorkHoursColor(filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0))}`}>
+                    {filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0).toFixed(2)}
+                  </td>
                 </tr>
               </tfoot>
             </table>
