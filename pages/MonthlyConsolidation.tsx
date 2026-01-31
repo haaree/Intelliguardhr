@@ -61,11 +61,42 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [reportingManagerFilter, setReportingManagerFilter] = useState('All');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'P' | 'HD' | 'A' | 'WO' | 'WOH' | 'H'>('All');
+  const [statusFilter, setStatusFilter] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'calendar' | 'summary'>('calendar');
 
   // Check if reconciliation is complete
   const isReconciled = data.isReconciliationComplete;
+
+  // Map status codes to full names (matching ReconciliationHub)
+  const mapStatusToFullName = (status: AttendanceStatus): string => {
+    switch (status) {
+      case 'P': return 'Present';
+      case 'A': return 'Absent';
+      case 'WO': return 'Weekly Off';
+      case 'WOH': return 'Worked Off';
+      case 'H': return 'Holiday';
+      case 'HD': return 'Audit'; // Half day is treated as audit
+      case '-': return '';
+      default: return status;
+    }
+  };
+
+  // Check if status matches filter
+  const statusMatchesFilter = (status: AttendanceStatus): boolean => {
+    if (statusFilter === 'All') return true;
+    const fullName = mapStatusToFullName(status);
+
+    // Handle multiple mappings
+    if (statusFilter === 'Present' && (status === 'P' || fullName === 'Present' || fullName === 'Clean')) return true;
+    if (statusFilter === 'Absent' && (status === 'A' || fullName === 'Absent')) return true;
+    if (statusFilter === 'Worked Off' && (status === 'WOH' || fullName === 'Worked Off')) return true;
+    if (statusFilter === 'Weekly Off' && (status === 'WO' || fullName === 'Weekly Off')) return true;
+    if (statusFilter === 'Holiday' && (status === 'H' || fullName === 'Holiday')) return true;
+    if (statusFilter === 'Audit' && (status === 'HD' || fullName === 'Audit')) return true;
+    if (statusFilter === 'ID Error' && fullName.includes('Error')) return true;
+
+    return fullName === statusFilter;
+  };
 
   const timeToMinutes = (timeStr: string): number => {
     if (!timeStr || timeStr === '-' || timeStr === 'NA') return 0;
@@ -303,9 +334,15 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         if (isLate) lateCount++;
         if (isEarly) earlyCount++;
 
+        // If a specific status filter is selected and this day doesn't match, show blank
+        let displayStatus = status;
+        if (statusFilter !== 'All' && !statusMatchesFilter(status)) {
+          displayStatus = '-';
+        }
+
         days.push({
           date: dateStr,
-          status,
+          status: displayStatus,
           inTime: record?.inTime || '-',
           outTime: record?.outTime || '-',
           hoursWorked,
@@ -356,7 +393,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     });
 
     return Array.from(employeeMap.values());
-  }, [data, selectedYear, selectedMonth]);
+  }, [data, selectedYear, selectedMonth, statusFilter]);
 
   const filteredData = useMemo(() => {
     return consolidatedData.filter(emp => {
@@ -604,16 +641,17 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
             <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Status</label>
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as any)}
+              onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
             >
               <option value="All">All Status</option>
-              <option value="P">Present (P)</option>
-              <option value="HD">Half Day (HD)</option>
-              <option value="A">Absent (A)</option>
-              <option value="WO">Weekly Off (WO)</option>
-              <option value="WOH">Worked Off (WOH)</option>
-              <option value="H">Holiday (H)</option>
+              <option value="Absent">Absent</option>
+              <option value="Present">Present / Clean</option>
+              <option value="Worked Off">Worked Off</option>
+              <option value="Weekly Off">Weekly Off</option>
+              <option value="Holiday">Holiday</option>
+              <option value="ID Error">ID Error</option>
+              <option value="Audit">Audit</option>
             </select>
           </div>
 
