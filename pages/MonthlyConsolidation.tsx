@@ -62,6 +62,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role 
   const [reportingManagerFilter, setReportingManagerFilter] = useState('All');
   const [viewMode, setViewMode] = useState<'calendar' | 'summary'>('calendar');
 
+  // Check if reconciliation is complete
+  const isReconciled = data.isReconciliationComplete;
+
   const timeToMinutes = (timeStr: string): number => {
     if (!timeStr || timeStr === '-' || timeStr === 'NA') return 0;
     const parts = timeStr.split(':');
@@ -418,6 +421,44 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role 
     const recordDate = parseFormattedDate(record.date);
     return recordDate && recordDate.getFullYear() === selectedYear && recordDate.getMonth() === selectedMonth;
   }).length;
+
+  // Show warning if reconciliation is not complete
+  if (!isReconciled) {
+    return (
+      <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div>
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <Calendar className="text-teal-600" size={32} />
+              Monthly Attendance
+            </h1>
+            <p className="text-slate-500 font-medium text-xs uppercase tracking-widest mt-1">
+              {monthName} {selectedYear}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center p-8 bg-amber-50 rounded-3xl border border-amber-200 max-w-2xl">
+            <Info className="mx-auto text-amber-600 mb-4" size={48} />
+            <h2 className="text-xl font-black text-slate-900 mb-2">Reconciliation Required</h2>
+            <p className="text-sm text-slate-600 mb-4">
+              Monthly attendance data will be displayed after you complete the reconciliation process.
+            </p>
+            <p className="text-xs text-slate-500 mb-6">
+              Please complete all reconciliation modules in the Reconciliation Hub to view the consolidated monthly report.
+            </p>
+            <div className="bg-white p-4 rounded-xl border border-amber-100 mb-6">
+              <p className="text-xs font-bold text-slate-700 mb-2">Current Status:</p>
+              <p className="text-sm text-slate-600">
+                {filteredData.length} Employees • {attendanceCountForMonth} Attendance Records Pending Reconciliation
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">

@@ -405,29 +405,10 @@ const App: React.FC = () => {
               </div>
             )}
             {currentPage === 'monthly' && (
-              // Temporarily unlocked for testing - remove condition to always allow access
-              true ? (
-                <MonthlyConsolidation
-                  data={appData}
-                  role={session.user.role}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center p-8 bg-amber-50 rounded-3xl border border-amber-200 max-w-2xl">
-                    <Lock className="mx-auto text-amber-600 mb-4" size={48} />
-                    <h2 className="text-xl font-black text-slate-900 mb-2">Monthly Report Locked</h2>
-                    <p className="text-sm text-slate-600 mb-4">
-                      Complete all reconciliation modules in the Reconciliation Hub before generating monthly reports.
-                    </p>
-                    <button
-                      onClick={() => setCurrentPage('leave')}
-                      className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-black text-xs uppercase tracking-widest"
-                    >
-                      Go to Reconciliation Hub
-                    </button>
-                  </div>
-                </div>
-              )
+              <MonthlyConsolidation
+                data={appData}
+                role={session.user.role}
+              />
             )}
             {currentPage === 'shifts' && (
               <ShiftMatrix 
