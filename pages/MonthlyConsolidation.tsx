@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx';
 interface MonthlyConsolidationProps {
   data: AppData;
   role: UserRole;
+  onMarkReconciled?: () => void;
 }
 
 type AttendanceStatus = 'P' | 'HD' | 'A' | 'WO' | 'WOH' | 'H' | '-';
@@ -53,7 +54,7 @@ interface EmployeeMonthlyData {
   };
 }
 
-const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role }) => {
+const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role, onMarkReconciled }) => {
   const currentDate = new Date();
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
@@ -454,6 +455,22 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role 
                 {filteredData.length} Employees • {attendanceCountForMonth} Attendance Records Pending Reconciliation
               </p>
             </div>
+
+            {onMarkReconciled && (
+              <div className="space-y-3">
+                <div className="h-px bg-amber-200 my-4"></div>
+                <p className="text-xs font-bold text-slate-700 mb-2">Testing Mode:</p>
+                <button
+                  onClick={onMarkReconciled}
+                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-black text-xs uppercase tracking-widest shadow-lg"
+                >
+                  Mark as Reconciled (Bypass for Testing)
+                </button>
+                <p className="text-xs text-slate-500 mt-2">
+                  This will bypass reconciliation and show the monthly report immediately.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

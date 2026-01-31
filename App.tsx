@@ -408,6 +408,12 @@ const App: React.FC = () => {
               <MonthlyConsolidation
                 data={appData}
                 role={session.user.role}
+                onMarkReconciled={() => {
+                  setAppData(prev => ({
+                    ...prev,
+                    isReconciliationComplete: true
+                  }));
+                }}
               />
             )}
             {currentPage === 'shifts' && (
