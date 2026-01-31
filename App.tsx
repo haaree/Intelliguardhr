@@ -9,7 +9,7 @@ import ProfileModal from './components/ProfileModal.tsx';
 import LoadingOverlay from './components/LoadingOverlay.tsx';
 import { Page, AppData, UserRole, AttendanceRecord, Shift } from './types.ts';
 import { dataService } from './services/dataService.ts';
-import { authService, AuthSession } from './services/authService.ts';
+import { authService, AuthSession } from './services/authServiceSupabase.ts';
 
 const EmployeeUpload = lazy(() => import('./pages/EmployeeUpload.tsx'));
 const BiometricUpload = lazy(() => import('./pages/BiometricUpload.tsx'));
@@ -289,8 +289,8 @@ const App: React.FC = () => {
     }
   };
 
-  const handleLogout = () => {
-    authService.logout();
+  const handleLogout = async () => {
+    await authService.logout();
     setSession(null);
     setCurrentPage('login');
   };
