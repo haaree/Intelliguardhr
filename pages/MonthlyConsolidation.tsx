@@ -423,59 +423,29 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     return recordDate && recordDate.getFullYear() === selectedYear && recordDate.getMonth() === selectedMonth;
   }).length;
 
-  // Show warning if reconciliation is not complete
-  if (!isReconciled) {
-    return (
-      <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <Calendar className="text-teal-600" size={32} />
-              Monthly Attendance
-            </h1>
-            <p className="text-slate-500 font-medium text-xs uppercase tracking-widest mt-1">
-              {monthName} {selectedYear}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center p-8 bg-amber-50 rounded-3xl border border-amber-200 max-w-2xl">
-            <Info className="mx-auto text-amber-600 mb-4" size={48} />
-            <h2 className="text-xl font-black text-slate-900 mb-2">Reconciliation Required</h2>
-            <p className="text-sm text-slate-600 mb-4">
-              Monthly attendance data will be displayed after you complete the reconciliation process.
-            </p>
-            <p className="text-xs text-slate-500 mb-6">
-              Please complete all reconciliation modules in the Reconciliation Hub to view the consolidated monthly report.
-            </p>
-            <div className="bg-white p-4 rounded-xl border border-amber-100 mb-6">
-              <p className="text-xs font-bold text-slate-700 mb-2">Current Status:</p>
-              <p className="text-sm text-slate-600">
-                {filteredData.length} Employees • {attendanceCountForMonth} Attendance Records Pending Reconciliation
-              </p>
-            </div>
-
-            {onMarkReconciled && (
-              <div className="space-y-3">
-                <div className="h-px bg-amber-200 my-4"></div>
-                <p className="text-xs font-bold text-slate-700 mb-2">Testing Mode:</p>
-                <button
-                  onClick={onMarkReconciled}
-                  className="px-6 py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-black text-xs uppercase tracking-widest shadow-lg"
-                >
-                  Mark as Reconciled (Bypass for Testing)
-                </button>
-                <p className="text-xs text-slate-500 mt-2">
-                  This will bypass reconciliation and show the monthly report immediately.
-                </p>
-              </div>
-            )}
+  // Show info banner if reconciliation is not complete, but still show data
+  const reconciliationBanner = !isReconciled && (
+    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+      <div className="flex items-start gap-3">
+        <Info className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+        <div className="flex-1">
+          <h3 className="text-sm font-bold text-slate-900 mb-1">Reconciliation In Progress</h3>
+          <p className="text-xs text-slate-600 mb-2">
+            This report shows current attendance data. Complete reconciliation modules to finalize all records.
+          </p>
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-slate-600">
+              {filteredData.length} Employees • {attendanceCountForMonth} Records
+            </span>
+            <span className="text-amber-600">•</span>
+            <span className="text-amber-600 font-bold">
+              {data.reconciliationRecords?.filter((r: any) => r.isReconciled).length || 0} Reconciled
+            </span>
           </div>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -508,6 +478,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
           </button>
         </div>
       </div>
+
+      {/* Reconciliation Status Banner */}
+      {reconciliationBanner}
 
       {/* Month/Year Selector and Filters */}
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-lg">
