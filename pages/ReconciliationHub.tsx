@@ -76,7 +76,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   currentUser
 }) => {
   const [activeTab, setActiveTab] = useState<'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit'>('absent');
-  const [auditSubTab, setAuditSubTab] = useState<'minor' | 'late' | 'early' | 'shift' | 'missing' | 'severe'>('minor');
+  const [auditSubTab, setAuditSubTab] = useState<'single' | 'frequent' | 'chronic' | 'shift' | 'missing' | 'other'>('single');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
@@ -573,22 +573,11 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     });
   };
 
-  // Helper function to categorize audit records
-  const categorizeAuditRecord = (record: ReconciliationRecord): 'minor' | 'late' | 'early' | 'shift' | 'missing' | 'severe' => {
+  // Helper function to categorize audit records based on frequency
+  const categorizeAuditRecord = (record: ReconciliationRecord): 'single' | 'frequent' | 'chronic' | 'shift' | 'missing' | 'other' => {
     const deviation = record.deviation || '';
-    const lateBy = record.lateBy || '00:00';
-    const earlyBy = record.earlyBy || '00:00';
 
-    // Convert time to minutes
-    const timeToMin = (time: string) => {
-      const [h = '0', m = '0'] = time.split(':');
-      return parseInt(h) * 60 + parseInt(m);
-    };
-
-    const lateMinutes = timeToMin(lateBy);
-    const earlyMinutes = timeToMin(earlyBy);
-
-    // Missing Punches
+    // Missing Punches - highest priority
     if (deviation.includes('Missing') || deviation.includes('Punch')) {
       return 'missing';
     }
@@ -598,27 +587,39 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       return 'shift';
     }
 
-    // Severe violations (> 60 min)
-    if (lateMinutes > 60 || earlyMinutes > 60 || deviation.includes('Double Violation')) {
-      return 'severe';
+    // Check if it's a late/early violation
+    const isLateOrEarly = (record.lateBy && record.lateBy !== '00:00') || (record.earlyBy && record.earlyBy !== '00:00');
+
+    if (!isLateOrEarly) {
+      return 'other';
     }
 
-    // Late arrivals (15-60 min)
-    if (lateMinutes >= 15 && lateMinutes <= 60) {
-      return 'late';
+    // Count occurrences for this employee in the current month
+    const employeeNumber = record.employeeNumber;
+    const recordDate = new Date(record.date);
+    const recordMonth = recordDate.getMonth();
+    const recordYear = recordDate.getFullYear();
+
+    // Count all late/early violations for this employee in this month
+    const employeeViolations = auditRecords.filter(r => {
+      const rDate = new Date(r.date);
+      const isLateOrEarlyViolation = (r.lateBy && r.lateBy !== '00:00') || (r.earlyBy && r.earlyBy !== '00:00');
+      return r.employeeNumber === employeeNumber &&
+             rDate.getMonth() === recordMonth &&
+             rDate.getFullYear() === recordYear &&
+             isLateOrEarlyViolation;
+    }).length;
+
+    // Categorize based on frequency
+    if (employeeViolations === 1) {
+      return 'single';
+    } else if (employeeViolations === 2) {
+      return 'frequent';
+    } else if (employeeViolations > 2) {
+      return 'chronic';
     }
 
-    // Early departures (15-60 min)
-    if (earlyMinutes >= 15 && earlyMinutes <= 60) {
-      return 'early';
-    }
-
-    // Minor deviations (< 15 min)
-    if (lateMinutes < 15 || earlyMinutes < 15 || deviation.includes('Waiver')) {
-      return 'minor';
-    }
-
-    return 'minor';
+    return 'other';
   };
 
   const filteredRecords = useMemo(() => {
@@ -838,12 +839,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         <div className="bg-white p-3 rounded-3xl border border-slate-100 shadow-xl">
           <div className="flex flex-wrap gap-2">
             {[
-              { id: 'minor', label: 'Minor (< 15 min)', color: 'emerald', icon: '🟢', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'minor').length },
-              { id: 'late', label: 'Late (15-60 min)', color: 'amber', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'late').length },
-              { id: 'early', label: 'Early (15-60 min)', color: 'yellow', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'early').length },
+              { id: 'single', label: '1st Occurrence (Late/Early)', color: 'emerald', icon: '🟢', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'single').length },
+              { id: 'frequent', label: '2 Occurrences in Month', color: 'amber', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'frequent').length },
+              { id: 'chronic', label: 'Beyond 2 Occurrences', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'chronic').length },
               { id: 'shift', label: 'Shift Deviations', color: 'orange', icon: '🟠', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'shift').length },
-              { id: 'missing', label: 'Missing Punches', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'missing').length },
-              { id: 'severe', label: 'Severe (> 60 min)', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'severe').length },
+              { id: 'missing', label: 'Missing Punches', color: 'rose', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'missing').length },
+              { id: 'other', label: 'Other Violations', color: 'slate', icon: '⚪', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'other').length },
             ].map((subTab: any) => {
               const isActive = auditSubTab === subTab.id;
               return (
