@@ -405,7 +405,8 @@ const App: React.FC = () => {
               </div>
             )}
             {currentPage === 'monthly' && (
-              appData.isReconciliationComplete ? (
+              // Temporarily unlocked for testing - remove condition to always allow access
+              true ? (
                 <MonthlyConsolidation
                   data={appData}
                   role={session.user.role}
