@@ -7,33 +7,40 @@ This Vite + React + TypeScript application is configured for Cloudflare Pages de
 ### Prerequisites
 - GitHub repository connected to Cloudflare Pages
 - Cloudflare account with Pages enabled
-- Environment variables ready (GEMINI_API_KEY, DATABASE_URL)
+- Supabase project created
+- Environment variables ready (GEMINI_API_KEY, SUPABASE_URL, SUPABASE_ANON_KEY)
 
 ## Deployment Method: GitHub Integration (Recommended)
 
 ### Step 1: Connect Repository to Cloudflare Pages
 
 1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. Navigate to **Workers & Pages** → **Pages**
-3. Click **"Create a project"**
-4. Select **"Connect to Git"**
+2. Navigate to **Workers & Pages** → Click **"Create"** button
+3. **IMPORTANT:** Select the **"Pages"** tab (NOT the "Workers" tab)
+4. Click **"Connect to Git"**
 5. Choose **GitHub** and authorize Cloudflare
 6. Select repository: `Intelliguardhr`
 7. Branch: `master`
+
+**WARNING:** If you see fields like "Deploy command: npx wrangler deploy" or "Version command", you're in the wrong section (Workers instead of Pages). Make sure you're in the **Pages** tab.
 
 ### Step 2: Configure Build Settings
 
 In the build configuration screen:
 
 ```
-Framework preset: Vite
+Framework preset: None (or VitePress if Vite is not available)
 Build command: npm run build
 Build output directory: dist
-Root directory: (leave empty)
+Root directory: (leave blank)
 Node version: 22
 ```
 
-**IMPORTANT**: Do NOT add any custom deploy command. Leave it empty.
+**NOTE:** If "Vite" is not in the framework preset dropdown, select "None" or "VitePress". The important part is the build command (`npm run build`) which will use your project's Vite configuration.
+
+**CRITICAL:** In the **Pages** setup, there are NO "Deploy command" or "Version command" fields. If you see these fields, you're configuring a **Worker** instead of **Pages**.
+
+Cloudflare Pages automatically deploys the `dist` folder after the build completes - no additional commands needed.
 
 ### Step 3: Add Environment Variables
 
@@ -42,10 +49,19 @@ Click **"Add variable"** for each:
 **Production Environment:**
 - `NODE_ENV` = `production`
 - `GEMINI_API_KEY` = `your_gemini_api_key_here`
-- `DATABASE_URL` = `your_neon_database_url_here`
+- `VITE_SUPABASE_URL` = `your_supabase_project_url` (e.g., https://xxxxx.supabase.co)
+- `VITE_SUPABASE_ANON_KEY` = `your_supabase_anon_public_key`
 
 **Preview Environment:**
 - Same variables with preview/test values
+
+**Where to find Supabase credentials:**
+1. Go to [Supabase Dashboard](https://app.supabase.com/)
+2. Select your project
+3. Go to **Settings** → **API**
+4. Copy:
+   - **Project URL** → Use as `VITE_SUPABASE_URL`
+   - **anon public key** → Use as `VITE_SUPABASE_ANON_KEY`
 
 ### Step 4: Deploy
 
@@ -112,9 +128,12 @@ Cloudflare Pages injects environment variables at build time:
 
 ```typescript
 // In your React components or services
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
-const dbUrl = import.meta.env.VITE_DATABASE_URL || process.env.DATABASE_URL;
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 ```
+
+**Note:** Use the `VITE_` prefix for all environment variables that need to be accessible in your React code during build time.
 
 ## Local Testing
 
@@ -165,11 +184,12 @@ In Cloudflare Dashboard:
 
 ### Environment Variables Not Working
 
-**Issue**: API keys undefined
+**Issue**: API keys or Supabase credentials undefined
 **Solution**:
-- Check variables are set in Cloudflare Pages settings
+- Check variables are set in Cloudflare Pages settings with `VITE_` prefix
 - Rebuild/redeploy after adding variables
-- Use both `import.meta.env` and `process.env` for compatibility
+- Use `import.meta.env.VITE_VARIABLE_NAME` in your code
+- Ensure variables are added to both Production and Preview environments
 
 ### Custom Domain Not Working
 
