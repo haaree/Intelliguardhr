@@ -225,15 +225,33 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     const daysInMonth = getDaysInMonth(selectedYear, selectedMonth);
     const employeeMap = new Map<string, EmployeeMonthlyData>();
 
-    // Group attendance by employee
+    // Create a map of reconciled records for quick lookup
+    const reconciledRecordKeys = new Set<string>();
+    if (data.reconciliationRecords && Array.isArray(data.reconciliationRecords)) {
+      data.reconciliationRecords.forEach((rec: any) => {
+        if (rec.isReconciled) {
+          const key = `${rec.employeeNumber}-${rec.date}`.toUpperCase();
+          reconciledRecordKeys.add(key);
+        }
+      });
+    }
+
+    // Group attendance by employee - only include reconciled records
     const attendanceByEmployee = new Map<string, AttendanceRecord[]>();
     data.attendance.forEach(record => {
       const recordDate = parseFormattedDate(record.date);
       if (recordDate && recordDate.getFullYear() === selectedYear && recordDate.getMonth() === selectedMonth) {
-        if (!attendanceByEmployee.has(record.employeeNumber)) {
-          attendanceByEmployee.set(record.employeeNumber, []);
+        // Only include if reconciled OR if no reconciliation system exists
+        const recordKey = `${record.employeeNumber}-${record.date}`.toUpperCase();
+        const isReconciled = reconciledRecordKeys.has(recordKey);
+
+        // Show record if: it's reconciled OR reconciliation is complete (all records finalized)
+        if (isReconciled || data.isReconciliationComplete) {
+          if (!attendanceByEmployee.has(record.employeeNumber)) {
+            attendanceByEmployee.set(record.employeeNumber, []);
+          }
+          attendanceByEmployee.get(record.employeeNumber)!.push(record);
         }
-        attendanceByEmployee.get(record.employeeNumber)!.push(record);
       }
     });
 
@@ -423,7 +441,14 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     return recordDate && recordDate.getFullYear() === selectedYear && recordDate.getMonth() === selectedMonth;
   }).length;
 
-  // Show info banner if reconciliation is not complete, but still show data
+  // Calculate reconciliation statistics
+  const totalReconciled = data.reconciliationRecords?.filter((r: any) => r.isReconciled).length || 0;
+  const totalRecords = data.attendance.filter(record => {
+    const recordDate = parseFormattedDate(record.date);
+    return recordDate && recordDate.getFullYear() === selectedYear && recordDate.getMonth() === selectedMonth;
+  }).length;
+
+  // Show info banner if reconciliation is not complete
   const reconciliationBanner = !isReconciled && (
     <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
       <div className="flex items-start gap-3">
@@ -431,15 +456,15 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         <div className="flex-1">
           <h3 className="text-sm font-bold text-slate-900 mb-1">Reconciliation In Progress</h3>
           <p className="text-xs text-slate-600 mb-2">
-            This report shows current attendance data. Complete reconciliation modules to finalize all records.
+            Only showing reconciled records. Complete reconciliation modules to view all attendance data.
           </p>
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-600">
-              {filteredData.length} Employees • {attendanceCountForMonth} Records
-            </span>
-            <span className="text-amber-600">•</span>
             <span className="text-amber-600 font-bold">
-              {data.reconciliationRecords?.filter((r: any) => r.isReconciled).length || 0} Reconciled
+              {totalReconciled} of {totalRecords} Records Reconciled ({Math.round((totalReconciled / totalRecords) * 100)}%)
+            </span>
+            <span className="text-slate-600">•</span>
+            <span className="text-slate-600">
+              Showing {filteredData.length} employees with reconciled data
             </span>
           </div>
         </div>
