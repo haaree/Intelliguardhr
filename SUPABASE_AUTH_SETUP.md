@@ -290,6 +290,22 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 
 ## Common Issues
 
+### "Email logins are disabled" or "Server Error: 405"
+**Issue**: Email authentication is not enabled in Supabase
+**Solution**:
+1. Go to Supabase Dashboard → Authentication → Providers
+2. Find **Email** provider
+3. Click to expand settings
+4. **Enable** the toggle for "Enable email provider"
+5. **Disable** "Enable email signup" (to prevent public registration)
+6. **Enable** "Confirm email"
+7. Click **Save**
+
+**Additional checks**:
+- Verify your Supabase project URL is correct (should end with `.supabase.co`)
+- Check that the anon key is copied correctly (it's a long JWT token)
+- Make sure environment variables are set in Cloudflare Pages settings
+
 ### "Email not confirmed"
 - Ensure "Auto Confirm User" is checked when creating users manually
 
