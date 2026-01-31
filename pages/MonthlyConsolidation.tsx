@@ -39,6 +39,7 @@ interface EmployeeMonthlyData {
   department: string;
   reportingManager: string;
   days: DayAttendance[];
+  hasUnreconciledRecords: boolean;
   summary: {
     totalPresent: number;
     totalHalfDay: number;
@@ -296,6 +297,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
       let earlyToleranceUsed = false;
       let lateCount = 0;
       let earlyCount = 0;
+      let hasUnreconciledRecords = false;
 
       // Process each day of the month
       for (let day = 1; day <= daysInMonth; day++) {
@@ -306,6 +308,11 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         // Check if this specific day is reconciled
         const recordKey = `${employee.employeeNumber}-${dateStr}`.toUpperCase();
         const isDayReconciled = reconciledRecordKeys.has(recordKey);
+
+        // Track if employee has any unreconciled records
+        if (record && !isDayReconciled && !data.isReconciliationComplete) {
+          hasUnreconciledRecords = true;
+        }
 
         // If reconciliation is NOT complete and this day is NOT reconciled, show blank
         let finalRecord = record;
@@ -376,6 +383,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         department: employee.department,
         reportingManager: employee.reportingTo || 'N/A',
         days,
+        hasUnreconciledRecords,
         summary: {
           totalPresent,
           totalHalfDay,
@@ -735,11 +743,19 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredData.map((emp, idx) => (
-                  <tr key={emp.employeeNumber} className="hover:bg-slate-50 transition-colors group">
-                    <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 text-xs font-black text-slate-900">
+                  <tr key={emp.employeeNumber} className={`transition-colors group ${
+                    emp.hasUnreconciledRecords
+                      ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500'
+                      : 'hover:bg-slate-50'
+                  }`}>
+                    <td className={`px-4 py-3 sticky left-0 z-10 border-r border-slate-100 text-xs font-black text-slate-900 ${
+                      emp.hasUnreconciledRecords ? 'bg-amber-50 group-hover:bg-amber-100' : 'bg-white group-hover:bg-slate-50'
+                    }`}>
                       {emp.employeeNumber}
                     </td>
-                    <td className="px-4 py-3 sticky left-[100px] bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100 text-xs font-black text-teal-600">
+                    <td className={`px-4 py-3 sticky left-[100px] z-10 border-r border-slate-100 text-xs font-black ${
+                      emp.hasUnreconciledRecords ? 'bg-amber-50 group-hover:bg-amber-100 text-amber-900' : 'bg-white group-hover:bg-slate-50 text-teal-600'
+                    }`}>
                       {emp.employeeName}
                     </td>
                     {emp.days.map((day, dayIdx) => {
@@ -795,9 +811,15 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredData.map((emp) => (
-                  <tr key={emp.employeeNumber} className="hover:bg-slate-50 transition-colors">
+                  <tr key={emp.employeeNumber} className={`transition-colors ${
+                    emp.hasUnreconciledRecords
+                      ? 'bg-amber-50 hover:bg-amber-100 border-l-4 border-l-amber-500'
+                      : 'hover:bg-slate-50'
+                  }`}>
                     <td className="px-6 py-4 text-xs font-black text-slate-900">{emp.employeeNumber}</td>
-                    <td className="px-6 py-4 text-xs font-black text-teal-600">{emp.employeeName}</td>
+                    <td className={`px-6 py-4 text-xs font-black ${
+                      emp.hasUnreconciledRecords ? 'text-amber-900' : 'text-teal-600'
+                    }`}>{emp.employeeName}</td>
                     <td className="px-6 py-4 text-[10px] font-bold text-slate-700">{emp.department}</td>
                     <td className="px-6 py-4 text-center text-sm font-black text-emerald-600">{emp.summary.totalPresent}</td>
                     <td className="px-6 py-4 text-center text-sm font-black text-amber-600">{emp.summary.totalHalfDay}</td>

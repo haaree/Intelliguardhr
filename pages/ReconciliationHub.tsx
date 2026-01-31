@@ -19,7 +19,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  CheckCircle2
+  CheckCircle2,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { AppData, UserRole } from '../types.ts';
 import * as XLSX from 'xlsx';
@@ -80,6 +82,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{ key: keyof ReconciliationRecord | null; direction: 'asc' | 'desc' | null }>({
@@ -707,6 +710,105 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     XLSX.writeFile(wb, `Intelliguard_Reconciliation_${activeTab.toUpperCase()}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  // Sub-tab specific export
+  const handleSubTabExport = () => {
+    const subTabRecords = filteredRecords.filter(r => categorizeAuditRecord(r) === auditSubTab);
+    if (!subTabRecords.length) return alert("No records to export for this sub-tab.");
+
+    const exportData = subTabRecords.map(r => ({
+      'Employee Number': r.employeeNumber,
+      'Employee Name': r.employeeName,
+      'Department': r.department,
+      'Date': r.date,
+      'Shift': r.shift,
+      'In Time': r.inTime,
+      'Out Time': r.outTime,
+      'Work Hours': r.totalHours,
+      'Late By': r.lateBy || '-',
+      'Early By': r.earlyBy || '-',
+      'Deviation': r.deviation || '-',
+      'Original Status': r.originalStatus,
+      'Final Status': r.finalStatus,
+      'Comments': r.comments,
+      'Reconciled': r.isReconciled ? 'Yes' : 'No'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, auditSubTab.toUpperCase());
+    XLSX.writeFile(wb, `Audit_${auditSubTab}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // Upload handler for sub-tab
+  const handleSubTabUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData: any[] = XLSX.utils.sheet_to_json(firstSheet);
+
+        // Update records based on uploaded data
+        const updatedRecords = auditRecords.map(record => {
+          const uploadedRecord = jsonData.find(
+            (ur: any) =>
+              ur['Employee Number'] === record.employeeNumber &&
+              ur['Date'] === record.date
+          );
+
+          if (uploadedRecord) {
+            return {
+              ...record,
+              finalStatus: uploadedRecord['Final Status'] || record.finalStatus,
+              comments: uploadedRecord['Comments'] || record.comments,
+              isReconciled: uploadedRecord['Reconciled'] === 'Yes',
+              reconciledBy: uploadedRecord['Reconciled'] === 'Yes' ? currentUser : record.reconciledBy,
+              reconciledOn: uploadedRecord['Reconciled'] === 'Yes' ? new Date().toISOString() : record.reconciledOn
+            };
+          }
+          return record;
+        });
+
+        // Update module data
+        const newModuleData = {
+          absent: absentRecords,
+          present: presentRecords,
+          workedoff: workedOffRecords,
+          offdays: offDaysRecords,
+          errors: errorRecords,
+          audit: updatedRecords
+        };
+
+        // Recalculate module statuses
+        const newModuleStatuses = {
+          ...moduleStatuses,
+          audit: {
+            name: 'Audit Queue',
+            total: updatedRecords.length,
+            reconciled: updatedRecords.filter(r => r.isReconciled).length,
+            isComplete: updatedRecords.every(r => r.isReconciled)
+          }
+        };
+
+        setAuditRecords(updatedRecords);
+        setModuleStatuses(newModuleStatuses);
+        onUpdate(newModuleData, newModuleStatuses);
+
+        alert(`Successfully uploaded and updated ${jsonData.length} records.`);
+      } catch (error) {
+        alert('Error processing file. Please ensure it matches the exported format.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+
+    // Reset input
+    event.target.value = '';
+  };
+
   // Clear all filters
   const handleClearFilters = () => {
     setMatrixFilters({
@@ -752,7 +854,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className={`${isFullScreen ? 'fixed inset-0 z-50 bg-slate-50 overflow-auto p-8' : ''} space-y-6 animate-in fade-in duration-500 pb-20`}>
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
@@ -766,6 +868,14 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         </div>
 
         <div className="flex gap-3">
+          <button
+            onClick={() => setIsFullScreen(!isFullScreen)}
+            className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-slate-700 text-white hover:bg-slate-800"
+          >
+            {isFullScreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            <span>{isFullScreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+          </button>
+
           <button
             onClick={handleSmartReconcile}
             disabled={isProcessing}
@@ -848,39 +958,62 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
       {/* Audit Sub-Tabs - Only show when Audit tab is active */}
       {activeTab === 'audit' && (
-        <div className="bg-white p-3 rounded-3xl border border-slate-100 shadow-xl">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: 'single', label: '1st Occurrence', color: 'emerald', icon: '🟢', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'single').length },
-              { id: 'frequent', label: '2 Occurrences', color: 'amber', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'frequent').length },
-              { id: 'chronic', label: 'Beyond 2 Times', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'chronic').length },
-              { id: 'under4hrs', label: 'Worked < 4 Hours', color: 'rose', icon: '⏱️', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'under4hrs').length },
-              { id: '4to7hrs', label: 'Worked 4-7 Hours', color: 'orange', icon: '⏰', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === '4to7hrs').length },
-              { id: 'shift', label: 'Shift Deviations', color: 'violet', icon: '🟠', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'shift').length },
-              { id: 'missing', label: 'Missing Punches', color: 'pink', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'missing').length },
-              { id: 'other', label: 'Other Violations', color: 'slate', icon: '⚪', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'other').length },
-            ].map((subTab: any) => {
-              const isActive = auditSubTab === subTab.id;
-              return (
-                <button
-                  key={subTab.id}
-                  onClick={() => setAuditSubTab(subTab.id as any)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                    isActive
-                      ? `bg-${subTab.color}-100 border-2 border-${subTab.color}-500 text-${subTab.color}-700 shadow-md`
-                      : `bg-slate-50 border-2 border-transparent text-slate-600 hover:bg-slate-100`
-                  }`}
-                >
-                  <span>{subTab.icon}</span>
-                  {subTab.label}
-                  <span className={`ml-1 px-2 py-0.5 rounded-md text-[9px] font-bold ${
-                    isActive ? `bg-${subTab.color}-200` : 'bg-slate-200'
-                  }`}>
-                    {subTab.count}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-xl space-y-3">
+          <div className="flex justify-between items-center">
+            <div className="flex flex-wrap gap-2 flex-1">
+              {[
+                { id: 'single', label: '1st Occurrence', color: 'emerald', icon: '🟢', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'single').length },
+                { id: 'frequent', label: '2 Occurrences', color: 'amber', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'frequent').length },
+                { id: 'chronic', label: 'Beyond 2 Times', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'chronic').length },
+                { id: 'under4hrs', label: 'Worked < 4 Hours', color: 'rose', icon: '⏱️', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'under4hrs').length },
+                { id: '4to7hrs', label: 'Worked 4-7 Hours', color: 'orange', icon: '⏰', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === '4to7hrs').length },
+                { id: 'shift', label: 'Shift Deviations', color: 'violet', icon: '🟠', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'shift').length },
+                { id: 'missing', label: 'Missing Punches', color: 'pink', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'missing').length },
+                { id: 'other', label: 'Other Violations', color: 'slate', icon: '⚪', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'other').length },
+              ].map((subTab: any) => {
+                const isActive = auditSubTab === subTab.id;
+                return (
+                  <button
+                    key={subTab.id}
+                    onClick={() => setAuditSubTab(subTab.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                      isActive
+                        ? `bg-${subTab.color}-100 border-2 border-${subTab.color}-500 text-${subTab.color}-700 shadow-md`
+                        : `bg-slate-50 border-2 border-transparent text-slate-600 hover:bg-slate-100`
+                    }`}
+                  >
+                    <span>{subTab.icon}</span>
+                    {subTab.label}
+                    <span className={`ml-1 px-2 py-0.5 rounded-md text-[9px] font-bold ${
+                      isActive ? `bg-${subTab.color}-200` : 'bg-slate-200'
+                    }`}>
+                      {subTab.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Upload/Download buttons for current sub-tab */}
+            <div className="flex gap-2 ml-4">
+              <button
+                onClick={handleSubTabExport}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-teal-600 text-white hover:bg-teal-700 transition-all shadow-lg"
+              >
+                <Download size={16} />
+                <span>Download</span>
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-lg cursor-pointer">
+                <Upload size={16} />
+                <span>Upload</span>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleSubTabUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
         </div>
       )}
