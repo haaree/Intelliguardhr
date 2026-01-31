@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileText,
   Upload,
@@ -120,6 +120,50 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   });
 
   const isAdmin = role === 'Admin' || role === 'SaaS_Admin' || role === 'Manager';
+
+  // Auto-update module statuses when records change
+  useEffect(() => {
+    const newModuleStatuses = {
+      absent: {
+        name: 'Absent',
+        total: absentRecords.length,
+        reconciled: absentRecords.filter(r => r.isReconciled).length,
+        isComplete: absentRecords.length > 0 && absentRecords.every(r => r.isReconciled)
+      },
+      present: {
+        name: 'Present',
+        total: presentRecords.length,
+        reconciled: presentRecords.filter(r => r.isReconciled).length,
+        isComplete: presentRecords.length > 0 && presentRecords.every(r => r.isReconciled)
+      },
+      offdays: {
+        name: 'Off Days',
+        total: offDaysRecords.length,
+        reconciled: offDaysRecords.filter(r => r.isReconciled).length,
+        isComplete: offDaysRecords.length > 0 && offDaysRecords.every(r => r.isReconciled)
+      },
+      workedoff: {
+        name: 'Worked Off',
+        total: workedOffRecords.length,
+        reconciled: workedOffRecords.filter(r => r.isReconciled).length,
+        isComplete: workedOffRecords.length > 0 && workedOffRecords.every(r => r.isReconciled)
+      },
+      errors: {
+        name: 'Errors',
+        total: errorRecords.length,
+        reconciled: errorRecords.filter(r => r.isReconciled).length,
+        isComplete: errorRecords.length > 0 && errorRecords.every(r => r.isReconciled)
+      },
+      audit: {
+        name: 'Audit Queue',
+        total: auditRecords.length,
+        reconciled: auditRecords.filter(r => r.isReconciled).length,
+        isComplete: auditRecords.length > 0 && auditRecords.every(r => r.isReconciled)
+      }
+    };
+
+    setModuleStatuses(newModuleStatuses);
+  }, [absentRecords, presentRecords, offDaysRecords, workedOffRecords, errorRecords, auditRecords]);
 
   const formatDate = (date: any): string => {
     if (!date) return '-';
@@ -374,12 +418,72 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       });
     };
 
-    setAbsentRecords(updateRecords(absentRecords));
-    setPresentRecords(updateRecords(presentRecords));
-    setOffDaysRecords(updateRecords(offDaysRecords));
-    setWorkedOffRecords(updateRecords(workedOffRecords));
-    setErrorRecords(updateRecords(errorRecords));
-    setAuditRecords(updateRecords(auditRecords));
+    const updatedAbsent = updateRecords(absentRecords);
+    const updatedPresent = updateRecords(presentRecords);
+    const updatedOffDays = updateRecords(offDaysRecords);
+    const updatedWorkedOff = updateRecords(workedOffRecords);
+    const updatedErrors = updateRecords(errorRecords);
+    const updatedAudit = updateRecords(auditRecords);
+
+    setAbsentRecords(updatedAbsent);
+    setPresentRecords(updatedPresent);
+    setOffDaysRecords(updatedOffDays);
+    setWorkedOffRecords(updatedWorkedOff);
+    setErrorRecords(updatedErrors);
+    setAuditRecords(updatedAudit);
+
+    // Update module statuses
+    const newModuleStatuses = {
+      absent: {
+        name: 'Absent',
+        total: updatedAbsent.length,
+        reconciled: updatedAbsent.filter(r => r.isReconciled).length,
+        isComplete: updatedAbsent.every(r => r.isReconciled)
+      },
+      present: {
+        name: 'Present',
+        total: updatedPresent.length,
+        reconciled: updatedPresent.filter(r => r.isReconciled).length,
+        isComplete: updatedPresent.every(r => r.isReconciled)
+      },
+      offdays: {
+        name: 'Off Days',
+        total: updatedOffDays.length,
+        reconciled: updatedOffDays.filter(r => r.isReconciled).length,
+        isComplete: updatedOffDays.every(r => r.isReconciled)
+      },
+      workedoff: {
+        name: 'Worked Off',
+        total: updatedWorkedOff.length,
+        reconciled: updatedWorkedOff.filter(r => r.isReconciled).length,
+        isComplete: updatedWorkedOff.every(r => r.isReconciled)
+      },
+      errors: {
+        name: 'Errors',
+        total: updatedErrors.length,
+        reconciled: updatedErrors.filter(r => r.isReconciled).length,
+        isComplete: updatedErrors.every(r => r.isReconciled)
+      },
+      audit: {
+        name: 'Audit Queue',
+        total: updatedAudit.length,
+        reconciled: updatedAudit.filter(r => r.isReconciled).length,
+        isComplete: updatedAudit.every(r => r.isReconciled)
+      }
+    };
+
+    setModuleStatuses(newModuleStatuses);
+
+    // Update parent component
+    const moduleData = {
+      absent: updatedAbsent,
+      present: updatedPresent,
+      workedoff: updatedWorkedOff,
+      offdays: updatedOffDays,
+      errors: updatedErrors,
+      audit: updatedAudit
+    };
+    onUpdate(moduleData, newModuleStatuses);
 
     setTimeout(() => {
       setIsProcessing(false);
