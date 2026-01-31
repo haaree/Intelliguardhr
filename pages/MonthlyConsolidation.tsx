@@ -8,7 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react';
 import { AppData, AttendanceRecord, UserRole } from '../types.ts';
 import * as XLSX from 'xlsx';
@@ -326,11 +327,12 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         }
 
         // If reconciliation is NOT complete and this day is NOT reconciled, show blank
+        // This applies to ALL records including system-generated ones (WO, H)
         let finalRecord = record;
         let shouldShowBlank = false;
-        if (!data.isReconciliationComplete && !isDayReconciled && record) {
+        if (!data.isReconciliationComplete && !isDayReconciled) {
           shouldShowBlank = true;
-          finalRecord = undefined; // Show blank for unreconciled days
+          finalRecord = undefined; // Show blank for all unreconciled days
         }
 
         const { status, isLate, isEarly, lateMinutes, earlyMinutes, hoursWorked } = calculateAttendanceStatus(
@@ -602,6 +604,14 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                viewMode === 'workhours-actual' ? 'Work Hours (Shift)' :
                'Calendar View'}
             </span>
+          </button>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="flex items-center space-x-2 bg-white text-slate-600 border border-slate-200 px-4 py-3 rounded-2xl hover:bg-slate-50 transition-all font-black text-xs uppercase tracking-widest"
+          >
+            <RefreshCw size={18} />
+            <span>Reload</span>
           </button>
 
           <button
