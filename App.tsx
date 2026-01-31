@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { AlertTriangle, Lock } from 'lucide-react';
+import ProtectedRoute from './src/components/ProtectedRoute.tsx';
 import LoginPage from './pages/LoginPage.tsx';
 import Sidebar from './components/Sidebar.tsx';
 import Dashboard from './pages/Dashboard.tsx';
@@ -296,19 +297,18 @@ const App: React.FC = () => {
 
   if (isLoading) return <LoadingOverlay />;
 
-  if (!session) {
-    return (
-      <LoginPage 
-        onLogin={(role, email, key) => handleLogin(email, key || '')} 
-        onBack={() => {}} 
-        error={loginError} 
-        isAuthenticating={isAuthenticating}
-      />
-    );
-  }
-
+  // Wrap the entire app with Supabase authentication
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <ProtectedRoute>
+      {!session ? (
+        <LoginPage
+          onLogin={(role, email, key) => handleLogin(email, key || '')}
+          onBack={() => {}}
+          error={loginError}
+          isAuthenticating={isAuthenticating}
+        />
+      ) : (
+        <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar 
         activePage={currentPage} 
         onNavigate={page => setCurrentPage(page as Page)} 
@@ -446,7 +446,9 @@ const App: React.FC = () => {
         </div>
       </main>
       <ProfileModal isOpen={isSecurityModalOpen} email={session.user.email} onClose={() => setIsSecurityModalOpen(false)} />
-    </div>
+        </div>
+      )}
+    </ProtectedRoute>
   );
 };
 

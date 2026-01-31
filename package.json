@@ -10,13 +10,14 @@
     "start": "node ./node_modules/vite/bin/vite.js preview --port 3006 --host 0.0.0.0"
   },
   "dependencies": {
+    "@google/genai": "1.35.0",
+    "@neondatabase/serverless": "1.0.2",
+    "@supabase/supabase-js": "^2.93.3",
+    "lucide-react": "0.462.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "lucide-react": "0.462.0",
     "recharts": "3.6.0",
-    "xlsx": "0.18.5",
-    "@google/genai": "1.35.0",
-    "@neondatabase/serverless": "1.0.2"
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
