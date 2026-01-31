@@ -48,6 +48,9 @@ interface ReconciliationRecord {
   isReconciled: boolean;
   reconciledBy?: string;
   reconciledOn?: string;
+  deviation?: string;
+  lateBy?: string;
+  earlyBy?: string;
 }
 
 interface ModuleStatus {
@@ -73,6 +76,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   currentUser
 }) => {
   const [activeTab, setActiveTab] = useState<'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit'>('absent');
+  const [auditSubTab, setAuditSubTab] = useState<'minor' | 'late' | 'early' | 'shift' | 'missing' | 'severe'>('minor');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
@@ -154,7 +158,10 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         originalStatus: att.status,
         finalStatus: att.status,
         comments: '',
-        isReconciled: false
+        isReconciled: false,
+        deviation: att.deviation,
+        lateBy: att.lateBy,
+        earlyBy: att.earlyBy
       };
 
       if (att.status === 'Absent' || att.status === 'A') {
@@ -566,6 +573,54 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     });
   };
 
+  // Helper function to categorize audit records
+  const categorizeAuditRecord = (record: ReconciliationRecord): 'minor' | 'late' | 'early' | 'shift' | 'missing' | 'severe' => {
+    const deviation = record.deviation || '';
+    const lateBy = record.lateBy || '00:00';
+    const earlyBy = record.earlyBy || '00:00';
+
+    // Convert time to minutes
+    const timeToMin = (time: string) => {
+      const [h = '0', m = '0'] = time.split(':');
+      return parseInt(h) * 60 + parseInt(m);
+    };
+
+    const lateMinutes = timeToMin(lateBy);
+    const earlyMinutes = timeToMin(earlyBy);
+
+    // Missing Punches
+    if (deviation.includes('Missing') || deviation.includes('Punch')) {
+      return 'missing';
+    }
+
+    // Shift Deviations
+    if (deviation.includes('Shift') || deviation.includes('Very Early')) {
+      return 'shift';
+    }
+
+    // Severe violations (> 60 min)
+    if (lateMinutes > 60 || earlyMinutes > 60 || deviation.includes('Double Violation')) {
+      return 'severe';
+    }
+
+    // Late arrivals (15-60 min)
+    if (lateMinutes >= 15 && lateMinutes <= 60) {
+      return 'late';
+    }
+
+    // Early departures (15-60 min)
+    if (earlyMinutes >= 15 && earlyMinutes <= 60) {
+      return 'early';
+    }
+
+    // Minor deviations (< 15 min)
+    if (lateMinutes < 15 || earlyMinutes < 15 || deviation.includes('Waiver')) {
+      return 'minor';
+    }
+
+    return 'minor';
+  };
+
   const filteredRecords = useMemo(() => {
     const records = getCurrentRecords();
     let filtered = records.filter(r => {
@@ -578,7 +633,15 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       const matchLoc = matrixFilters.location === 'All' || r.location === matrixFilters.location;
       const matchManager = matrixFilters.reportingManager === 'All' || r.reportingManager === matrixFilters.reportingManager;
       const matchStatus = matrixFilters.status === 'All' || r.finalStatus === matrixFilters.status;
-      return matchSearch && matchShift && matchDept && matchCC && matchLegal && matchLoc && matchManager && matchStatus;
+
+      // Additional filter for audit sub-tabs
+      let matchAuditSubTab = true;
+      if (activeTab === 'audit') {
+        const category = categorizeAuditRecord(r);
+        matchAuditSubTab = category === auditSubTab;
+      }
+
+      return matchSearch && matchShift && matchDept && matchCC && matchLegal && matchLoc && matchManager && matchStatus && matchAuditSubTab;
     });
 
     // Apply sorting
@@ -769,6 +832,43 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           })}
         </div>
       </div>
+
+      {/* Audit Sub-Tabs - Only show when Audit tab is active */}
+      {activeTab === 'audit' && (
+        <div className="bg-white p-3 rounded-3xl border border-slate-100 shadow-xl">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'minor', label: 'Minor (< 15 min)', color: 'emerald', icon: '🟢', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'minor').length },
+              { id: 'late', label: 'Late (15-60 min)', color: 'amber', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'late').length },
+              { id: 'early', label: 'Early (15-60 min)', color: 'yellow', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'early').length },
+              { id: 'shift', label: 'Shift Deviations', color: 'orange', icon: '🟠', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'shift').length },
+              { id: 'missing', label: 'Missing Punches', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'missing').length },
+              { id: 'severe', label: 'Severe (> 60 min)', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'severe').length },
+            ].map((subTab: any) => {
+              const isActive = auditSubTab === subTab.id;
+              return (
+                <button
+                  key={subTab.id}
+                  onClick={() => setAuditSubTab(subTab.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    isActive
+                      ? `bg-${subTab.color}-100 border-2 border-${subTab.color}-500 text-${subTab.color}-700 shadow-md`
+                      : `bg-slate-50 border-2 border-transparent text-slate-600 hover:bg-slate-100`
+                  }`}
+                >
+                  <span>{subTab.icon}</span>
+                  {subTab.label}
+                  <span className={`ml-1 px-2 py-0.5 rounded-md text-[9px] font-bold ${
+                    isActive ? `bg-${subTab.color}-200` : 'bg-slate-200'
+                  }`}>
+                    {subTab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Comprehensive Filters */}
       <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-xl space-y-4">
