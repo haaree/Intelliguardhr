@@ -313,10 +313,14 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
              status === 'WOH';
     };
 
+    // Include ALL modules in the count
     const allRecords = [
+      ...absentRecords,
       ...presentRecords,
       ...offDaysRecords,
-      ...workedOffRecords
+      ...workedOffRecords,
+      ...errorRecords,
+      ...auditRecords
     ];
 
     const autoAcceptable = allRecords.filter(r => !r.isReconciled && canAutoAccept(r));
@@ -329,9 +333,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     }
 
     const message = `Smart Reconcile will auto-accept ${autoAcceptable.length} clean records:\n\n` +
-                   `✅ ${presentRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} Present/Clean\n` +
-                   `✅ ${offDaysRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} Weekly Offs/Holidays\n` +
-                   `✅ ${workedOffRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} Worked Offs\n\n` +
+                   `✅ ${absentRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} from Absent module\n` +
+                   `✅ ${presentRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} from Present module\n` +
+                   `✅ ${offDaysRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} from Off Days module\n` +
+                   `✅ ${workedOffRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} from Worked Off module\n` +
+                   `✅ ${errorRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} from Errors module\n` +
+                   `✅ ${auditRecords.filter(r => !r.isReconciled && canAutoAccept(r)).length} from Audit module\n\n` +
                    `⚠️  ${needsReview.length} records still need manual review\n\n` +
                    `This will reduce your workload from ${totalPending} to ${needsReview.length} records!\n\n` +
                    `Continue?`;
@@ -342,7 +349,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
     setIsProcessing(true);
 
-    // Auto-accept clean records
+    // Auto-accept clean records across ALL modules
     const updateRecords = (recs: ReconciliationRecord[]) => {
       return recs.map(rec => {
         if (!rec.isReconciled && canAutoAccept(rec)) {
@@ -357,9 +364,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       });
     };
 
+    setAbsentRecords(updateRecords(absentRecords));
     setPresentRecords(updateRecords(presentRecords));
     setOffDaysRecords(updateRecords(offDaysRecords));
     setWorkedOffRecords(updateRecords(workedOffRecords));
+    setErrorRecords(updateRecords(errorRecords));
+    setAuditRecords(updateRecords(auditRecords));
 
     setTimeout(() => {
       setIsProcessing(false);
