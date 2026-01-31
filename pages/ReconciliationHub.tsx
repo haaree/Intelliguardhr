@@ -655,13 +655,14 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     }
 
     if (confirm('Finalize ALL reconciliations?\n\nThis will:\n✓ Update attendance records\n✓ Enable monthly report generation\n✓ Lock all reconciliation data\n\nContinue?')) {
+      // IMPORTANT: Only send reconciled records to the report
       const allData = {
-        absent: absentRecords,
-        present: presentRecords,
-        workedoff: workedOffRecords,
-        offdays: offDaysRecords,
-        errors: errorRecords,
-        audit: auditRecords
+        absent: absentRecords.filter(r => r.isReconciled),
+        present: presentRecords.filter(r => r.isReconciled),
+        workedoff: workedOffRecords.filter(r => r.isReconciled),
+        offdays: offDaysRecords.filter(r => r.isReconciled),
+        errors: errorRecords.filter(r => r.isReconciled),
+        audit: auditRecords.filter(r => r.isReconciled)
       };
 
       onUpdate(allData, moduleStatuses);

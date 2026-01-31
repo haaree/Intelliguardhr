@@ -52,6 +52,8 @@ interface EmployeeMonthlyData {
     lateCount: number;
     earlyCount: number;
     totalShortageHours: number;
+    totalWorkHoursActual: number; // InTime to OutTime
+    totalWorkHoursShift: number;  // Shift Start to OutTime
   };
 }
 
@@ -377,6 +379,35 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         return sum;
       }, 0);
 
+      // Calculate total work hours (InTime to OutTime)
+      const totalWorkHoursActual = employeeRecords.reduce((sum, record) => {
+        if (record.inTime && record.outTime && record.inTime !== '-' && record.outTime !== '-') {
+          const inMinutes = timeToMinutes(record.inTime);
+          const outMinutes = timeToMinutes(record.outTime);
+          if (inMinutes >= 0 && outMinutes >= 0) {
+            const hours = outMinutes > inMinutes
+              ? (outMinutes - inMinutes) / 60
+              : ((1440 - inMinutes) + outMinutes) / 60; // Handle overnight shifts
+            return sum + hours;
+          }
+        }
+        return sum;
+      }, 0);
+
+      // Calculate total work hours (Shift Start to OutTime)
+      const totalWorkHoursShift = employeeRecords.reduce((sum, record) => {
+        if (record.outTime && record.outTime !== '-') {
+          const outMinutes = timeToMinutes(record.outTime);
+          if (outMinutes >= 0 && shift) {
+            const hours = outMinutes > shiftStartMinutes
+              ? (outMinutes - shiftStartMinutes) / 60
+              : ((1440 - shiftStartMinutes) + outMinutes) / 60; // Handle overnight
+            return sum + hours;
+          }
+        }
+        return sum;
+      }, 0);
+
       employeeMap.set(employee.employeeNumber, {
         employeeNumber: employee.employeeNumber,
         employeeName: employee.fullName,
@@ -395,7 +426,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
           attendancePercentage: Math.round(attendancePercentage * 100) / 100,
           lateCount,
           earlyCount,
-          totalShortageHours: Math.round(totalShortageHours * 100) / 100
+          totalShortageHours: Math.round(totalShortageHours * 100) / 100,
+          totalWorkHoursActual: Math.round(totalWorkHoursActual * 100) / 100,
+          totalWorkHoursShift: Math.round(totalWorkHoursShift * 100) / 100
         }
       });
     });
@@ -806,7 +839,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                   <th className="px-6 py-5 text-center">Attendance %</th>
                   <th className="px-6 py-5 text-center">Late Count</th>
                   <th className="px-6 py-5 text-center">Early Count</th>
-                  <th className="px-6 py-5 text-center border-r border-slate-800">Shortage Hrs</th>
+                  <th className="px-6 py-5 text-center">Shortage Hrs</th>
+                  <th className="px-6 py-5 text-center">Total Hrs (Actual)</th>
+                  <th className="px-6 py-5 text-center border-r border-slate-800">Total Hrs (Shift)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -831,10 +866,32 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                     <td className="px-6 py-4 text-center text-sm font-black text-teal-600">{emp.summary.attendancePercentage}%</td>
                     <td className="px-6 py-4 text-center text-sm font-medium text-orange-600">{emp.summary.lateCount}</td>
                     <td className="px-6 py-4 text-center text-sm font-medium text-orange-600">{emp.summary.earlyCount}</td>
-                    <td className="px-6 py-4 text-center text-sm font-medium text-rose-500 border-r border-slate-100">{emp.summary.totalShortageHours.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-center text-sm font-medium text-rose-500">{emp.summary.totalShortageHours.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-indigo-600">{emp.summary.totalWorkHoursActual.toFixed(2)}</td>
+                    <td className="px-6 py-4 text-center text-sm font-black text-violet-600 border-r border-slate-100">{emp.summary.totalWorkHoursShift.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-slate-100 border-t-2 border-slate-300">
+                <tr className="font-black">
+                  <td className="px-6 py-4 text-xs text-slate-900" colSpan={3}>TOTAL</td>
+                  <td className="px-6 py-4 text-center text-sm text-emerald-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalPresent, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-amber-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalHalfDay, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-rose-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalAbsent, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-slate-500">{filteredData.reduce((sum, emp) => sum + emp.summary.totalWeeklyOff, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-purple-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkedOff, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-blue-500">{filteredData.reduce((sum, emp) => sum + emp.summary.totalHoliday, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-slate-700">{filteredData.reduce((sum, emp) => sum + emp.summary.workingDays, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-teal-600">
+                    {filteredData.length > 0 ? ((filteredData.reduce((sum, emp) => sum + emp.summary.attendancePercentage, 0) / filteredData.length).toFixed(2)) : '0.00'}%
+                  </td>
+                  <td className="px-6 py-4 text-center text-sm text-orange-600">{filteredData.reduce((sum, emp) => sum + emp.summary.lateCount, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-orange-600">{filteredData.reduce((sum, emp) => sum + emp.summary.earlyCount, 0)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-rose-500">{filteredData.reduce((sum, emp) => sum + emp.summary.totalShortageHours, 0).toFixed(2)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-indigo-600">{filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursActual, 0).toFixed(2)}</td>
+                  <td className="px-6 py-4 text-center text-sm text-violet-600 border-r border-slate-100">{filteredData.reduce((sum, emp) => sum + emp.summary.totalWorkHoursShift, 0).toFixed(2)}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
