@@ -24,8 +24,32 @@ Since public signup is disabled, you'll manually add users via the Supabase dash
    - **Email**: user's email address
    - **Password**: temporary password (user should change it)
    - **Auto Confirm User**: Check this box (required)
+   - **User Metadata** (click "Show advanced settings"):
+     ```json
+     {
+       "role": "Employee",
+       "name": "User Full Name"
+     }
+     ```
+     **Available roles**: `SaaS_Admin`, `HR_Manager`, `Employee`
 4. Click **Create user**
 5. Repeat for each authorized user
+
+**Example for Admin user:**
+```json
+{
+  "role": "SaaS_Admin",
+  "name": "System Administrator"
+}
+```
+
+**Example for HR Manager:**
+```json
+{
+  "role": "HR_Manager",
+  "name": "John Doe"
+}
+```
 
 ### Step 3: Configure Row Level Security (RLS)
 
