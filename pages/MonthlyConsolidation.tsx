@@ -61,6 +61,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
   const [searchTerm, setSearchTerm] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [reportingManagerFilter, setReportingManagerFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'P' | 'HD' | 'A' | 'WO' | 'WOH' | 'H'>('All');
   const [viewMode, setViewMode] = useState<'calendar' | 'summary'>('calendar');
 
   // Check if reconciliation is complete
@@ -236,22 +237,15 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
       });
     }
 
-    // Group attendance by employee - only include reconciled records
+    // Group ALL attendance by employee (we'll filter at day level)
     const attendanceByEmployee = new Map<string, AttendanceRecord[]>();
     data.attendance.forEach(record => {
       const recordDate = parseFormattedDate(record.date);
       if (recordDate && recordDate.getFullYear() === selectedYear && recordDate.getMonth() === selectedMonth) {
-        // Only include if reconciled OR if no reconciliation system exists
-        const recordKey = `${record.employeeNumber}-${record.date}`.toUpperCase();
-        const isReconciled = reconciledRecordKeys.has(recordKey);
-
-        // Show record if: it's reconciled OR reconciliation is complete (all records finalized)
-        if (isReconciled || data.isReconciliationComplete) {
-          if (!attendanceByEmployee.has(record.employeeNumber)) {
-            attendanceByEmployee.set(record.employeeNumber, []);
-          }
-          attendanceByEmployee.get(record.employeeNumber)!.push(record);
+        if (!attendanceByEmployee.has(record.employeeNumber)) {
+          attendanceByEmployee.set(record.employeeNumber, []);
         }
+        attendanceByEmployee.get(record.employeeNumber)!.push(record);
       }
     });
 
@@ -278,8 +272,18 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         const dateStr = formatDateToDDMMMYYYY(date);
         const record = recordMap.get(dateStr.toUpperCase());
 
+        // Check if this specific day is reconciled
+        const recordKey = `${employee.employeeNumber}-${dateStr}`.toUpperCase();
+        const isDayReconciled = reconciledRecordKeys.has(recordKey);
+
+        // If reconciliation is NOT complete and this day is NOT reconciled, show blank
+        let finalRecord = record;
+        if (!data.isReconciliationComplete && !isDayReconciled) {
+          finalRecord = undefined; // Show blank for unreconciled days
+        }
+
         const { status, isLate, isEarly, lateMinutes, earlyMinutes, hoursWorked } = calculateAttendanceStatus(
-          record,
+          finalRecord,
           dateStr,
           date,
           shiftStartMinutes,
@@ -360,9 +364,13 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                          emp.employeeNumber.toLowerCase().includes(searchTerm.toLowerCase());
       const matchDept = departmentFilter === 'All' || emp.department === departmentFilter;
       const matchManager = reportingManagerFilter === 'All' || emp.reportingManager === reportingManagerFilter;
-      return matchSearch && matchDept && matchManager;
+
+      // Status filter: check if employee has ANY day with the selected status
+      const matchStatus = statusFilter === 'All' || emp.days.some(day => day.status === statusFilter);
+
+      return matchSearch && matchDept && matchManager && matchStatus;
     });
-  }, [consolidatedData, searchTerm, departmentFilter, reportingManagerFilter]);
+  }, [consolidatedData, searchTerm, departmentFilter, reportingManagerFilter, statusFilter]);
 
   const departments = useMemo(() => {
     return ['All', ...new Set(data.employees.map(e => e.department))].filter(Boolean);
@@ -509,7 +517,7 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
 
       {/* Month/Year Selector and Filters */}
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-lg">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Month</label>
             <div className="flex items-center gap-2">
@@ -589,6 +597,23 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
               {reportingManagers.map(manager => (
                 <option key={manager} value={manager}>{manager}</option>
               ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Status</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
+            >
+              <option value="All">All Status</option>
+              <option value="P">Present (P)</option>
+              <option value="HD">Half Day (HD)</option>
+              <option value="A">Absent (A)</option>
+              <option value="WO">Weekly Off (WO)</option>
+              <option value="WOH">Worked Off (WOH)</option>
+              <option value="H">Holiday (H)</option>
             </select>
           </div>
 
