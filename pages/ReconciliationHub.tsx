@@ -1028,6 +1028,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         'Total Hours (Gross)': record.totalHours,
         'Work Hours (InTime-OutTime)': workHoursActual > 0 ? workHoursActual.toFixed(2) : '-',
         'Work Hours (Shift-OutTime)': workHoursShift > 0 ? workHoursShift.toFixed(2) : '-',
+        'Excel Status': record.excelStatus || '-',
         'Final Status': record.finalStatus,
         'Deviation': record.deviation || '-',
         'Late By': record.lateBy || '00:00',
@@ -1061,6 +1062,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       { wch: 12 }, // Total Hours
       { wch: 18 }, // Work Hours Actual
       { wch: 18 }, // Work Hours Shift
+      { wch: 12 }, // Excel Status
       { wch: 12 }, // Final Status
       { wch: 30 }, // Deviation
       { wch: 10 }, // Late By
@@ -1222,7 +1224,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       'Out Time': r.outTime,
       'Work Hours': r.totalHours,
       'Original Status': r.originalStatus,
-      ...(activeTab === 'absent' ? { 'Excel Status': r.excelStatus || '-' } : {}),
+      'Excel Status': r.excelStatus || '-',
       'Final Status': r.finalStatus,
       'Comments': r.comments,
       'Reconciled': r.isReconciled ? 'Yes' : 'No',
@@ -1255,6 +1257,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         'Early By': r.earlyBy || '-',
         'Deviation': r.deviation || '-',
         'Original Status': r.originalStatus,
+        'Excel Status': r.excelStatus || '-',
         'Final Status': r.finalStatus,
         'Comments': r.comments,
         'Reconciled': r.isReconciled ? 'Yes' : 'No'

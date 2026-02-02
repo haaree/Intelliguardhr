@@ -164,6 +164,32 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     return `${h}:${m}`;
   };
 
+  // Helper function to count status with half-day support
+  const countStatus = (days: any[], statusCode: string): number => {
+    let count = 0;
+    days.forEach(day => {
+      const status = day.status || '';
+      if (status === statusCode) {
+        // Full day
+        count += 1;
+      } else if (status.includes('/')) {
+        // Half day combination (e.g., "HD/CL", "HD/PL")
+        const parts = status.split('/');
+        if (parts.includes(statusCode)) {
+          count += 0.5;
+        }
+      }
+    });
+    return count;
+  };
+
+  // Helper function to format count for display
+  const formatCount = (count: number): string | number => {
+    if (count === 0) return '-';
+    // Show decimals only if there are half days
+    return count % 1 === 0 ? count : count.toFixed(1);
+  };
+
   const parseFormattedDate = (dateStr: string): Date | null => {
     if (!dateStr) return null;
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -982,9 +1008,16 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                 <tr>
                   <th className="px-4 py-4 sticky left-0 bg-slate-900 z-50 border-r border-slate-800">Emp #</th>
                   <th className="px-4 py-4 sticky left-[100px] bg-slate-900 z-50 border-r border-slate-800">Name</th>
-                  {Array.from({ length: daysInMonth }, (_, i) => (
-                    <th key={i} className="px-2 py-4 text-center border-r border-slate-800">{i + 1}</th>
-                  ))}
+                  {Array.from({ length: daysInMonth }, (_, i) => {
+                    const date = new Date(selectedYear, selectedMonth, i + 1);
+                    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                    return (
+                      <th key={i} className="px-2 py-4 text-center border-r border-slate-800">
+                        <div className="text-[7px] text-slate-400 mb-0.5">{dayAbbr}</div>
+                        <div>{i + 1}</div>
+                      </th>
+                    );
+                  })}
                   <th className="px-3 py-4 text-center bg-emerald-700 border-l-2 border-slate-800">P</th>
                   <th className="px-3 py-4 text-center bg-rose-700">A</th>
                   <th className="px-3 py-4 text-center bg-blue-700">CL</th>
@@ -1040,50 +1073,50 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                     })}
                     {/* Status Totals Columns */}
                     <td className="px-3 py-3 text-center font-black text-sm border-l-2 border-slate-200 bg-emerald-50">
-                      {emp.days.filter(d => d.status === 'P').length || '-'}
+                      {formatCount(countStatus(emp.days, 'P'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-rose-50">
-                      {emp.days.filter(d => d.status === 'A').length || '-'}
+                      {formatCount(countStatus(emp.days, 'A'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-blue-50">
-                      {emp.days.filter(d => d.status === 'CL' || d.status?.includes('CL')).length || '-'}
+                      {formatCount(countStatus(emp.days, 'CL'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-purple-50">
-                      {emp.days.filter(d => d.status === 'PL' || d.status?.includes('PL')).length || '-'}
+                      {formatCount(countStatus(emp.days, 'PL'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-pink-50">
-                      {emp.days.filter(d => d.status === 'ML' || d.status?.includes('ML')).length || '-'}
+                      {formatCount(countStatus(emp.days, 'ML'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-amber-50">
-                      {emp.days.filter(d => d.status === 'HD').length || '-'}
+                      {formatCount(countStatus(emp.days, 'HD'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-slate-50">
-                      {emp.days.filter(d => d.status === 'WO').length || '-'}
+                      {formatCount(countStatus(emp.days, 'WO'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-indigo-50">
-                      {emp.days.filter(d => d.status === 'H').length || '-'}
+                      {formatCount(countStatus(emp.days, 'H'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-orange-50">
-                      {emp.days.filter(d => d.status === 'CO' || d.status?.includes('CO')).length || '-'}
+                      {formatCount(countStatus(emp.days, 'CO'))}
                     </td>
                     <td className="px-3 py-3 text-center font-black text-sm bg-red-50">
-                      {emp.days.filter(d => d.status === 'LOP' || d.status?.includes('LOP')).length || '-'}
+                      {formatCount(countStatus(emp.days, 'LOP'))}
                     </td>
                     {/* Total Column */}
                     <td className="px-3 py-3 text-center font-black text-lg bg-teal-50 border-l-2 border-r-2 border-slate-200">
                       {(() => {
                         const total =
-                          emp.days.filter(d => d.status === 'P').length +
-                          emp.days.filter(d => d.status === 'A').length +
-                          emp.days.filter(d => d.status === 'CL' || d.status?.includes('CL')).length +
-                          emp.days.filter(d => d.status === 'PL' || d.status?.includes('PL')).length +
-                          emp.days.filter(d => d.status === 'ML' || d.status?.includes('ML')).length +
-                          emp.days.filter(d => d.status === 'HD').length +
-                          emp.days.filter(d => d.status === 'WO').length +
-                          emp.days.filter(d => d.status === 'H').length +
-                          emp.days.filter(d => d.status === 'CO' || d.status?.includes('CO')).length +
-                          emp.days.filter(d => d.status === 'LOP' || d.status?.includes('LOP')).length;
-                        return total > 0 ? total : '-';
+                          countStatus(emp.days, 'P') +
+                          countStatus(emp.days, 'A') +
+                          countStatus(emp.days, 'CL') +
+                          countStatus(emp.days, 'PL') +
+                          countStatus(emp.days, 'ML') +
+                          countStatus(emp.days, 'HD') +
+                          countStatus(emp.days, 'WO') +
+                          countStatus(emp.days, 'H') +
+                          countStatus(emp.days, 'CO') +
+                          countStatus(emp.days, 'LOP');
+                        return formatCount(total);
                       })()}
                     </td>
                   </tr>
@@ -1101,9 +1134,16 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                 <tr>
                   <th className="px-4 py-4 sticky left-0 bg-slate-900 z-50 border-r border-slate-800">Emp #</th>
                   <th className="px-4 py-4 sticky left-[100px] bg-slate-900 z-50 border-r border-slate-800">Name</th>
-                  {Array.from({ length: daysInMonth }, (_, i) => (
-                    <th key={i} className="px-2 py-4 text-center border-r border-slate-800">{i + 1}</th>
-                  ))}
+                  {Array.from({ length: daysInMonth }, (_, i) => {
+                    const date = new Date(selectedYear, selectedMonth, i + 1);
+                    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                    return (
+                      <th key={i} className="px-2 py-4 text-center border-r border-slate-800">
+                        <div className="text-[7px] text-slate-400 mb-0.5">{dayAbbr}</div>
+                        <div>{i + 1}</div>
+                      </th>
+                    );
+                  })}
                   <th className="px-3 py-4 text-center bg-teal-700 border-l-2 border-r-2 border-slate-800">Total Hours</th>
                 </tr>
               </thead>
@@ -1168,9 +1208,16 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                 <tr>
                   <th className="px-4 py-4 sticky left-0 bg-slate-900 z-50 border-r border-slate-800">Emp #</th>
                   <th className="px-4 py-4 sticky left-[100px] bg-slate-900 z-50 border-r border-slate-800">Name</th>
-                  {Array.from({ length: daysInMonth }, (_, i) => (
-                    <th key={i} className="px-2 py-4 text-center border-r border-slate-800">{i + 1}</th>
-                  ))}
+                  {Array.from({ length: daysInMonth }, (_, i) => {
+                    const date = new Date(selectedYear, selectedMonth, i + 1);
+                    const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+                    return (
+                      <th key={i} className="px-2 py-4 text-center border-r border-slate-800">
+                        <div className="text-[7px] text-slate-400 mb-0.5">{dayAbbr}</div>
+                        <div>{i + 1}</div>
+                      </th>
+                    );
+                  })}
                   <th className="px-3 py-4 text-center bg-teal-700 border-l-2 border-r-2 border-slate-800">Total Hours</th>
                 </tr>
               </thead>
