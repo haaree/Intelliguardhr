@@ -975,25 +975,68 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     const subTabRecords = filteredRecords.filter(r => categorizeAuditRecord(r) === auditSubTab);
     if (!subTabRecords.length) return alert("No records to export for this sub-tab.");
 
-    const exportData = subTabRecords.map(r => ({
-      'Employee Number': r.employeeNumber,
-      'Employee Name': r.employeeName,
-      'Department': r.department,
-      'Date': r.date,
-      'Shift': r.shift,
-      'In Time': r.inTime,
-      'Out Time': r.outTime,
-      'Work Hours': r.totalHours,
-      'Late By': r.lateBy || '-',
-      'Early By': r.earlyBy || '-',
-      'Deviation': r.deviation || '-',
-      'Original Status': r.originalStatus,
-      'Final Status': r.finalStatus,
-      'Comments': r.comments,
-      'Reconciled': r.isReconciled ? 'Yes' : 'No'
-    }));
+    const exportData = subTabRecords.map(r => {
+      const baseData: any = {
+        'Employee Number': r.employeeNumber,
+        'Employee Name': r.employeeName,
+        'Department': r.department,
+        'Date': r.date,
+        'Shift': r.shift,
+        'In Time': r.inTime,
+        'Out Time': r.outTime,
+        'Work Hours': r.totalHours,
+        'Late By': r.lateBy || '-',
+        'Early By': r.earlyBy || '-',
+        'Deviation': r.deviation || '-',
+        'Original Status': r.originalStatus,
+        'Final Status': r.finalStatus,
+        'Comments': r.comments,
+        'Reconciled': r.isReconciled ? 'Yes' : 'No'
+      };
+
+      // Add occurrence count for late/early sub-tab
+      if (auditSubTab === 'lateearly') {
+        const occurrenceCount = getOccurrenceCount(r);
+        baseData['Occurrence'] = occurrenceCount === 1 ? '1st' : occurrenceCount === 2 ? '2nd' : `${occurrenceCount}rd+`;
+      }
+
+      return baseData;
+    });
 
     const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Apply cell colors for late/early sub-tab
+    if (auditSubTab === 'lateearly') {
+      const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+
+      for (let row = 1; row <= range.e.r; row++) { // Start from 1 to skip header
+        const record = subTabRecords[row - 1];
+        if (record) {
+          const occurrenceCount = getOccurrenceCount(record);
+          let fillColor = '';
+
+          if (occurrenceCount === 1) {
+            fillColor = 'D4EDDA'; // Light green
+          } else if (occurrenceCount === 2) {
+            fillColor = 'FFF3CD'; // Light amber
+          } else if (occurrenceCount >= 3) {
+            fillColor = 'F8D7DA'; // Light red
+          }
+
+          // Apply fill color to all cells in the row
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            if (!ws[cellAddress]) continue;
+
+            if (!ws[cellAddress].s) ws[cellAddress].s = {};
+            ws[cellAddress].s.fill = {
+              fgColor: { rgb: fillColor }
+            };
+          }
+        }
+      }
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, auditSubTab.toUpperCase());
     XLSX.writeFile(wb, `Audit_${auditSubTab}_${new Date().toISOString().split('T')[0]}.xlsx`);
