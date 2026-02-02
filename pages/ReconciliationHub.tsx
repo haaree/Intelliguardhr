@@ -770,6 +770,124 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     }
   };
 
+  // Unreconcile individual tab
+  const handleUnreconcileTab = (module: 'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit') => {
+    const getRecords = () => {
+      switch (module) {
+        case 'absent': return absentRecords;
+        case 'present': return presentRecords;
+        case 'workedoff': return workedOffRecords;
+        case 'offdays': return offDaysRecords;
+        case 'errors': return errorRecords;
+        case 'audit': return auditRecords;
+        default: return [];
+      }
+    };
+
+    const records = getRecords();
+    const reconciledCount = records.filter(r => r.isReconciled).length;
+
+    if (reconciledCount === 0) {
+      alert('No reconciled records to unreconcile in this tab.');
+      return;
+    }
+
+    const moduleName = moduleStatuses[module]?.name || module;
+    const confirmed = confirm(
+      `⚠️ Unreconcile ${moduleName} Tab?\n\n` +
+      `This will unreconcile ${reconciledCount} record(s).\n` +
+      `Final Status will reset to Original Status.\n` +
+      `Comments will be cleared.\n` +
+      `Excel Status will be preserved.\n\n` +
+      `Are you sure you want to continue?`
+    );
+
+    if (!confirmed) return;
+
+    const resetRecords = (records: ReconciliationRecord[]) => {
+      return records.map(rec => ({
+        ...rec,
+        finalStatus: rec.originalStatus,
+        comments: '',
+        isReconciled: false,
+        reconciledBy: '',
+        reconciledOn: ''
+        // Keep excelStatus
+      }));
+    };
+
+    switch (module) {
+      case 'absent':
+        setAbsentRecords(resetRecords(absentRecords));
+        break;
+      case 'present':
+        setPresentRecords(resetRecords(presentRecords));
+        break;
+      case 'workedoff':
+        setWorkedOffRecords(resetRecords(workedOffRecords));
+        break;
+      case 'offdays':
+        setOffDaysRecords(resetRecords(offDaysRecords));
+        break;
+      case 'errors':
+        setErrorRecords(resetRecords(errorRecords));
+        break;
+      case 'audit':
+        setAuditRecords(resetRecords(auditRecords));
+        break;
+    }
+
+    alert(`✅ Successfully unreconciled ${reconciledCount} record(s) in ${moduleName} tab!`);
+  };
+
+  // Unreconcile ALL tabs
+  const handleUnreconcileAll = () => {
+    const totalReconciled =
+      absentRecords.filter(r => r.isReconciled).length +
+      presentRecords.filter(r => r.isReconciled).length +
+      workedOffRecords.filter(r => r.isReconciled).length +
+      offDaysRecords.filter(r => r.isReconciled).length +
+      errorRecords.filter(r => r.isReconciled).length +
+      auditRecords.filter(r => r.isReconciled).length;
+
+    if (totalReconciled === 0) {
+      alert('No reconciled records to unreconcile across all tabs.');
+      return;
+    }
+
+    const confirmed = confirm(
+      `⚠️ UNRECONCILE ALL DATA?\n\n` +
+      `This will unreconcile ${totalReconciled} record(s) across ALL tabs.\n` +
+      `All Final Statuses will reset to Original Status.\n` +
+      `All Comments will be cleared.\n` +
+      `Excel Status will be preserved.\n\n` +
+      `This action allows you to perform complete re-reconciliation.\n\n` +
+      `Are you ABSOLUTELY sure?`
+    );
+
+    if (!confirmed) return;
+
+    const resetRecords = (records: ReconciliationRecord[]) => {
+      return records.map(rec => ({
+        ...rec,
+        finalStatus: rec.originalStatus,
+        comments: '',
+        isReconciled: false,
+        reconciledBy: '',
+        reconciledOn: ''
+      }));
+    };
+
+    setAbsentRecords(resetRecords(absentRecords));
+    setPresentRecords(resetRecords(presentRecords));
+    setWorkedOffRecords(resetRecords(workedOffRecords));
+    setOffDaysRecords(resetRecords(offDaysRecords));
+    setErrorRecords(resetRecords(errorRecords));
+    setAuditRecords(resetRecords(auditRecords));
+
+    alert(`✅ Successfully unreconciled ${totalReconciled} record(s) across all tabs!\n\nYou can now perform re-reconciliation.`);
+  };
+
   const handleMarkModuleComplete = (module: string) => {
     const getRecords = () => {
       switch (module) {
@@ -1311,7 +1429,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <button
             onClick={() => setIsFullScreen(!isFullScreen)}
             className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-slate-700 text-white hover:bg-slate-800"
@@ -1328,6 +1446,16 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
             <CheckCircle2 size={18} />
             <span>{isProcessing ? 'Processing...' : 'Smart Reconcile'}</span>
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={handleUnreconcileAll}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700"
+            >
+              <Eraser size={18} />
+              <span>Unreconcile All</span>
+            </button>
+          )}
 
           <button
             onClick={handleFinalizeAll}
@@ -1554,6 +1682,16 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
               >
                 <CheckCircle2 size={14} />
                 <span>Accept All</span>
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                onClick={() => handleUnreconcileTab(activeTab as 'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit')}
+                className="flex items-center space-x-2 bg-orange-600 text-white px-4 py-2.5 rounded-xl hover:bg-orange-700 transition-all font-black text-[10px] uppercase tracking-widest shadow-sm"
+              >
+                <Eraser size={14} />
+                <span>Unreconcile Tab</span>
               </button>
             )}
 
