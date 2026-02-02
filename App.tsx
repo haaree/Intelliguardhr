@@ -213,19 +213,39 @@ const App: React.FC = () => {
         const sEnd = timeToMinutes(baseRecord.shiftEnd);
         const lIn = timeToMinutes(record.inTime);
         const lOut = timeToMinutes(record.outTime);
-        
+
         baseRecord.lateBy = (lIn > sStart) ? minutesToTime(lIn - sStart) : '00:00';
         baseRecord.earlyBy = (lOut < sEnd) ? minutesToTime(sEnd - lOut) : '00:00';
-        
+
         const grossMinutes = diffMinutes(lIn, lOut);
         baseRecord.totalHours = minutesToTime(grossMinutes);
-        
+
         const effectiveMinutes = Math.max(0, grossMinutes - 60);
         baseRecord.effectiveHours = minutesToTime(effectiveMinutes);
-        
+
         baseRecord.overTime = (lOut > sEnd) ? minutesToTime(lOut - sEnd) : '00:00';
         baseRecord.totalShortHoursEffective = minutesToTime(Math.max(0, 480 - effectiveMinutes));
         baseRecord.totalShortHoursGross = minutesToTime(Math.max(0, 540 - grossMinutes));
+
+        // VALIDATION: Flag abnormal work hours for audit
+        const workHoursDecimal = grossMinutes / 60;
+        if (status === 'Clean' || status === 'Worked Off') {
+          // Flag if work hours are impossibly high (>16 hours) or too low (<4 hours for full shift)
+          if (workHoursDecimal > 16) {
+            status = 'Audit';
+            deviationDetails = `Abnormal Hours: ${workHoursDecimal.toFixed(2)}h (possible data error)`;
+          } else if (workHoursDecimal < 4) {
+            status = 'Audit';
+            deviationDetails = `Very Low Hours: ${workHoursDecimal.toFixed(2)}h (less than 4 hours)`;
+          } else if (workHoursDecimal >= 4 && workHoursDecimal < 7) {
+            status = 'Audit';
+            deviationDetails = `Low Hours: ${workHoursDecimal.toFixed(2)}h (4-7 hours range)`;
+          }
+        }
+
+        // Update the baseRecord status if it was changed by validation
+        baseRecord.status = status;
+        baseRecord.deviation = deviationDetails;
       } else {
         baseRecord.totalHours = '00:00';
         baseRecord.effectiveHours = '00:00';
