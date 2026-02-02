@@ -184,9 +184,40 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     const errors: ReconciliationRecord[] = [];
     const audit: ReconciliationRecord[] = [];
 
+    // Create a map of saved reconciliation data for quick lookup
+    const reconciledMap = new Map<string, any>();
+    if (data.reconciliationRecords && Array.isArray(data.reconciliationRecords)) {
+      data.reconciliationRecords.forEach((rec: any) => {
+        reconciledMap.set(rec.id, rec);
+      });
+    }
+
     data.attendance.forEach(att => {
-      const record: ReconciliationRecord = {
-        id: `${att.employeeNumber}-${att.date}`,
+      const recordId = `${att.employeeNumber}-${att.date}`;
+      const savedReconciliation = reconciledMap.get(recordId);
+
+      // If reconciliation data exists, restore it; otherwise create new record
+      const record: ReconciliationRecord = savedReconciliation ? {
+        ...savedReconciliation,
+        // Update dynamic fields from current attendance data
+        employeeName: att.employeeName,
+        department: att.department || 'N/A',
+        subDepartment: att.subDepartment || 'N/A',
+        location: att.location || 'N/A',
+        costCenter: att.costCenter || 'N/A',
+        legalEntity: att.legalEntity || 'N/A',
+        reportingManager: att.reportingManager || 'N/A',
+        shift: att.shift || 'N/A',
+        shiftStart: att.shiftStart || '00:00',
+        shiftEnd: att.shiftEnd || '00:00',
+        inTime: att.inTime || '00:00',
+        outTime: att.outTime || '00:00',
+        totalHours: att.totalHours || '00:00',
+        deviation: att.deviation,
+        lateBy: att.lateBy,
+        earlyBy: att.earlyBy
+      } : {
+        id: recordId,
         employeeNumber: att.employeeNumber,
         employeeName: att.employeeName,
         department: att.department || 'N/A',
@@ -234,14 +265,14 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     setAuditRecords(audit);
 
     setModuleStatuses({
-      absent: { name: 'Absent', total: absent.length, reconciled: 0, isComplete: false },
-      present: { name: 'Present', total: present.length, reconciled: 0, isComplete: false },
-      workedoff: { name: 'Worked Off', total: workedOff.length, reconciled: 0, isComplete: false },
-      offdays: { name: 'Off Days', total: offDays.length, reconciled: 0, isComplete: false },
-      errors: { name: 'Errors', total: errors.length, reconciled: 0, isComplete: false },
-      audit: { name: 'Audit Queue', total: audit.length, reconciled: 0, isComplete: false }
+      absent: { name: 'Absent', total: absent.length, reconciled: absent.filter(r => r.isReconciled).length, isComplete: absent.length > 0 && absent.every(r => r.isReconciled) },
+      present: { name: 'Present', total: present.length, reconciled: present.filter(r => r.isReconciled).length, isComplete: present.length > 0 && present.every(r => r.isReconciled) },
+      workedoff: { name: 'Worked Off', total: workedOff.length, reconciled: workedOff.filter(r => r.isReconciled).length, isComplete: workedOff.length > 0 && workedOff.every(r => r.isReconciled) },
+      offdays: { name: 'Off Days', total: offDays.length, reconciled: offDays.filter(r => r.isReconciled).length, isComplete: offDays.length > 0 && offDays.every(r => r.isReconciled) },
+      errors: { name: 'Errors', total: errors.length, reconciled: errors.filter(r => r.isReconciled).length, isComplete: errors.length > 0 && errors.every(r => r.isReconciled) },
+      audit: { name: 'Audit Queue', total: audit.length, reconciled: audit.filter(r => r.isReconciled).length, isComplete: audit.length > 0 && audit.every(r => r.isReconciled) }
     });
-  }, [data.attendance]);
+  }, [data.attendance, data.reconciliationRecords]);
 
   const getCurrentRecords = () => {
     switch (activeTab) {
