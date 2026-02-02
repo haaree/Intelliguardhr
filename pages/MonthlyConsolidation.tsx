@@ -933,9 +933,9 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
       <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-3xl p-4 border border-teal-100">
         <h3 className="text-xs font-black text-teal-900 uppercase tracking-widest mb-3 flex items-center gap-2">
           <Info size={16} />
-          Status Legend
+          Status Legend & Reconciliation Guide
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-xs mb-4">
           {[
             { code: 'P', label: 'Clean Logs', color: 'emerald' },
             { code: 'HD', label: 'Half Day', color: 'amber' },
@@ -951,6 +951,25 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
               <span className="text-slate-600 font-medium">{item.label}</span>
             </div>
           ))}
+        </div>
+
+        {/* Reconciliation Status Guide */}
+        <div className="border-t border-teal-200 pt-3 mt-3">
+          <p className="text-[10px] font-black text-teal-900 uppercase tracking-widest mb-2">Row Color Guide:</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-16 h-6 bg-white border border-slate-200 rounded"></div>
+              <span className="text-slate-600 font-medium">Fully Reconciled (All records complete)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-16 h-6 bg-amber-100 border-l-4 border-l-amber-500 rounded"></div>
+              <span className="text-slate-600 font-medium">Has Unreconciled Records (Needs attention)</span>
+            </div>
+          </div>
+          <p className="text-[9px] text-teal-800 mt-2 font-medium">
+            💡 <strong>Tip:</strong> Employees with <span className="text-amber-700 font-black">amber/orange highlight</span> have unreconciled attendance records.
+            Complete reconciliation in <strong>Reconciliation Hub</strong> and click <strong>"Finalize All Reconciliations"</strong> to remove the highlight.
+          </p>
         </div>
       </div>
 

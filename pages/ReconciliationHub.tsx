@@ -245,6 +245,13 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       if (att.status === 'Absent' || att.status === 'A') {
         absent.push(record);
       } else if (att.status === 'Clean' || att.status === 'P' || att.status === 'Present') {
+        // Normalize "Clean" status to "P" for Present tab
+        if (record.originalStatus === 'Clean') {
+          record.originalStatus = 'P';
+        }
+        if (record.finalStatus === 'Clean') {
+          record.finalStatus = 'P';
+        }
         present.push(record);
       } else if (att.status === 'Worked Off' || att.status === 'WOH') {
         workedOff.push(record);
