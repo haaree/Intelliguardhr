@@ -667,8 +667,135 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
       onUpdate(allData, moduleStatuses);
       onFinalizeAll();
-      alert('✅ All reconciliations finalized!\n\nMonthly report is now available.');
+      alert('✅ All reconciliations finalized!\n\nMonthly report is now available.\n\nYou can now download the complete reconciled records.');
     }
+  };
+
+  const handleDownloadReconciledRecords = () => {
+    // Helper function to convert time string to minutes
+    const timeToMinutes = (timeStr: string): number => {
+      if (!timeStr || timeStr === '-' || timeStr === 'NA' || timeStr === '00:00') return 0;
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) return 0;
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
+    };
+
+    // Combine all reconciled records from all modules
+    const allReconciledRecords = [
+      ...absentRecords.filter(r => r.isReconciled),
+      ...presentRecords.filter(r => r.isReconciled),
+      ...workedOffRecords.filter(r => r.isReconciled),
+      ...offDaysRecords.filter(r => r.isReconciled),
+      ...errorRecords.filter(r => r.isReconciled),
+      ...auditRecords.filter(r => r.isReconciled)
+    ];
+
+    if (allReconciledRecords.length === 0) {
+      alert('No reconciled records to download. Please finalize reconciliation first.');
+      return;
+    }
+
+    // Sort by employee number, then by date
+    allReconciledRecords.sort((a, b) => {
+      if (a.employeeNumber !== b.employeeNumber) {
+        return a.employeeNumber.localeCompare(b.employeeNumber);
+      }
+      return a.date.localeCompare(b.date);
+    });
+
+    // Calculate work hours for each record
+    const exportData = allReconciledRecords.map(record => {
+      const inMinutes = timeToMinutes(record.inTime);
+      const outMinutes = timeToMinutes(record.outTime);
+      const shiftStartMinutes = timeToMinutes(record.shiftStart);
+
+      // Calculate InTime to OutTime work hours
+      let workHoursActual = 0;
+      if (inMinutes > 0 && outMinutes > 0) {
+        workHoursActual = outMinutes > inMinutes
+          ? (outMinutes - inMinutes) / 60
+          : ((1440 - inMinutes) + outMinutes) / 60; // Handle overnight shifts
+      }
+
+      // Calculate Shift Start to OutTime work hours
+      let workHoursShift = 0;
+      if (shiftStartMinutes > 0 && outMinutes > 0) {
+        workHoursShift = outMinutes > shiftStartMinutes
+          ? (outMinutes - shiftStartMinutes) / 60
+          : ((1440 - shiftStartMinutes) + outMinutes) / 60; // Handle overnight shifts
+      }
+
+      return {
+        'Employee Number': record.employeeNumber,
+        'Employee Name': record.employeeName,
+        'Department': record.department,
+        'Sub Department': record.subDepartment,
+        'Location': record.location,
+        'Cost Center': record.costCenter,
+        'Legal Entity': record.legalEntity,
+        'Reporting Manager': record.reportingManager,
+        'Date': record.date,
+        'Shift': record.shift,
+        'Shift Start': record.shiftStart,
+        'Shift End': record.shiftEnd,
+        'In Time': record.inTime,
+        'Out Time': record.outTime,
+        'Total Hours (Gross)': record.totalHours,
+        'Work Hours (InTime-OutTime)': workHoursActual > 0 ? workHoursActual.toFixed(2) : '-',
+        'Work Hours (Shift-OutTime)': workHoursShift > 0 ? workHoursShift.toFixed(2) : '-',
+        'Final Status': record.finalStatus,
+        'Deviation': record.deviation || '-',
+        'Late By': record.lateBy || '00:00',
+        'Early By': record.earlyBy || '00:00',
+        'Comments': record.comments || '-',
+        'Reconciled By': record.reconciledBy || currentUser,
+        'Reconciled On': record.reconciledOn || new Date().toLocaleDateString()
+      };
+    });
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Set column widths
+    const wscols = [
+      { wch: 12 }, // Employee Number
+      { wch: 25 }, // Employee Name
+      { wch: 20 }, // Department
+      { wch: 20 }, // Sub Department
+      { wch: 15 }, // Location
+      { wch: 12 }, // Cost Center
+      { wch: 15 }, // Legal Entity
+      { wch: 25 }, // Reporting Manager
+      { wch: 12 }, // Date
+      { wch: 8 },  // Shift
+      { wch: 10 }, // Shift Start
+      { wch: 10 }, // Shift End
+      { wch: 10 }, // In Time
+      { wch: 10 }, // Out Time
+      { wch: 12 }, // Total Hours
+      { wch: 18 }, // Work Hours Actual
+      { wch: 18 }, // Work Hours Shift
+      { wch: 12 }, // Final Status
+      { wch: 30 }, // Deviation
+      { wch: 10 }, // Late By
+      { wch: 10 }, // Early By
+      { wch: 30 }, // Comments
+      { wch: 20 }, // Reconciled By
+      { wch: 15 }  // Reconciled On
+    ];
+    ws['!cols'] = wscols;
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Reconciled Records');
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `Reconciled_Attendance_${timestamp}.xlsx`;
+
+    // Download
+    XLSX.writeFile(wb, filename);
   };
 
   const handleSort = (key: keyof ReconciliationRecord) => {
@@ -1002,6 +1129,16 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
             {allModulesComplete ? <Unlock size={18} /> : <Lock size={18} />}
             <span>Finalize All Reconciliations</span>
           </button>
+
+          {data.isReconciliationComplete && (
+            <button
+              onClick={handleDownloadReconciledRecords}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
+            >
+              <FileDown size={18} />
+              <span>Download Reconciled Records</span>
+            </button>
+          )}
         </div>
       </div>
 
