@@ -67,6 +67,11 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
   const [departmentFilter, setDepartmentFilter] = useState('All');
   const [reportingManagerFilter, setReportingManagerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
+  const [costCenterFilter, setCostCenterFilter] = useState('All');
+  const [legalEntityFilter, setLegalEntityFilter] = useState('All');
+  const [locationFilter, setLocationFilter] = useState('All');
+  const [shiftFilter, setShiftFilter] = useState('All');
+  const [reconciliationStatusFilter, setReconciliationStatusFilter] = useState<'All' | 'Reconciled' | 'Unreconciled'>('All');
   const [viewMode, setViewMode] = useState<'calendar' | 'summary' | 'workhours-actual' | 'workhours-shift'>('calendar');
   const [showReloadPrompt, setShowReloadPrompt] = useState(false);
 
@@ -494,9 +499,27 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
       // Status filter: check if employee has ANY day with the selected status
       const matchStatus = statusFilter === 'All' || emp.days.some(day => day.status === statusFilter);
 
-      return matchSearch && matchDept && matchManager && matchStatus;
+      // New filters - get employee data from attendance records
+      const employeeAttendance = data.attendance.filter(r => r.employeeNumber === emp.employeeNumber);
+      const sampleRecord = employeeAttendance[0];
+
+      const matchCostCenter = costCenterFilter === 'All' || (sampleRecord && sampleRecord.costCenter === costCenterFilter);
+      const matchLegalEntity = legalEntityFilter === 'All' || (sampleRecord && sampleRecord.legalEntity === legalEntityFilter);
+      const matchLocation = locationFilter === 'All' || (sampleRecord && sampleRecord.location === locationFilter);
+      const matchShift = shiftFilter === 'All' || employeeAttendance.some(r => r.shift === shiftFilter);
+
+      // Reconciliation status filter
+      const matchReconciliationStatus =
+        reconciliationStatusFilter === 'All' ||
+        (reconciliationStatusFilter === 'Reconciled' && !emp.hasUnreconciledRecords) ||
+        (reconciliationStatusFilter === 'Unreconciled' && emp.hasUnreconciledRecords);
+
+      return matchSearch && matchDept && matchManager && matchStatus &&
+             matchCostCenter && matchLegalEntity && matchLocation && matchShift &&
+             matchReconciliationStatus;
     });
-  }, [consolidatedData, searchTerm, departmentFilter, reportingManagerFilter, statusFilter]);
+  }, [consolidatedData, searchTerm, departmentFilter, reportingManagerFilter, statusFilter,
+      costCenterFilter, legalEntityFilter, locationFilter, shiftFilter, reconciliationStatusFilter, data.attendance]);
 
   const departments = useMemo(() => {
     return ['All', ...new Set(data.employees.map(e => e.department))].filter(Boolean);
@@ -505,6 +528,22 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
   const reportingManagers = useMemo(() => {
     return ['All', ...new Set(data.employees.map(e => e.reportingTo))].filter(Boolean);
   }, [data.employees]);
+
+  const costCenters = useMemo(() => {
+    return ['All', ...new Set(data.attendance.map(r => r.costCenter))].filter(Boolean);
+  }, [data.attendance]);
+
+  const legalEntities = useMemo(() => {
+    return ['All', ...new Set(data.attendance.map(r => r.legalEntity))].filter(Boolean);
+  }, [data.attendance]);
+
+  const locations = useMemo(() => {
+    return ['All', ...new Set(data.attendance.map(r => r.location))].filter(Boolean);
+  }, [data.attendance]);
+
+  const shifts = useMemo(() => {
+    return ['All', ...new Set(data.attendance.map(r => r.shift))].filter(Boolean);
+  }, [data.attendance]);
 
   const handleExport = () => {
     if (filteredData.length === 0) {
@@ -691,7 +730,11 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
 
       {/* Month/Year Selector and Filters */}
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-lg">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <Filter size={16} className="text-teal-600" />
+          Filters & Selection
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <div className="space-y-2">
             <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Month</label>
             <div className="flex items-center gap-2">
@@ -789,6 +832,71 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
               <option value="Holiday">Holiday</option>
               <option value="ID Error">ID Error</option>
               <option value="Audit">Audit</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Cost Center</label>
+            <select
+              value={costCenterFilter}
+              onChange={(e) => setCostCenterFilter(e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
+            >
+              {costCenters.map(cc => (
+                <option key={cc} value={cc}>{cc}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Legal Entity</label>
+            <select
+              value={legalEntityFilter}
+              onChange={(e) => setLegalEntityFilter(e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
+            >
+              {legalEntities.map(le => (
+                <option key={le} value={le}>{le}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Location</label>
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
+            >
+              {locations.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Shift</label>
+            <select
+              value={shiftFilter}
+              onChange={(e) => setShiftFilter(e.target.value)}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
+            >
+              {shifts.map(shift => (
+                <option key={shift} value={shift}>{shift}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Reconciliation</label>
+            <select
+              value={reconciliationStatusFilter}
+              onChange={(e) => setReconciliationStatusFilter(e.target.value as 'All' | 'Reconciled' | 'Unreconciled')}
+              className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 focus:ring-2 focus:ring-teal-500 outline-none"
+            >
+              <option value="All">All Records</option>
+              <option value="Reconciled">Reconciled Only</option>
+              <option value="Unreconciled">Unreconciled Only</option>
             </select>
           </div>
 
