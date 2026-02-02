@@ -269,8 +269,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     };
   }, [activeTab, absentRecords, presentRecords, workedOffRecords, offDaysRecords, errorRecords, auditRecords]);
 
-  // Excel upload for Absent and Present modules
-  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>, module: 'absent' | 'present') => {
+  // Excel upload for all modules
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>, module: 'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit') => {
     const file = e.target.files?.[0];
     if (!file) return;
     setIsProcessing(true);
@@ -293,10 +293,13 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           }
         });
 
+        let updatedCount = 0;
+
         if (module === 'absent') {
           const updated = absentRecords.map(rec => {
             const excelData = excelMap.get(rec.id);
             if (excelData) {
+              updatedCount++;
               return {
                 ...rec,
                 excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
@@ -307,11 +310,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
             return { ...rec, excelStatus: 'Not Found' };
           });
           setAbsentRecords(updated);
-          alert(`Loaded ${updated.filter(r => r.excelStatus !== 'Not Found').length} absent records with Excel data!`);
+          alert(`Loaded ${updatedCount} absent records with Excel data!`);
         } else if (module === 'present') {
           const updated = presentRecords.map(rec => {
             const excelData = excelMap.get(rec.id);
             if (excelData) {
+              updatedCount++;
               return {
                 ...rec,
                 excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
@@ -319,10 +323,74 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                 comments: String(excelData['Comments'] || rec.comments || '')
               };
             }
-            return rec; // Don't mark as "Not Found" for present records
+            return rec;
           });
           setPresentRecords(updated);
-          alert(`Loaded ${updated.filter(r => r.excelStatus).length} present records with Excel data!`);
+          alert(`Loaded ${updatedCount} present records with Excel data!`);
+        } else if (module === 'workedoff') {
+          const updated = workedOffRecords.map(rec => {
+            const excelData = excelMap.get(rec.id);
+            if (excelData) {
+              updatedCount++;
+              return {
+                ...rec,
+                excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
+                finalStatus: String(excelData['Final Status'] || excelData['Status'] || rec.originalStatus).trim(),
+                comments: String(excelData['Comments'] || rec.comments || '')
+              };
+            }
+            return rec;
+          });
+          setWorkedOffRecords(updated);
+          alert(`Loaded ${updatedCount} worked off records with Excel data!`);
+        } else if (module === 'offdays') {
+          const updated = offDaysRecords.map(rec => {
+            const excelData = excelMap.get(rec.id);
+            if (excelData) {
+              updatedCount++;
+              return {
+                ...rec,
+                excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
+                finalStatus: String(excelData['Final Status'] || excelData['Status'] || rec.originalStatus).trim(),
+                comments: String(excelData['Comments'] || rec.comments || '')
+              };
+            }
+            return rec;
+          });
+          setOffDaysRecords(updated);
+          alert(`Loaded ${updatedCount} off days records with Excel data!`);
+        } else if (module === 'errors') {
+          const updated = errorRecords.map(rec => {
+            const excelData = excelMap.get(rec.id);
+            if (excelData) {
+              updatedCount++;
+              return {
+                ...rec,
+                excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
+                finalStatus: String(excelData['Final Status'] || excelData['Status'] || rec.originalStatus).trim(),
+                comments: String(excelData['Comments'] || rec.comments || '')
+              };
+            }
+            return rec;
+          });
+          setErrorRecords(updated);
+          alert(`Loaded ${updatedCount} error records with Excel data!`);
+        } else if (module === 'audit') {
+          const updated = auditRecords.map(rec => {
+            const excelData = excelMap.get(rec.id);
+            if (excelData) {
+              updatedCount++;
+              return {
+                ...rec,
+                excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
+                finalStatus: String(excelData['Final Status'] || excelData['Status'] || rec.originalStatus).trim(),
+                comments: String(excelData['Comments'] || rec.comments || '')
+              };
+            }
+            return rec;
+          });
+          setAuditRecords(updated);
+          alert(`Loaded ${updatedCount} audit records with Excel data!`);
         }
       } catch (err) {
         console.error(err);
@@ -1392,7 +1460,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
               <span>Export Filtered</span>
             </button>
 
-            {(activeTab === 'absent' || activeTab === 'present') && isAdmin && (
+            {isAdmin && (
               <label className="flex items-center space-x-2 bg-slate-900 text-white px-4 py-2.5 rounded-xl cursor-pointer hover:bg-slate-800 transition-all font-black text-[10px] uppercase tracking-widest">
                 <Upload size={14} />
                 <span>Upload Excel</span>
@@ -1400,7 +1468,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                   type="file"
                   className="hidden"
                   accept=".xlsx, .xls, .csv"
-                  onChange={(e) => handleExcelUpload(e, activeTab as 'absent' | 'present')}
+                  onChange={(e) => handleExcelUpload(e, activeTab as 'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit')}
                   disabled={isProcessing}
                 />
               </label>
@@ -1444,7 +1512,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                 <SortableHeader label="Out Time" colKey="outTime" />
                 <SortableHeader label="Work Hours" colKey="totalHours" />
                 <SortableHeader label="Original" colKey="originalStatus" />
-                {(activeTab === 'absent' || activeTab === 'present') && <SortableHeader label="Excel Status" colKey="excelStatus" />}
+                <SortableHeader label="Excel Status" colKey="excelStatus" />
                 <SortableHeader label="Final Status" colKey="finalStatus" />
                 <th className="px-4 py-5">Comments</th>
                 <th className="px-4 py-5 text-center">Actions</th>
@@ -1453,7 +1521,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
             <tbody className="divide-y divide-slate-100">
               {filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={(activeTab === 'absent' || activeTab === 'present') ? 14 : 13} className="px-6 py-12 text-center">
+                  <td colSpan={14} className="px-6 py-12 text-center">
                     <AlertCircle className="mx-auto text-slate-300 mb-3" size={48} />
                     <p className="text-sm font-bold text-slate-400">No records found</p>
                   </td>
@@ -1489,17 +1557,15 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                         {record.originalStatus}
                       </span>
                     </td>
-                    {(activeTab === 'absent' || activeTab === 'present') && (
-                      <td className="px-4 py-4">
-                        <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
-                          record.excelStatus === 'Not Found' ? 'bg-slate-100 text-slate-500' :
-                          record.excelStatus ? 'bg-indigo-100 text-indigo-700' :
-                          'bg-slate-50 text-slate-400'
-                        }`}>
-                          {record.excelStatus || '-'}
-                        </span>
-                      </td>
-                    )}
+                    <td className="px-4 py-4">
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
+                        record.excelStatus === 'Not Found' ? 'bg-slate-100 text-slate-500' :
+                        record.excelStatus ? 'bg-indigo-100 text-indigo-700' :
+                        'bg-slate-50 text-slate-400'
+                      }`}>
+                        {record.excelStatus || '-'}
+                      </span>
+                    </td>
                     <td className="px-4 py-4">
                       {!record.isReconciled && isAdmin ? (
                         <select
