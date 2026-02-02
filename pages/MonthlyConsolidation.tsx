@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Calendar,
   Download,
@@ -9,7 +9,8 @@ import {
   ChevronRight,
   Info,
   Search,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { AppData, AttendanceRecord, UserRole } from '../types.ts';
 import * as XLSX from 'xlsx';
@@ -67,9 +68,50 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
   const [reportingManagerFilter, setReportingManagerFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'calendar' | 'summary' | 'workhours-actual' | 'workhours-shift'>('calendar');
+  const [showReloadPrompt, setShowReloadPrompt] = useState(false);
+
+  // Track reconciliation data changes
+  const reconciliationHashRef = useRef<string>('');
+  const isInitialMountRef = useRef(true);
 
   // Check if reconciliation is complete
   const isReconciled = data.isReconciliationComplete;
+
+  // Calculate hash of reconciliation data for change detection
+  const calculateReconciliationHash = (): string => {
+    if (!data.reconciliationRecords || !Array.isArray(data.reconciliationRecords)) {
+      return '';
+    }
+    // Create a hash from reconciliation record count and their reconciled status
+    const reconciledCount = data.reconciliationRecords.filter((r: any) => r.isReconciled).length;
+    const totalCount = data.reconciliationRecords.length;
+    const isComplete = data.isReconciliationComplete ? '1' : '0';
+    return `${totalCount}-${reconciledCount}-${isComplete}`;
+  };
+
+  // Detect changes in reconciliation data and prompt for reload
+  useEffect(() => {
+    const currentHash = calculateReconciliationHash();
+
+    if (isInitialMountRef.current) {
+      // First mount - just store the hash
+      reconciliationHashRef.current = currentHash;
+      isInitialMountRef.current = false;
+    } else if (currentHash !== reconciliationHashRef.current && currentHash !== '') {
+      // Reconciliation data has changed - show reload prompt
+      setShowReloadPrompt(true);
+      reconciliationHashRef.current = currentHash;
+    }
+  }, [data.reconciliationRecords, data.isReconciliationComplete]);
+
+  const handleReload = () => {
+    setShowReloadPrompt(false);
+    window.location.reload();
+  };
+
+  const handleDismissPrompt = () => {
+    setShowReloadPrompt(false);
+  };
 
   // Map status codes to full names (matching ReconciliationHub)
   const mapStatusToFullName = (status: AttendanceStatus): string => {
@@ -616,6 +658,36 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
 
       {/* Reconciliation Status Banner */}
       {reconciliationBanner}
+
+      {/* Reload Prompt - Show when reconciliation data changes */}
+      {showReloadPrompt && (
+        <div className="bg-orange-50 border-2 border-orange-400 rounded-2xl p-4 mb-6 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-orange-600 flex-shrink-0 mt-0.5" size={24} />
+            <div className="flex-1">
+              <h3 className="text-sm font-black text-orange-900 mb-1">Reconciliation Data Updated</h3>
+              <p className="text-xs text-orange-800 mb-3">
+                New reconciliation changes have been detected. Please reload the page to see the latest attendance data and ensure consistency.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleReload}
+                  className="flex items-center gap-2 bg-orange-600 text-white px-4 py-2 rounded-xl hover:bg-orange-700 transition-all font-bold text-xs uppercase tracking-wider shadow-sm"
+                >
+                  <RefreshCw size={14} />
+                  Reload Now
+                </button>
+                <button
+                  onClick={handleDismissPrompt}
+                  className="text-xs text-orange-700 hover:text-orange-900 font-medium underline"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Month/Year Selector and Filters */}
       <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-lg">
