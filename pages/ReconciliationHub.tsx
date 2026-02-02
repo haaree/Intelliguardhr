@@ -312,21 +312,63 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           setAbsentRecords(updated);
           alert(`Loaded ${updatedCount} absent records with Excel data!`);
         } else if (module === 'present') {
+          let autoReconciledCount = 0;
+          let unReconciledCount = 0;
+
           const updated = presentRecords.map(rec => {
             const excelData = excelMap.get(rec.id);
             if (excelData) {
               updatedCount++;
+              const excelStatus = String(excelData['Final Status'] || excelData['Status'] || '').trim();
+              const newFinalStatus = excelStatus || rec.originalStatus;
+
+              // Auto-reconcile logic for Present tab
+              // If Excel status is "P", auto-reconcile
+              // Otherwise, un-reconcile if it was previously reconciled
+              let isReconciled = rec.isReconciled;
+              let reconciledBy = rec.reconciledBy;
+              let reconciledOn = rec.reconciledOn;
+
+              if (excelStatus === 'P') {
+                // Auto-reconcile records with status "P"
+                if (!rec.isReconciled) {
+                  autoReconciledCount++;
+                }
+                isReconciled = true;
+                reconciledBy = currentUser;
+                reconciledOn = formatDate(new Date());
+              } else if (rec.isReconciled && excelStatus !== 'P') {
+                // Un-reconcile if Excel status is not "P" but was previously reconciled
+                unReconciledCount++;
+                isReconciled = false;
+                reconciledBy = '';
+                reconciledOn = '';
+              }
+
               return {
                 ...rec,
-                excelStatus: String(excelData['Final Status'] || excelData['Status'] || '').trim(),
-                finalStatus: String(excelData['Final Status'] || excelData['Status'] || rec.originalStatus).trim(),
-                comments: String(excelData['Comments'] || rec.comments || '')
+                excelStatus,
+                finalStatus: newFinalStatus,
+                comments: String(excelData['Comments'] || rec.comments || ''),
+                isReconciled,
+                reconciledBy,
+                reconciledOn
               };
             }
             return rec;
           });
+
           setPresentRecords(updated);
-          alert(`Loaded ${updatedCount} present records with Excel data!`);
+
+          // Show detailed alert message
+          let message = `Loaded ${updatedCount} present records with Excel data!\n\n`;
+          if (autoReconciledCount > 0) {
+            message += `✓ Auto-reconciled ${autoReconciledCount} record(s) with status "P"\n`;
+          }
+          if (unReconciledCount > 0) {
+            message += `⚠ Un-reconciled ${unReconciledCount} record(s) with non-P status\n`;
+          }
+          alert(message);
         } else if (module === 'workedoff') {
           const updated = workedOffRecords.map(rec => {
             const excelData = excelMap.get(rec.id);
