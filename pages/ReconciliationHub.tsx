@@ -78,7 +78,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   currentUser
 }) => {
   const [activeTab, setActiveTab] = useState<'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit'>('absent');
-  const [auditSubTab, setAuditSubTab] = useState<'single' | 'frequent' | 'chronic' | 'under4hrs' | '4to7hrs' | 'shift' | 'missing' | 'other'>('single');
+  const [auditSubTab, setAuditSubTab] = useState<'lateearly' | 'under4hrs' | '4to7hrs' | 'shift' | 'missing' | 'other'>('lateearly');
   const [searchTerm, setSearchTerm] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
@@ -825,8 +825,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     });
   };
 
-  // Helper function to categorize audit records based on frequency and hours
-  const categorizeAuditRecord = (record: ReconciliationRecord): 'single' | 'frequent' | 'chronic' | 'under4hrs' | '4to7hrs' | 'shift' | 'missing' | 'other' => {
+  // Helper function to categorize audit records and determine occurrence count
+  const categorizeAuditRecord = (record: ReconciliationRecord): 'lateearly' | 'under4hrs' | '4to7hrs' | 'shift' | 'missing' | 'other' => {
     const deviation = record.deviation || '';
 
     // Missing Punches - highest priority
@@ -851,39 +851,38 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       return '4to7hrs';
     }
 
-    // Check if it's a late/early violation for frequency-based categorization
+    // Check if it's a late/early violation
     const isLateOrEarly = (record.lateBy && record.lateBy !== '00:00') || (record.earlyBy && record.earlyBy !== '00:00');
 
-    if (!isLateOrEarly) {
-      return 'other';
+    if (isLateOrEarly) {
+      return 'lateearly';
     }
 
-    // Count occurrences for this employee in the current month
+    return 'other';
+  };
+
+  // Helper function to get occurrence count for late/early violations
+  const getOccurrenceCount = (record: ReconciliationRecord): number => {
     const employeeNumber = record.employeeNumber;
     const recordDate = new Date(record.date);
     const recordMonth = recordDate.getMonth();
     const recordYear = recordDate.getFullYear();
 
-    // Count all late/early violations for this employee in this month
-    const employeeViolations = auditRecords.filter(r => {
+    // Count all late/early violations for this employee up to and including this date
+    const violationsUpToThisDate = auditRecords.filter(r => {
       const rDate = new Date(r.date);
-      const isLateOrEarlyViolation = (r.lateBy && r.lateBy !== '00:00') || (r.earlyBy && r.earlyBy !== '00:00');
+      const isLateOrEarly = (r.lateBy && r.lateBy !== '00:00') || (r.earlyBy && r.earlyBy !== '00:00');
       return r.employeeNumber === employeeNumber &&
              rDate.getMonth() === recordMonth &&
              rDate.getFullYear() === recordYear &&
-             isLateOrEarlyViolation;
-    }).length;
+             rDate <= recordDate &&
+             isLateOrEarly &&
+             categorizeAuditRecord(r) === 'lateearly';
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Categorize based on frequency
-    if (employeeViolations === 1) {
-      return 'single';
-    } else if (employeeViolations === 2) {
-      return 'frequent';
-    } else if (employeeViolations > 2) {
-      return 'chronic';
-    }
-
-    return 'other';
+    // Find the index of this record in the sorted violations
+    const index = violationsUpToThisDate.findIndex(r => r.id === record.id);
+    return index + 1; // 1-indexed
   };
 
   const filteredRecords = useMemo(() => {
@@ -918,6 +917,18 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
+      });
+    } else if (activeTab === 'audit' && auditSubTab === 'lateearly') {
+      // Sort by employee number for Late/Early sub-tab when no manual sort is applied
+      filtered.sort((a, b) => {
+        const aNum = a.employeeNumber;
+        const bNum = b.employeeNumber;
+        if (aNum < bNum) return -1;
+        if (aNum > bNum) return 1;
+        // If same employee, sort by date
+        const aDate = new Date(a.date).getTime();
+        const bDate = new Date(b.date).getTime();
+        return aDate - bDate;
       });
     }
 
@@ -1221,9 +1232,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           <div className="flex justify-between items-center">
             <div className="flex flex-wrap gap-2 flex-1">
               {[
-                { id: 'single', label: '1st Occurrence', color: 'emerald', icon: '🟢', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'single').length },
-                { id: 'frequent', label: '2 Occurrences', color: 'amber', icon: '🟡', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'frequent').length },
-                { id: 'chronic', label: 'Beyond 2 Times', color: 'red', icon: '🔴', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'chronic').length },
+                { id: 'lateearly', label: 'Late/Early Occurrences', color: 'blue', icon: '🕐', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'lateearly').length },
                 { id: 'under4hrs', label: 'Worked < 4 Hours', color: 'rose', icon: '⏱️', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'under4hrs').length },
                 { id: '4to7hrs', label: 'Worked 4-7 Hours', color: 'orange', icon: '⏰', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === '4to7hrs').length },
                 { id: 'shift', label: 'Shift Deviations', color: 'violet', icon: '🟠', count: auditRecords.filter(r => !r.isReconciled && categorizeAuditRecord(r) === 'shift').length },
@@ -1407,8 +1416,22 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map((record, idx) => (
-                  <tr key={record.id} className={`hover:bg-slate-50 transition-colors ${record.isReconciled ? 'bg-emerald-50/30' : ''}`}>
+                filteredRecords.map((record, idx) => {
+                  // Determine row color for late/early occurrences in audit sub-tab
+                  let rowColorClass = '';
+                  if (activeTab === 'audit' && auditSubTab === 'lateearly' && !record.isReconciled) {
+                    const occurrenceCount = getOccurrenceCount(record);
+                    if (occurrenceCount === 1) {
+                      rowColorClass = 'bg-emerald-50/40'; // Green for 1st occurrence
+                    } else if (occurrenceCount === 2) {
+                      rowColorClass = 'bg-amber-50/40'; // Amber for 2nd occurrence
+                    } else if (occurrenceCount >= 3) {
+                      rowColorClass = 'bg-red-50/40'; // Red for 3rd+ occurrence (chronic)
+                    }
+                  }
+
+                  return (
+                  <tr key={record.id} className={`hover:bg-slate-50 transition-colors ${record.isReconciled ? 'bg-emerald-50/30' : rowColorClass}`}>
                     <td className="px-4 py-4 text-xs font-black text-slate-900">{record.employeeNumber}</td>
                     <td className="px-4 py-4 text-xs font-black text-teal-600">{record.employeeName}</td>
                     <td className="px-4 py-4 text-xs text-slate-700">{record.department}</td>
@@ -1536,7 +1559,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
