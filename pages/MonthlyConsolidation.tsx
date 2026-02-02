@@ -270,14 +270,15 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     const daysInMonth = getDaysInMonth(selectedYear, selectedMonth);
     const employeeMap = new Map<string, EmployeeMonthlyData>();
 
-    // Create a map of reconciled records for quick lookup
-    const reconciledRecordKeys = new Set<string>();
+    // Create a map of reconciled records with their finalStatus for quick lookup
+    const reconciliationMap = new Map<string, { isReconciled: boolean; finalStatus: string }>();
     if (data.reconciliationRecords && Array.isArray(data.reconciliationRecords)) {
       data.reconciliationRecords.forEach((rec: any) => {
-        if (rec.isReconciled) {
-          const key = `${rec.employeeNumber}-${rec.date}`.toUpperCase();
-          reconciledRecordKeys.add(key);
-        }
+        const key = `${rec.employeeNumber}-${rec.date}`.toUpperCase();
+        reconciliationMap.set(key, {
+          isReconciled: rec.isReconciled || false,
+          finalStatus: rec.finalStatus || rec.originalStatus || '-'
+        });
       });
     }
 
@@ -305,10 +306,6 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
       const requiredHours = 8; // Minimum hours for full day
 
       const days: DayAttendance[] = [];
-      let lateToleranceUsed = false;
-      let earlyToleranceUsed = false;
-      let lateCount = 0;
-      let earlyCount = 0;
       let hasUnreconciledRecords = false;
 
       // Process each day of the month
@@ -317,51 +314,44 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         const dateStr = formatDateToDDMMMYYYY(date);
         const record = recordMap.get(dateStr.toUpperCase());
 
-        // Check if this specific day is reconciled
+        // Look up reconciliation data for this employee-date
         const recordKey = `${employee.employeeNumber}-${dateStr}`.toUpperCase();
-        const isDayReconciled = reconciledRecordKeys.has(recordKey);
+        const reconciliationData = reconciliationMap.get(recordKey);
+        const isDayReconciled = reconciliationData?.isReconciled || false;
 
         // Track if employee has any unreconciled records
         if (record && !isDayReconciled && !data.isReconciliationComplete) {
           hasUnreconciledRecords = true;
         }
 
-        // If reconciliation is NOT complete and this day is NOT reconciled, show blank
-        // This applies to ALL records including system-generated ones (WO, H)
-        let finalRecord = record;
-        let shouldShowBlank = false;
-        if (!data.isReconciliationComplete && !isDayReconciled) {
-          shouldShowBlank = true;
-          finalRecord = undefined; // Show blank for all unreconciled days
+        // NEW LOGIC: Use ONLY reconciliation finalStatus, NO calculation
+        let finalStatus = '-'; // Default to blank for unreconciled
+        let hoursWorked = 0;
+        let isLate = false;
+        let isEarly = false;
+        let lateMinutes = 0;
+        let earlyMinutes = 0;
+
+        // If reconciled, use the finalStatus from reconciliation
+        if (isDayReconciled && reconciliationData) {
+          finalStatus = reconciliationData.finalStatus;
+
+          // Calculate work hours for display purposes only (not for status determination)
+          if (record?.inTime && record?.outTime && record.inTime !== '-' && record.outTime !== '-') {
+            const inMinutes = timeToMinutes(record.inTime);
+            const outMinutes = timeToMinutes(record.outTime);
+            if (inMinutes >= 0 && outMinutes >= 0) {
+              hoursWorked = outMinutes > inMinutes
+                ? (outMinutes - inMinutes) / 60
+                : ((1440 - inMinutes) + outMinutes) / 60;
+            }
+          }
         }
-
-        const { status, isLate, isEarly, lateMinutes, earlyMinutes, hoursWorked } = calculateAttendanceStatus(
-          finalRecord,
-          dateStr,
-          date,
-          shiftStartMinutes,
-          requiredHours,
-          lateToleranceUsed,
-          earlyToleranceUsed
-        );
-
-        // Override status to blank if unreconciled
-        const finalStatus = shouldShowBlank ? '-' : status;
-
-        // Track tolerance usage
-        if (isLate && lateMinutes <= 60 && !lateToleranceUsed) {
-          lateToleranceUsed = true;
-        }
-        if (isEarly && earlyMinutes <= 60 && !earlyToleranceUsed) {
-          earlyToleranceUsed = true;
-        }
-
-        if (isLate) lateCount++;
-        if (isEarly) earlyCount++;
+        // If not reconciled, show blank (already set to '-')
 
         // If a specific status filter is selected and this day doesn't match, show blank
-        let displayStatus = finalStatus;
-        if (statusFilter !== 'All' && !statusMatchesFilter(finalStatus)) {
+        let displayStatus: AttendanceStatus | '-' = finalStatus as AttendanceStatus | '-';
+        if (statusFilter !== 'All' && finalStatus !== '-' && !statusMatchesFilter(finalStatus as AttendanceStatus)) {
           displayStatus = '-';
         }
 
@@ -440,8 +430,8 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
           totalHoliday,
           workingDays,
           attendancePercentage: Math.round(attendancePercentage * 100) / 100,
-          lateCount,
-          earlyCount,
+          lateCount: 0, // No longer calculated from status legend
+          earlyCount: 0, // No longer calculated from status legend
           totalShortageHours: Math.round(totalShortageHours * 100) / 100,
           totalWorkHoursActual: Math.round(totalWorkHoursActual * 100) / 100,
           totalWorkHoursShift: Math.round(totalWorkHoursShift * 100) / 100
@@ -806,6 +796,16 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                   {Array.from({ length: daysInMonth }, (_, i) => (
                     <th key={i} className="px-2 py-4 text-center border-r border-slate-800">{i + 1}</th>
                   ))}
+                  <th className="px-3 py-4 text-center bg-emerald-700 border-l-2 border-slate-800">P</th>
+                  <th className="px-3 py-4 text-center bg-rose-700">A</th>
+                  <th className="px-3 py-4 text-center bg-blue-700">CL</th>
+                  <th className="px-3 py-4 text-center bg-purple-700">PL</th>
+                  <th className="px-3 py-4 text-center bg-pink-700">ML</th>
+                  <th className="px-3 py-4 text-center bg-amber-700">HD</th>
+                  <th className="px-3 py-4 text-center bg-slate-700">WO</th>
+                  <th className="px-3 py-4 text-center bg-indigo-700">H</th>
+                  <th className="px-3 py-4 text-center bg-orange-700">CO</th>
+                  <th className="px-3 py-4 text-center bg-red-700 border-r-2 border-slate-800">LOP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -848,6 +848,37 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
                         </td>
                       );
                     })}
+                    {/* Status Totals Columns */}
+                    <td className="px-3 py-3 text-center font-black text-sm border-l-2 border-slate-200 bg-emerald-50">
+                      {emp.days.filter(d => d.status === 'P').length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-rose-50">
+                      {emp.days.filter(d => d.status === 'A').length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-blue-50">
+                      {emp.days.filter(d => d.status === 'CL' || d.status?.includes('CL')).length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-purple-50">
+                      {emp.days.filter(d => d.status === 'PL' || d.status?.includes('PL')).length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-pink-50">
+                      {emp.days.filter(d => d.status === 'ML' || d.status?.includes('ML')).length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-amber-50">
+                      {emp.days.filter(d => d.status === 'HD').length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-slate-50">
+                      {emp.days.filter(d => d.status === 'WO').length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-indigo-50">
+                      {emp.days.filter(d => d.status === 'H').length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-orange-50">
+                      {emp.days.filter(d => d.status === 'CO' || d.status?.includes('CO')).length || '-'}
+                    </td>
+                    <td className="px-3 py-3 text-center font-black text-sm bg-red-50 border-r-2 border-slate-200">
+                      {emp.days.filter(d => d.status === 'LOP' || d.status?.includes('LOP')).length || '-'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
