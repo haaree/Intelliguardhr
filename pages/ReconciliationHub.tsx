@@ -242,39 +242,6 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         earlyBy: att.earlyBy
       };
 
-      // Normalize all status codes to standard format (for both saved and new records)
-      // Clean → P
-      if (record.originalStatus === 'Clean' || record.originalStatus === 'Present') {
-        record.originalStatus = 'P';
-      }
-      if (record.finalStatus === 'Clean' || record.finalStatus === 'Present') {
-        record.finalStatus = 'P';
-      }
-
-      // Weekly Off → WO
-      if (record.originalStatus === 'Weekly Off') {
-        record.originalStatus = 'WO';
-      }
-      if (record.finalStatus === 'Weekly Off') {
-        record.finalStatus = 'WO';
-      }
-
-      // Worked Off → WOH
-      if (record.originalStatus === 'Worked Off') {
-        record.originalStatus = 'WOH';
-      }
-      if (record.finalStatus === 'Worked Off') {
-        record.finalStatus = 'WOH';
-      }
-
-      // Holiday → H
-      if (record.originalStatus === 'Holiday') {
-        record.originalStatus = 'H';
-      }
-      if (record.finalStatus === 'Holiday') {
-        record.finalStatus = 'H';
-      }
-
       if (att.status === 'Absent' || att.status === 'A') {
         absent.push(record);
       } else if (att.status === 'Clean' || att.status === 'P' || att.status === 'Present') {
@@ -660,7 +627,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       return;
     }
 
-    if (!confirm(`Accept all ${pendingCount} pending records?\n\nThis will mark all unreconciled records as accepted with their current final status.`)) {
+    if (!confirm(`Accept all ${pendingCount} pending records?\n\nThis will mark all unreconciled records as accepted and immediately update the Monthly Report.`)) {
       return;
     }
 
@@ -678,28 +645,98 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       });
     };
 
+    let updatedRecords: ReconciliationRecord[] = [];
+
     switch (module) {
       case 'absent':
-        setAbsentRecords(updateRecords(absentRecords));
+        updatedRecords = updateRecords(absentRecords);
+        setAbsentRecords(updatedRecords);
         break;
       case 'present':
-        setPresentRecords(updateRecords(presentRecords));
+        updatedRecords = updateRecords(presentRecords);
+        setPresentRecords(updatedRecords);
         break;
       case 'workedoff':
-        setWorkedOffRecords(updateRecords(workedOffRecords));
+        updatedRecords = updateRecords(workedOffRecords);
+        setWorkedOffRecords(updatedRecords);
         break;
       case 'offdays':
-        setOffDaysRecords(updateRecords(offDaysRecords));
+        updatedRecords = updateRecords(offDaysRecords);
+        setOffDaysRecords(updatedRecords);
         break;
       case 'errors':
-        setErrorRecords(updateRecords(errorRecords));
+        updatedRecords = updateRecords(errorRecords);
+        setErrorRecords(updatedRecords);
         break;
       case 'audit':
-        setAuditRecords(updateRecords(auditRecords));
+        updatedRecords = updateRecords(auditRecords);
+        setAuditRecords(updatedRecords);
         break;
     }
 
-    alert(`✅ Accepted ${pendingCount} records!`);
+    // IMMEDIATELY save to parent component's reconciliationRecords
+    const allReconciliationRecords = [
+      ...(module === 'absent' ? updatedRecords : absentRecords),
+      ...(module === 'present' ? updatedRecords : presentRecords),
+      ...(module === 'workedoff' ? updatedRecords : workedOffRecords),
+      ...(module === 'offdays' ? updatedRecords : offDaysRecords),
+      ...(module === 'errors' ? updatedRecords : errorRecords),
+      ...(module === 'audit' ? updatedRecords : auditRecords)
+    ];
+
+    // Calculate module statuses
+    const newModuleStatuses = {
+      absent: {
+        name: 'Absent',
+        total: (module === 'absent' ? updatedRecords : absentRecords).length,
+        reconciled: (module === 'absent' ? updatedRecords : absentRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'absent' ? updatedRecords : absentRecords).every(r => r.isReconciled)
+      },
+      present: {
+        name: 'Present',
+        total: (module === 'present' ? updatedRecords : presentRecords).length,
+        reconciled: (module === 'present' ? updatedRecords : presentRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'present' ? updatedRecords : presentRecords).every(r => r.isReconciled)
+      },
+      offdays: {
+        name: 'Off Days',
+        total: (module === 'offdays' ? updatedRecords : offDaysRecords).length,
+        reconciled: (module === 'offdays' ? updatedRecords : offDaysRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'offdays' ? updatedRecords : offDaysRecords).every(r => r.isReconciled)
+      },
+      workedoff: {
+        name: 'Worked Off',
+        total: (module === 'workedoff' ? updatedRecords : workedOffRecords).length,
+        reconciled: (module === 'workedoff' ? updatedRecords : workedOffRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'workedoff' ? updatedRecords : workedOffRecords).every(r => r.isReconciled)
+      },
+      errors: {
+        name: 'Errors',
+        total: (module === 'errors' ? updatedRecords : errorRecords).length,
+        reconciled: (module === 'errors' ? updatedRecords : errorRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'errors' ? updatedRecords : errorRecords).every(r => r.isReconciled)
+      },
+      audit: {
+        name: 'Audit Queue',
+        total: (module === 'audit' ? updatedRecords : auditRecords).length,
+        reconciled: (module === 'audit' ? updatedRecords : auditRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'audit' ? updatedRecords : auditRecords).every(r => r.isReconciled)
+      }
+    };
+
+    // Immediately update parent component
+    const moduleData = {
+      absent: module === 'absent' ? updatedRecords : absentRecords,
+      present: module === 'present' ? updatedRecords : presentRecords,
+      workedoff: module === 'workedoff' ? updatedRecords : workedOffRecords,
+      offdays: module === 'offdays' ? updatedRecords : offDaysRecords,
+      errors: module === 'errors' ? updatedRecords : errorRecords,
+      audit: module === 'audit' ? updatedRecords : auditRecords
+    };
+
+    onUpdate(moduleData, newModuleStatuses);
+
+    alert(`✅ Accepted ${pendingCount} records!\n\nThese records are now visible in the Monthly Report.`);
   };
 
   const handleStatusChange = (module: string, index: number, newStatus: string) => {
@@ -760,7 +797,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     }
   };
 
-  // Unreconcile individual tab
+  // Unreconcile individual tab - removes all records for that tab from reconciliationRecords
   const handleUnreconcileTab = (module: 'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit') => {
     const getRecords = () => {
       switch (module) {
@@ -785,7 +822,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     const moduleName = moduleStatuses[module]?.name || module;
     const confirmed = confirm(
       `⚠️ Unreconcile ${moduleName} Tab?\n\n` +
-      `This will unreconcile ${reconciledCount} record(s).\n` +
+      `This will remove ${reconciledCount} record(s) from the Monthly Report.\n` +
       `Final Status will reset to Original Status.\n` +
       `Comments will be cleared.\n` +
       `Excel Status will be preserved.\n\n` +
@@ -806,31 +843,90 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       }));
     };
 
+    let updatedRecords: ReconciliationRecord[] = [];
+
     switch (module) {
       case 'absent':
-        setAbsentRecords(resetRecords(absentRecords));
+        updatedRecords = resetRecords(absentRecords);
+        setAbsentRecords(updatedRecords);
         break;
       case 'present':
-        setPresentRecords(resetRecords(presentRecords));
+        updatedRecords = resetRecords(presentRecords);
+        setPresentRecords(updatedRecords);
         break;
       case 'workedoff':
-        setWorkedOffRecords(resetRecords(workedOffRecords));
+        updatedRecords = resetRecords(workedOffRecords);
+        setWorkedOffRecords(updatedRecords);
         break;
       case 'offdays':
-        setOffDaysRecords(resetRecords(offDaysRecords));
+        updatedRecords = resetRecords(offDaysRecords);
+        setOffDaysRecords(updatedRecords);
         break;
       case 'errors':
-        setErrorRecords(resetRecords(errorRecords));
+        updatedRecords = resetRecords(errorRecords);
+        setErrorRecords(updatedRecords);
         break;
       case 'audit':
-        setAuditRecords(resetRecords(auditRecords));
+        updatedRecords = resetRecords(auditRecords);
+        setAuditRecords(updatedRecords);
         break;
     }
 
-    alert(`✅ Successfully unreconciled ${reconciledCount} record(s) in ${moduleName} tab!`);
+    // Update parent component - remove this tab's records from reconciliationRecords
+    const moduleData = {
+      absent: module === 'absent' ? updatedRecords : absentRecords,
+      present: module === 'present' ? updatedRecords : presentRecords,
+      workedoff: module === 'workedoff' ? updatedRecords : workedOffRecords,
+      offdays: module === 'offdays' ? updatedRecords : offDaysRecords,
+      errors: module === 'errors' ? updatedRecords : errorRecords,
+      audit: module === 'audit' ? updatedRecords : auditRecords
+    };
+
+    const newModuleStatuses = {
+      absent: {
+        name: 'Absent',
+        total: (module === 'absent' ? updatedRecords : absentRecords).length,
+        reconciled: (module === 'absent' ? updatedRecords : absentRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'absent' ? updatedRecords : absentRecords).length > 0 && (module === 'absent' ? updatedRecords : absentRecords).every(r => r.isReconciled)
+      },
+      present: {
+        name: 'Present',
+        total: (module === 'present' ? updatedRecords : presentRecords).length,
+        reconciled: (module === 'present' ? updatedRecords : presentRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'present' ? updatedRecords : presentRecords).length > 0 && (module === 'present' ? updatedRecords : presentRecords).every(r => r.isReconciled)
+      },
+      offdays: {
+        name: 'Off Days',
+        total: (module === 'offdays' ? updatedRecords : offDaysRecords).length,
+        reconciled: (module === 'offdays' ? updatedRecords : offDaysRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'offdays' ? updatedRecords : offDaysRecords).length > 0 && (module === 'offdays' ? updatedRecords : offDaysRecords).every(r => r.isReconciled)
+      },
+      workedoff: {
+        name: 'Worked Off',
+        total: (module === 'workedoff' ? updatedRecords : workedOffRecords).length,
+        reconciled: (module === 'workedoff' ? updatedRecords : workedOffRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'workedoff' ? updatedRecords : workedOffRecords).length > 0 && (module === 'workedoff' ? updatedRecords : workedOffRecords).every(r => r.isReconciled)
+      },
+      errors: {
+        name: 'Errors',
+        total: (module === 'errors' ? updatedRecords : errorRecords).length,
+        reconciled: (module === 'errors' ? updatedRecords : errorRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'errors' ? updatedRecords : errorRecords).length > 0 && (module === 'errors' ? updatedRecords : errorRecords).every(r => r.isReconciled)
+      },
+      audit: {
+        name: 'Audit Queue',
+        total: (module === 'audit' ? updatedRecords : auditRecords).length,
+        reconciled: (module === 'audit' ? updatedRecords : auditRecords).filter(r => r.isReconciled).length,
+        isComplete: (module === 'audit' ? updatedRecords : auditRecords).length > 0 && (module === 'audit' ? updatedRecords : auditRecords).every(r => r.isReconciled)
+      }
+    };
+
+    onUpdate(moduleData, newModuleStatuses);
+
+    alert(`✅ Successfully unreconciled ${reconciledCount} record(s) in ${moduleName} tab!\n\nThese records are now removed from the Monthly Report.`);
   };
 
-  // Unreconcile ALL tabs
+  // Unreconcile ALL tabs - completely clears reconciliationRecords array
   const handleUnreconcileAll = () => {
     const totalReconciled =
       absentRecords.filter(r => r.isReconciled).length +
@@ -847,7 +943,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
     const confirmed = confirm(
       `⚠️ UNRECONCILE ALL DATA?\n\n` +
-      `This will unreconcile ${totalReconciled} record(s) across ALL tabs.\n` +
+      `This will COMPLETELY CLEAR all reconciliation data (${totalReconciled} record(s)).\n` +
+      `The Monthly Report will become empty.\n` +
       `All Final Statuses will reset to Original Status.\n` +
       `All Comments will be cleared.\n` +
       `Excel Status will be preserved.\n\n` +
@@ -868,14 +965,72 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       }));
     };
 
-    setAbsentRecords(resetRecords(absentRecords));
-    setPresentRecords(resetRecords(presentRecords));
-    setWorkedOffRecords(resetRecords(workedOffRecords));
-    setOffDaysRecords(resetRecords(offDaysRecords));
-    setErrorRecords(resetRecords(errorRecords));
-    setAuditRecords(resetRecords(auditRecords));
+    const updatedAbsent = resetRecords(absentRecords);
+    const updatedPresent = resetRecords(presentRecords);
+    const updatedWorkedOff = resetRecords(workedOffRecords);
+    const updatedOffDays = resetRecords(offDaysRecords);
+    const updatedErrors = resetRecords(errorRecords);
+    const updatedAudit = resetRecords(auditRecords);
 
-    alert(`✅ Successfully unreconciled ${totalReconciled} record(s) across all tabs!\n\nYou can now perform re-reconciliation.`);
+    setAbsentRecords(updatedAbsent);
+    setPresentRecords(updatedPresent);
+    setWorkedOffRecords(updatedWorkedOff);
+    setOffDaysRecords(updatedOffDays);
+    setErrorRecords(updatedErrors);
+    setAuditRecords(updatedAudit);
+
+    // Completely clear reconciliationRecords
+    const moduleData = {
+      absent: updatedAbsent,
+      present: updatedPresent,
+      workedoff: updatedWorkedOff,
+      offdays: updatedOffDays,
+      errors: updatedErrors,
+      audit: updatedAudit
+    };
+
+    const newModuleStatuses = {
+      absent: {
+        name: 'Absent',
+        total: updatedAbsent.length,
+        reconciled: 0,
+        isComplete: false
+      },
+      present: {
+        name: 'Present',
+        total: updatedPresent.length,
+        reconciled: 0,
+        isComplete: false
+      },
+      offdays: {
+        name: 'Off Days',
+        total: updatedOffDays.length,
+        reconciled: 0,
+        isComplete: false
+      },
+      workedoff: {
+        name: 'Worked Off',
+        total: updatedWorkedOff.length,
+        reconciled: 0,
+        isComplete: false
+      },
+      errors: {
+        name: 'Errors',
+        total: updatedErrors.length,
+        reconciled: 0,
+        isComplete: false
+      },
+      audit: {
+        name: 'Audit Queue',
+        total: updatedAudit.length,
+        reconciled: 0,
+        isComplete: false
+      }
+    };
+
+    onUpdate(moduleData, newModuleStatuses);
+
+    alert(`✅ Successfully unreconciled ${totalReconciled} record(s) across all tabs!\n\nMonthly Report is now empty. You can perform re-reconciliation.`);
   };
 
   const handleMarkModuleComplete = (module: string) => {
@@ -912,30 +1067,6 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     alert(`${moduleStatuses[module].name} module marked as COMPLETE!`);
   };
 
-  const handleFinalizeAll = () => {
-    const incomplete = Object.entries(moduleStatuses).filter(([_, status]) => !status.isComplete);
-
-    if (incomplete.length > 0) {
-      alert(`Cannot finalize! The following modules are incomplete:\n\n${incomplete.map(([_, status]) => `- ${status.name}`).join('\n')}\n\nPlease complete all modules first.`);
-      return;
-    }
-
-    if (confirm('Finalize ALL reconciliations?\n\nThis will:\n✓ Update attendance records\n✓ Enable monthly report generation\n✓ Lock all reconciliation data\n\nContinue?')) {
-      // IMPORTANT: Only send reconciled records to the report
-      const allData = {
-        absent: absentRecords.filter(r => r.isReconciled),
-        present: presentRecords.filter(r => r.isReconciled),
-        workedoff: workedOffRecords.filter(r => r.isReconciled),
-        offdays: offDaysRecords.filter(r => r.isReconciled),
-        errors: errorRecords.filter(r => r.isReconciled),
-        audit: auditRecords.filter(r => r.isReconciled)
-      };
-
-      onUpdate(allData, moduleStatuses);
-      onFinalizeAll();
-      alert('✅ All reconciliations finalized!\n\nMonthly report is now available.\n\nYou can now download the complete reconciled records.');
-    }
-  };
 
   const handleDownloadReconciledRecords = () => {
     // Helper function to convert time string to minutes
@@ -1378,7 +1509,6 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     setSearchTerm('');
   };
 
-  const allModulesComplete = Object.values(moduleStatuses).every(status => status.isComplete);
 
   const tabConfig = [
     { id: 'absent', label: 'Absent', icon: UserX, color: 'rose' },
@@ -1451,27 +1581,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           )}
 
           <button
-            onClick={handleFinalizeAll}
-            disabled={!allModulesComplete}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all ${
-              allModulesComplete
-                ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white hover:from-teal-700 hover:to-emerald-700'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            }`}
+            onClick={handleDownloadReconciledRecords}
+            className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
           >
-            {allModulesComplete ? <Unlock size={18} /> : <Lock size={18} />}
-            <span>Finalize All Reconciliations</span>
+            <FileDown size={18} />
+            <span>Download Reconciled Records</span>
           </button>
-
-          {data.isReconciliationComplete && (
-            <button
-              onClick={handleDownloadReconciledRecords}
-              className="flex items-center space-x-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest shadow-xl transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700"
-            >
-              <FileDown size={18} />
-              <span>Download Reconciled Records</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -1880,37 +1995,6 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         </div>
       </div>
 
-      {/* Completion Status */}
-      {!allModulesComplete && (
-        <div className="bg-amber-50 p-6 rounded-3xl border border-amber-200">
-          <div className="flex items-start gap-4">
-            <Lock className="text-amber-600 flex-shrink-0 mt-1" size={24} />
-            <div>
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Monthly Report Locked</h3>
-              <p className="text-sm text-slate-700">
-                Complete all 6 reconciliation modules to unlock monthly report generation.
-              </p>
-              <p className="text-xs text-slate-600 mt-2">
-                Incomplete modules: {Object.entries(moduleStatuses).filter(([_, s]) => !s.isComplete).map(([_, s]) => s.name).join(', ')}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {allModulesComplete && (
-        <div className="bg-emerald-50 p-6 rounded-3xl border border-emerald-200">
-          <div className="flex items-start gap-4">
-            <Unlock className="text-emerald-600 flex-shrink-0 mt-1" size={24} />
-            <div>
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-2">Ready to Finalize</h3>
-              <p className="text-sm text-slate-700">
-                All modules are complete! Click "Finalize All Reconciliations" to update attendance and enable monthly report.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

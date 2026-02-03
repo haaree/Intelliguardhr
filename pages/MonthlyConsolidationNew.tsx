@@ -119,7 +119,7 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
 
       employeeMap.set(emp.employeeNumber, {
         employeeNumber: emp.employeeNumber,
-        employeeName: emp.employeeName,
+        employeeName: emp.fullName,  // Employee interface uses 'fullName' not 'employeeName'
         department: emp.department,
         legalEntity: sampleRecord?.legalEntity || 'N/A',
         costCenter: sampleRecord?.costCenter || 'N/A',
