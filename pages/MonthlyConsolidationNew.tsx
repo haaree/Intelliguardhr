@@ -43,6 +43,7 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [showReconciledOnly, setShowReconciledOnly] = useState(true);
+  const [activeView, setActiveView] = useState<'calendar' | 'summary'>('calendar');
 
   // Get month name
   const monthName = new Date(selectedYear, selectedMonth).toLocaleString('en-US', { month: 'long' });
@@ -153,6 +154,97 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
     return Array.from(statusSet).sort();
   }, [reportData]);
 
+  // Calculate status summary for each employee
+  const statusSummaryData = useMemo(() => {
+    return reportData.map(emp => {
+      const statusCounts: Record<string, number> = {};
+
+      // Count statuses, handling half days
+      emp.days.forEach(day => {
+        if (day.status && day.status !== '-') {
+          // Check if it's a half day status (contains /)
+          if (day.status.includes('/')) {
+            // Split half day status (e.g., "P/2" or "A/CL")
+            const parts = day.status.split('/');
+            parts.forEach(part => {
+              const cleanStatus = part.trim();
+              statusCounts[cleanStatus] = (statusCounts[cleanStatus] || 0) + 0.5;
+            });
+          } else {
+            // Full day status
+            statusCounts[day.status] = (statusCounts[day.status] || 0) + 1;
+          }
+        }
+      });
+
+      // Calculate total pay days (P + CL + PL + CO)
+      const paidStatuses = ['P', 'CL', 'PL', 'CO'];
+      const totalPayDays = paidStatuses.reduce((sum, status) => {
+        return sum + (statusCounts[status] || 0);
+      }, 0);
+
+      return {
+        employeeNumber: emp.employeeNumber,
+        employeeName: emp.employeeName,
+        department: emp.department,
+        location: emp.location,
+        costCenter: emp.costCenter,
+        reportingManager: emp.reportingManager,
+        statusCounts,
+        totalPayDays
+      };
+    });
+  }, [reportData]);
+
+  // Filtered summary data
+  const filteredSummaryData = useMemo(() => {
+    return statusSummaryData.filter(emp => {
+      const matchSearch = (emp.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (emp.employeeNumber || '').toLowerCase().includes(searchTerm.toLowerCase());
+      const matchDept = departmentFilter === 'All' || emp.department === departmentFilter;
+      const matchLoc = locationFilter === 'All' || emp.location === locationFilter;
+      const matchCC = costCenterFilter === 'All' || emp.costCenter === costCenterFilter;
+
+      return matchSearch && matchDept && matchLoc && matchCC;
+    });
+  }, [statusSummaryData, searchTerm, departmentFilter, locationFilter, costCenterFilter]);
+
+  // Sorting for summary view
+  const [summarySortConfig, setSummarySortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  const sortedSummaryData = useMemo(() => {
+    if (!summarySortConfig) return filteredSummaryData;
+
+    return [...filteredSummaryData].sort((a, b) => {
+      let aVal: any;
+      let bVal: any;
+
+      if (summarySortConfig.key === 'totalPayDays') {
+        aVal = a.totalPayDays;
+        bVal = b.totalPayDays;
+      } else if (summarySortConfig.key in a.statusCounts) {
+        aVal = a.statusCounts[summarySortConfig.key] || 0;
+        bVal = b.statusCounts[summarySortConfig.key] || 0;
+      } else {
+        aVal = (a as any)[summarySortConfig.key];
+        bVal = (b as any)[summarySortConfig.key];
+      }
+
+      if (aVal < bVal) return summarySortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return summarySortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredSummaryData, summarySortConfig]);
+
+  const handleSummarySort = (key: string) => {
+    setSummarySortConfig(current => {
+      if (current?.key === key) {
+        return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'asc' };
+    });
+  };
+
   // Filter options
   const departments = useMemo(() => {
     if (!data?.employees) return ['All'];
@@ -243,6 +335,40 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
     XLSX.writeFile(wb, `Monthly_Consolidation_${monthName}_${selectedYear}.xlsx`);
   };
 
+  // Export Summary to Excel
+  const handleExportSummary = () => {
+    if (sortedSummaryData.length === 0) {
+      alert("No summary data to export.");
+      return;
+    }
+
+    const exportData = sortedSummaryData.map(emp => {
+      const row: any = {
+        'Employee Number': emp.employeeNumber,
+        'Employee Name': emp.employeeName,
+        'Department': emp.department,
+        'Location': emp.location,
+        'Cost Center': emp.costCenter,
+        'Reporting Manager': emp.reportingManager
+      };
+
+      // Add all status columns
+      allStatuses.forEach(status => {
+        row[status] = emp.statusCounts[status] || 0;
+      });
+
+      // Add total pay days
+      row['Total Pay Days'] = emp.totalPayDays;
+
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Status Summary');
+    XLSX.writeFile(wb, `Status_Summary_${monthName}_${selectedYear}.xlsx`);
+  };
+
   // Show message if no data
   if (!data || !data.employees || data.employees.length === 0) {
     return (
@@ -269,12 +395,40 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
         </div>
 
         <button
-          onClick={handleExport}
+          onClick={activeView === 'calendar' ? handleExport : handleExportSummary}
           className="flex items-center space-x-2 bg-teal-600 text-white px-6 py-3 rounded-2xl hover:bg-teal-700 transition-all font-black text-xs uppercase tracking-widest shadow-lg"
         >
           <Download size={18} />
           <span>Export</span>
         </button>
+      </div>
+
+      {/* View Tabs */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-2">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setActiveView('calendar')}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+              activeView === 'calendar'
+                ? 'bg-teal-600 text-white shadow-lg'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar size={18} />
+            Calendar View
+          </button>
+          <button
+            onClick={() => setActiveView('summary')}
+            className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+              activeView === 'summary'
+                ? 'bg-teal-600 text-white shadow-lg'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Filter size={18} />
+            Status Summary
+          </button>
+        </div>
       </div>
 
       {/* Filters & Selection */}
@@ -513,6 +667,7 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
       })()}
 
       {/* Calendar Report Table */}
+      {activeView === 'calendar' && (
       <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl overflow-hidden">
         <div className="overflow-auto max-h-[700px]">
           <table className="w-full text-left table-auto border-collapse min-w-max">
@@ -580,6 +735,131 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
           </table>
         </div>
       </div>
+      )}
+
+      {/* Status Summary Table */}
+      {activeView === 'summary' && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl overflow-hidden">
+          <div className="p-6 border-b border-slate-200">
+            <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <Filter size={24} className="text-teal-600" />
+              Employee Status Summary
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">
+              Showing {sortedSummaryData.length} employees • Pay Days = P + CL + PL + CO
+            </p>
+          </div>
+
+          <div className="overflow-auto max-h-[700px]">
+            <table className="w-full text-left table-auto border-collapse">
+              <thead className="bg-slate-900 text-white text-[10px] uppercase font-black tracking-widest sticky top-0 z-20">
+                <tr>
+                  <th
+                    onClick={() => handleSummarySort('employeeNumber')}
+                    className="px-4 py-4 cursor-pointer hover:bg-slate-800 transition-colors sticky left-0 bg-slate-900 z-30"
+                  >
+                    Emp # {summarySortConfig?.key === 'employeeNumber' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th
+                    onClick={() => handleSummarySort('employeeName')}
+                    className="px-4 py-4 cursor-pointer hover:bg-slate-800 transition-colors sticky left-[100px] bg-slate-900 z-30"
+                  >
+                    Name {summarySortConfig?.key === 'employeeName' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th
+                    onClick={() => handleSummarySort('department')}
+                    className="px-4 py-4 cursor-pointer hover:bg-slate-800 transition-colors"
+                  >
+                    Department {summarySortConfig?.key === 'department' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th
+                    onClick={() => handleSummarySort('location')}
+                    className="px-4 py-4 cursor-pointer hover:bg-slate-800 transition-colors"
+                  >
+                    Location {summarySortConfig?.key === 'location' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th
+                    onClick={() => handleSummarySort('costCenter')}
+                    className="px-4 py-4 cursor-pointer hover:bg-slate-800 transition-colors"
+                  >
+                    Cost Center {summarySortConfig?.key === 'costCenter' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                  <th
+                    onClick={() => handleSummarySort('reportingManager')}
+                    className="px-4 py-4 cursor-pointer hover:bg-slate-800 transition-colors"
+                  >
+                    Manager {summarySortConfig?.key === 'reportingManager' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+
+                  {/* Dynamic status columns */}
+                  {allStatuses.map(status => (
+                    <th
+                      key={status}
+                      onClick={() => handleSummarySort(status)}
+                      className="px-3 py-4 text-center cursor-pointer hover:bg-slate-800 transition-colors border-l border-slate-700"
+                    >
+                      {status} {summarySortConfig?.key === status && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                    </th>
+                  ))}
+
+                  {/* Total Pay Days column */}
+                  <th
+                    onClick={() => handleSummarySort('totalPayDays')}
+                    className="px-4 py-4 text-center cursor-pointer hover:bg-slate-800 transition-colors border-l-2 border-teal-400 bg-teal-700"
+                  >
+                    Pay Days {summarySortConfig?.key === 'totalPayDays' && (summarySortConfig.direction === 'asc' ? '↑' : '↓')}
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100">
+                {sortedSummaryData.length === 0 ? (
+                  <tr>
+                    <td colSpan={6 + allStatuses.length + 1} className="px-4 py-12 text-center text-slate-500">
+                      No data available for the selected filters
+                    </td>
+                  </tr>
+                ) : (
+                  sortedSummaryData.map(emp => (
+                    <tr key={emp.employeeNumber} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 sticky left-0 z-10 bg-white border-r border-slate-100 text-xs font-black text-slate-900">
+                        {emp.employeeNumber}
+                      </td>
+                      <td className="px-4 py-3 sticky left-[100px] z-10 bg-white border-r border-slate-100 text-xs font-bold text-slate-900">
+                        {emp.employeeName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{emp.department}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{emp.location}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{emp.costCenter}</td>
+                      <td className="px-4 py-3 text-xs text-slate-700">{emp.reportingManager}</td>
+
+                      {/* Dynamic status counts */}
+                      {allStatuses.map(status => {
+                        const count = emp.statusCounts[status] || 0;
+                        return (
+                          <td
+                            key={status}
+                            className={`px-3 py-3 text-center font-bold text-sm border-l border-slate-200 ${
+                              count > 0 ? 'bg-slate-50' : 'bg-white text-slate-300'
+                            }`}
+                          >
+                            {count > 0 ? count : '-'}
+                          </td>
+                        );
+                      })}
+
+                      {/* Total Pay Days */}
+                      <td className="px-4 py-3 text-center font-black text-lg bg-emerald-50 border-l-2 border-emerald-200 text-emerald-700">
+                        {emp.totalPayDays.toFixed(1)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
