@@ -832,15 +832,17 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     if (!confirmed) return;
 
     const resetRecords = (records: ReconciliationRecord[]) => {
-      return records.map(rec => ({
-        ...rec,
-        finalStatus: rec.originalStatus,
-        comments: '',
-        isReconciled: false,
-        reconciledBy: '',
-        reconciledOn: '',
-        excelStatus: undefined  // Clear Excel upload status to avoid confusion
-      }));
+      return records.map(rec => {
+        const { excelStatus, ...rest } = rec;  // Remove excelStatus property
+        return {
+          ...rest,
+          finalStatus: rec.originalStatus,
+          comments: '',
+          isReconciled: false,
+          reconciledBy: '',
+          reconciledOn: ''
+        };
+      });
     };
 
     let updatedRecords: ReconciliationRecord[] = [];
@@ -955,15 +957,17 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     if (!confirmed) return;
 
     const resetRecords = (records: ReconciliationRecord[]) => {
-      return records.map(rec => ({
-        ...rec,
-        finalStatus: rec.originalStatus,
-        comments: '',
-        isReconciled: false,
-        reconciledBy: '',
-        reconciledOn: '',
-        excelStatus: undefined  // Clear Excel upload status to avoid confusion
-      }));
+      return records.map(rec => {
+        const { excelStatus, ...rest } = rec;  // Remove excelStatus property
+        return {
+          ...rest,
+          finalStatus: rec.originalStatus,
+          comments: '',
+          isReconciled: false,
+          reconciledBy: '',
+          reconciledOn: ''
+        };
+      });
     };
 
     const updatedAbsent = resetRecords(absentRecords);
