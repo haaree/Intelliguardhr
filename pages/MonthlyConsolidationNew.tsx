@@ -63,6 +63,11 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
 
   // Build report data
   const reportData = useMemo(() => {
+    // Safety check
+    if (!data || !data.employees || !Array.isArray(data.employees)) {
+      return [];
+    }
+
     // Create reconciliation map for quick lookup
     const reconciliationMap = new Map<string, { finalStatus: string }>();
 
@@ -147,28 +152,34 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
 
   // Filter options
   const departments = useMemo(() => {
+    if (!data?.employees) return ['All'];
     return ['All', ...new Set(data.employees.map(e => e.department))].filter(Boolean);
-  }, [data.employees]);
+  }, [data?.employees]);
 
   const legalEntities = useMemo(() => {
+    if (!data?.attendance) return ['All'];
     return ['All', ...new Set(data.attendance.map(r => r.legalEntity))].filter(Boolean);
-  }, [data.attendance]);
+  }, [data?.attendance]);
 
   const costCenters = useMemo(() => {
+    if (!data?.attendance) return ['All'];
     return ['All', ...new Set(data.attendance.map(r => r.costCenter))].filter(Boolean);
-  }, [data.attendance]);
+  }, [data?.attendance]);
 
   const locations = useMemo(() => {
+    if (!data?.attendance) return ['All'];
     return ['All', ...new Set(data.attendance.map(r => r.location))].filter(Boolean);
-  }, [data.attendance]);
+  }, [data?.attendance]);
 
   const reportingManagers = useMemo(() => {
+    if (!data?.employees) return ['All'];
     return ['All', ...new Set(data.employees.map(e => e.reportingTo))].filter(Boolean);
-  }, [data.employees]);
+  }, [data?.employees]);
 
   const shifts = useMemo(() => {
+    if (!data?.attendance) return ['All'];
     return ['All', ...new Set(data.attendance.map(r => r.shift))].filter(Boolean);
-  }, [data.attendance]);
+  }, [data?.attendance]);
 
   // Filtered data
   const filteredData = useMemo(() => {
@@ -228,6 +239,17 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
     XLSX.utils.book_append_sheet(wb, ws, 'Report');
     XLSX.writeFile(wb, `Monthly_Consolidation_${monthName}_${selectedYear}.xlsx`);
   };
+
+  // Show message if no data
+  if (!data || !data.employees || data.employees.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <Calendar className="text-slate-300" size={64} />
+        <h2 className="text-2xl font-bold text-slate-600">No Employee Data Available</h2>
+        <p className="text-slate-500">Please upload employee data to view the monthly consolidation report.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
