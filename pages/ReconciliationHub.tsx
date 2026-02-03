@@ -215,7 +215,9 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         totalHours: att.totalHours || '00:00',
         deviation: att.deviation,
         lateBy: att.lateBy,
-        earlyBy: att.earlyBy
+        earlyBy: att.earlyBy,
+        // Preserve excelStatus from saved data (undefined if cleared)
+        excelStatus: savedReconciliation.excelStatus
       } : {
         id: recordId,
         employeeNumber: att.employeeNumber,
