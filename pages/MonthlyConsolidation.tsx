@@ -344,13 +344,8 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
           isReconciled: rec.isReconciled || false,
           finalStatus: rec.finalStatus || rec.originalStatus || '-'
         });
-        // Debug: log a few reconciliation records to console
-        if (reconciliationMap.size <= 3) {
-          console.log('Reconciliation Map Entry:', key, '| isReconciled:', rec.isReconciled, '| finalStatus:', rec.finalStatus);
-        }
       });
     }
-    console.log('Total reconciliation records loaded:', reconciliationMap.size);
 
     // Group ALL attendance by employee (we'll filter at day level)
     const attendanceByEmployee = new Map<string, AttendanceRecord[]>();
@@ -388,11 +383,6 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
         const recordKey = `${employee.employeeNumber}-${dateStr}`.toUpperCase();
         const reconciliationData = reconciliationMap.get(recordKey);
         const isDayReconciled = reconciliationData?.isReconciled || false;
-
-        // Debug: log first few lookups to see if keys match
-        if (day <= 2 && employee.employeeNumber === data.employees[0]?.employeeNumber) {
-          console.log('Lookup Key:', recordKey, '| Found:', !!reconciliationData, '| isReconciled:', isDayReconciled);
-        }
 
         // Track if employee has any unreconciled records
         if (record && !isDayReconciled && !data.isReconciliationComplete) {
