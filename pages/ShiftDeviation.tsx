@@ -149,7 +149,7 @@ const ShiftDeviation: React.FC<ShiftDeviationProps> = ({ data, role }) => {
     };
   }, [filteredDeviations]);
 
-  // Handle Excel upload for planned shifts
+  // Handle Excel upload for planned shifts (Calendar format)
   const handlePlannedShiftUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -163,56 +163,129 @@ const ShiftDeviation: React.FC<ShiftDeviationProps> = ({ data, role }) => {
         const workbook = XLSX.read(event.target?.result, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
+        // Get raw data without converting to JSON to preserve column structure
+        const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
         const shifts: PlannedShift[] = [];
         let errors = 0;
 
-        jsonData.forEach((row: any, index) => {
-          const employeeNumber = String(row['Employee ID'] || row['Employee Number'] || row['EMP #'] || '').trim();
-          const date = row['Date'];
-          const shift = String(row['Shift'] || '').trim();
-          const department = String(row['Department'] || '').trim();
-          const location = String(row['Location'] || '').trim();
+        // Find header row (look for row with Employee ID and numeric columns)
+        let headerRowIndex = -1;
+        let headerRow: any = {};
 
-          if (!employeeNumber || !date || !shift) {
-            errors++;
-            return;
+        for (let R = range.s.r; R <= Math.min(range.s.r + 10, range.e.r); R++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: 0 });
+          const cell = worksheet[cellAddress];
+          const cellValue = cell ? String(cell.v || '').toLowerCase() : '';
+
+          if (cellValue.includes('emp') || cellValue.includes('employee')) {
+            headerRowIndex = R;
+            // Read header row
+            for (let C = range.s.c; C <= range.e.c; C++) {
+              const addr = XLSX.utils.encode_cell({ r: R, c: C });
+              const headerCell = worksheet[addr];
+              if (headerCell) {
+                headerRow[C] = String(headerCell.v || '').trim();
+              }
+            }
+            break;
           }
+        }
 
-          // Parse and format date
-          let formattedDate = '';
-          if (date instanceof Date) {
-            formattedDate = date.toISOString().split('T')[0];
-          } else if (typeof date === 'string') {
-            formattedDate = new Date(date).toISOString().split('T')[0];
-          } else if (typeof date === 'number') {
-            // Excel serial date
-            const excelEpoch = new Date(1899, 11, 30);
-            const jsDate = new Date(excelEpoch.getTime() + date * 86400000);
-            formattedDate = jsDate.toISOString().split('T')[0];
+        if (headerRowIndex === -1) {
+          throw new Error('Could not find header row with Employee ID');
+        }
+
+        // Identify key columns
+        const empIdCol = Object.entries(headerRow).find(([_, v]: any) =>
+          String(v).toLowerCase().includes('emp') && !String(v).toLowerCase().includes('name')
+        )?.[0];
+        const nameCol = Object.entries(headerRow).find(([_, v]: any) =>
+          String(v).toLowerCase().includes('name')
+        )?.[0];
+        const deptCol = Object.entries(headerRow).find(([_, v]: any) =>
+          String(v).toLowerCase().includes('dept')
+        )?.[0];
+        const locCol = Object.entries(headerRow).find(([_, v]: any) =>
+          String(v).toLowerCase().includes('loc')
+        )?.[0];
+
+        // Find date columns (numeric values 1-31)
+        const dateColumns: { [key: number]: number } = {}; // colIndex -> day
+        Object.entries(headerRow).forEach(([colIdx, value]: any) => {
+          const numValue = parseInt(String(value));
+          if (!isNaN(numValue) && numValue >= 1 && numValue <= 31) {
+            dateColumns[parseInt(colIdx)] = numValue;
           }
-
-          shifts.push({
-            employeeNumber,
-            date: formattedDate,
-            shift,
-            department,
-            location
-          });
         });
 
-        setPlannedShifts(shifts);
-        setUploadStatus(`✅ Loaded ${shifts.length} planned shifts successfully!${errors > 0 ? ` (${errors} rows skipped due to missing data)` : ''}`);
-        setIsProcessing(false);
-
-        // Auto-set selected month to first shift's month
-        if (shifts.length > 0) {
-          setSelectedMonth(shifts[0].date.slice(0, 7));
+        // Prompt user to select month and year
+        const monthYearInput = prompt('Enter month and year for this schedule (format: YYYY-MM, e.g., 2026-01):');
+        if (!monthYearInput) {
+          setUploadStatus('❌ Month/Year is required to process calendar format');
+          setIsProcessing(false);
+          return;
         }
+
+        const [year, month] = monthYearInput.split('-').map(Number);
+        if (!year || !month || month < 1 || month > 12) {
+          setUploadStatus('❌ Invalid month/year format. Use YYYY-MM');
+          setIsProcessing(false);
+          return;
+        }
+
+        // Process each employee row
+        for (let R = headerRowIndex + 1; R <= range.e.r; R++) {
+          // Get employee details
+          const empIdCell = worksheet[XLSX.utils.encode_cell({ r: R, c: parseInt(empIdCol || '0') })];
+          const nameCell = worksheet[XLSX.utils.encode_cell({ r: R, c: parseInt(nameCol || '1') })];
+          const deptCell = worksheet[XLSX.utils.encode_cell({ r: R, c: parseInt(deptCol || '2') })];
+          const locCell = worksheet[XLSX.utils.encode_cell({ r: R, c: parseInt(locCol || '3') })];
+
+          const employeeNumber = empIdCell ? String(empIdCell.v || '').trim() : '';
+          const employeeName = nameCell ? String(nameCell.v || '').trim() : '';
+          const department = deptCell ? String(deptCell.v || '').trim() : '';
+          const location = locCell ? String(locCell.v || '').trim() : '';
+
+          if (!employeeNumber) {
+            continue; // Skip empty rows
+          }
+
+          // Process each date column
+          Object.entries(dateColumns).forEach(([colIdx, day]) => {
+            const shiftCell = worksheet[XLSX.utils.encode_cell({ r: R, c: parseInt(colIdx) })];
+            const shift = shiftCell ? String(shiftCell.v || '').trim() : '';
+
+            if (shift && shift !== '-' && shift !== '') {
+              // Create date in YYYY-MM-DD format
+              const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+              shifts.push({
+                employeeNumber,
+                employeeName,
+                date: formattedDate,
+                shift,
+                department,
+                location
+              });
+            }
+          });
+        }
+
+        if (shifts.length === 0) {
+          setUploadStatus('❌ No shift data found. Please check the file format.');
+          setIsProcessing(false);
+          return;
+        }
+
+        setPlannedShifts(shifts);
+        setUploadStatus(`✅ Loaded ${shifts.length} planned shifts successfully from calendar format!`);
+        setIsProcessing(false);
+        setSelectedMonth(`${year}-${String(month).padStart(2, '0')}`);
+
       } catch (error) {
         console.error('Error parsing Excel:', error);
-        setUploadStatus('❌ Error parsing Excel file. Please check the format.');
+        setUploadStatus(`❌ Error parsing Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`);
         setIsProcessing(false);
       }
     };
@@ -221,54 +294,142 @@ const ShiftDeviation: React.FC<ShiftDeviationProps> = ({ data, role }) => {
     e.target.value = ''; // Reset input
   };
 
-  // Download template
+  // Download calendar format template
   const handleDownloadTemplate = () => {
+    // Create calendar format template: EmpID | Name | Dept | Location | 1 | 2 | 3 | ... | 31
     const templateData = [
       {
         'Employee ID': 'ASP001',
-        'Date': '2026-01-01',
-        'Shift': 'G',
+        'Name': 'Rajesh Chinna Durai',
         'Department': 'Production',
-        'Location': 'Mumbai'
-      },
-      {
-        'Employee ID': 'ASP001',
-        'Date': '2026-01-02',
-        'Shift': 'G',
-        'Department': 'Production',
-        'Location': 'Mumbai'
+        'Location': 'Mumbai',
+        '1': 'G',
+        '2': 'G',
+        '3': 'G',
+        '4': 'G',
+        '5': 'G',
+        '6': 'WO',
+        '7': 'WO',
+        '8': 'G',
+        '9': 'G',
+        '10': 'G',
+        '11': 'G',
+        '12': 'G',
+        '13': 'WO',
+        '14': 'WO',
+        '15': 'G',
+        '16': 'G',
+        '17': 'G',
+        '18': 'G',
+        '19': 'G',
+        '20': 'WO',
+        '21': 'WO',
+        '22': 'G',
+        '23': 'G',
+        '24': 'G',
+        '25': 'G',
+        '26': 'G',
+        '27': 'WO',
+        '28': 'WO',
+        '29': 'G',
+        '30': 'G',
+        '31': 'G'
       },
       {
         'Employee ID': 'ASP002',
-        'Date': '2026-01-01',
-        'Shift': 'N',
+        'Name': 'Dhavaselvan Thangasamy',
         'Department': 'Production',
-        'Location': 'Mumbai'
+        'Location': 'Mumbai',
+        '1': 'N',
+        '2': 'N',
+        '3': 'N',
+        '4': 'N',
+        '5': 'N',
+        '6': 'WO',
+        '7': 'WO',
+        '8': 'N',
+        '9': 'N',
+        '10': 'N',
+        '11': 'N',
+        '12': 'N',
+        '13': 'WO',
+        '14': 'WO',
+        '15': 'N',
+        '16': 'N',
+        '17': 'N',
+        '18': 'N',
+        '19': 'N',
+        '20': 'WO',
+        '21': 'WO',
+        '22': 'N',
+        '23': 'N',
+        '24': 'N',
+        '25': 'N',
+        '26': 'N',
+        '27': 'WO',
+        '28': 'WO',
+        '29': 'N',
+        '30': 'N',
+        '31': 'N'
       },
       {
         'Employee ID': 'ASP003',
-        'Date': '2026-01-01',
-        'Shift': 'G',
+        'Name': 'Thennavan Kumar',
         'Department': 'Finance & Admin',
-        'Location': 'Mumbai'
+        'Location': 'Mumbai',
+        '1': 'G',
+        '2': 'G',
+        '3': 'G',
+        '4': 'G',
+        '5': 'G',
+        '6': 'WO',
+        '7': 'WO',
+        '8': 'G',
+        '9': 'G',
+        '10': 'G',
+        '11': 'G',
+        '12': 'G',
+        '13': 'WO',
+        '14': 'WO',
+        '15': 'G',
+        '16': 'G',
+        '17': 'G',
+        '18': 'G',
+        '19': 'G',
+        '20': 'WO',
+        '21': 'WO',
+        '22': 'G',
+        '23': 'G',
+        '24': 'G',
+        '25': 'G',
+        '26': 'G',
+        '27': 'WO',
+        '28': 'WO',
+        '29': 'G',
+        '30': 'G',
+        '31': 'G'
       }
     ];
 
     const ws = XLSX.utils.json_to_sheet(templateData);
 
     // Set column widths
-    ws['!cols'] = [
+    const colWidths = [
       { wch: 12 }, // Employee ID
-      { wch: 12 }, // Date
-      { wch: 8 },  // Shift
+      { wch: 25 }, // Name
       { wch: 20 }, // Department
       { wch: 15 }  // Location
     ];
+    // Add width for each day column (1-31)
+    for (let i = 0; i < 31; i++) {
+      colWidths.push({ wch: 4 });
+    }
+    ws['!cols'] = colWidths;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Shift Schedule');
 
-    XLSX.writeFile(wb, 'Shift_Schedule_Template.xlsx');
+    XLSX.writeFile(wb, 'Shift_Schedule_Calendar_Template.xlsx');
   };
 
   // Export deviation report
@@ -396,15 +557,15 @@ const ShiftDeviation: React.FC<ShiftDeviationProps> = ({ data, role }) => {
                 {uploadStatus}
               </div>
             )}
-            <div className="text-xs text-slate-500 space-y-1">
-              <p className="font-semibold">Required Excel columns:</p>
+            <div className="text-xs text-slate-500 space-y-2">
+              <p className="font-semibold text-slate-700">Calendar Format Expected:</p>
               <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>Employee ID (or Employee Number or EMP #)</li>
-                <li>Date</li>
-                <li>Shift</li>
-                <li>Department</li>
-                <li>Location</li>
+                <li><span className="font-medium">First 4 columns:</span> Employee ID, Name, Department, Location</li>
+                <li><span className="font-medium">Remaining columns:</span> Days 1, 2, 3...28/30/31 (based on month)</li>
+                <li><span className="font-medium">Cell values:</span> Shift codes (G, N, A, WO, etc.)</li>
+                <li><span className="font-medium">You will be prompted</span> to enter the month/year after upload</li>
               </ul>
+              <p className="text-slate-600 mt-2 font-medium">Example: EmpID | Name | Dept | Location | 1 | 2 | 3 | ... | 31</p>
             </div>
           </div>
         </div>
