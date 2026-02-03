@@ -797,7 +797,58 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     }
   };
 
-  // Unreconcile individual tab - removes all records for that tab from reconciliationRecords
+  // Helper function to reload records fresh from attendance data
+  const reloadRecordsFromAttendance = (records: ReconciliationRecord[]) => {
+    return records.map(rec => {
+      // Find the corresponding attendance record
+      const attRecord = data.attendance.find(
+        att => `${att.employeeNumber}-${att.date}` === rec.id
+      );
+
+      if (!attRecord) {
+        // If attendance record not found, just reset to blank state
+        return {
+          ...rec,
+          originalStatus: rec.originalStatus,
+          finalStatus: rec.originalStatus,
+          comments: '',
+          isReconciled: false,
+          reconciledBy: '',
+          reconciledOn: ''
+        };
+      }
+
+      // Reload completely fresh from attendance data
+      return {
+        id: rec.id,
+        employeeNumber: attRecord.employeeNumber,
+        employeeName: attRecord.employeeName,
+        department: attRecord.department || 'N/A',
+        subDepartment: attRecord.subDepartment || 'N/A',
+        location: attRecord.location || 'N/A',
+        costCenter: attRecord.costCenter || 'N/A',
+        legalEntity: attRecord.legalEntity || 'N/A',
+        reportingManager: attRecord.reportingManager || 'N/A',
+        date: attRecord.date,
+        shift: attRecord.shift || 'N/A',
+        shiftStart: attRecord.shiftStart || '00:00',
+        shiftEnd: attRecord.shiftEnd || '00:00',
+        inTime: attRecord.inTime || '00:00',
+        outTime: attRecord.outTime || '00:00',
+        totalHours: attRecord.totalHours || '00:00',
+        originalStatus: attRecord.status === 'Absent' ? 'A' : attRecord.status,
+        finalStatus: attRecord.status === 'Absent' ? 'A' : attRecord.status,
+        comments: '',
+        isReconciled: false,
+        deviation: attRecord.deviation,
+        lateBy: attRecord.lateBy,
+        earlyBy: attRecord.earlyBy
+        // Note: excelStatus is intentionally omitted (cleared)
+      };
+    });
+  };
+
+  // Unreconcile individual tab - completely reloads records fresh from attendance data
   const handleUnreconcileTab = (module: 'absent' | 'present' | 'workedoff' | 'offdays' | 'errors' | 'audit') => {
     const getRecords = () => {
       switch (module) {
@@ -821,55 +872,44 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
     const moduleName = moduleStatuses[module]?.name || module;
     const confirmed = confirm(
-      `⚠️ Unreconcile ${moduleName} Tab?\n\n` +
-      `This will remove ${reconciledCount} record(s) from the Monthly Report.\n` +
-      `Final Status will reset to Original Status.\n` +
-      `Comments will be cleared.\n` +
-      `Excel Status will be preserved.\n\n` +
+      `⚠️ COMPLETE RESET - Unreconcile ${moduleName} Tab?\n\n` +
+      `This will RELOAD ${records.length} record(s) fresh from attendance data.\n` +
+      `ALL changes will be lost:\n` +
+      `  • Excel uploads will be cleared\n` +
+      `  • Manual status changes will be reset\n` +
+      `  • All comments will be removed\n` +
+      `  • Original Status will reload from source\n\n` +
+      `Monthly Report will no longer show these records.\n\n` +
       `Are you sure you want to continue?`
     );
 
     if (!confirmed) return;
 
-    const resetRecords = (records: ReconciliationRecord[]) => {
-      return records.map(rec => {
-        const { excelStatus, ...rest } = rec;  // Remove excelStatus property
-        return {
-          ...rest,
-          finalStatus: rec.originalStatus,
-          comments: '',
-          isReconciled: false,
-          reconciledBy: '',
-          reconciledOn: ''
-        };
-      });
-    };
-
     let updatedRecords: ReconciliationRecord[] = [];
 
     switch (module) {
       case 'absent':
-        updatedRecords = resetRecords(absentRecords);
+        updatedRecords = reloadRecordsFromAttendance(absentRecords);
         setAbsentRecords(updatedRecords);
         break;
       case 'present':
-        updatedRecords = resetRecords(presentRecords);
+        updatedRecords = reloadRecordsFromAttendance(presentRecords);
         setPresentRecords(updatedRecords);
         break;
       case 'workedoff':
-        updatedRecords = resetRecords(workedOffRecords);
+        updatedRecords = reloadRecordsFromAttendance(workedOffRecords);
         setWorkedOffRecords(updatedRecords);
         break;
       case 'offdays':
-        updatedRecords = resetRecords(offDaysRecords);
+        updatedRecords = reloadRecordsFromAttendance(offDaysRecords);
         setOffDaysRecords(updatedRecords);
         break;
       case 'errors':
-        updatedRecords = resetRecords(errorRecords);
+        updatedRecords = reloadRecordsFromAttendance(errorRecords);
         setErrorRecords(updatedRecords);
         break;
       case 'audit':
-        updatedRecords = resetRecords(auditRecords);
+        updatedRecords = reloadRecordsFromAttendance(auditRecords);
         setAuditRecords(updatedRecords);
         break;
     }
@@ -925,7 +965,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
     onUpdate(moduleData, newModuleStatuses);
 
-    alert(`✅ Successfully unreconciled ${reconciledCount} record(s) in ${moduleName} tab!\n\nThese records are now removed from the Monthly Report.`);
+    alert(`✅ Complete Reset Successful - ${moduleName} Tab!\n\nReloaded ${records.length} record(s) fresh from attendance data.\n\nAll Excel uploads, comments, and manual changes have been cleared.\n\nMonthly Report no longer shows these records.`);
   };
 
   // Unreconcile ALL tabs - completely clears reconciliationRecords array
@@ -944,38 +984,27 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     }
 
     const confirmed = confirm(
-      `⚠️ UNRECONCILE ALL DATA?\n\n` +
-      `This will COMPLETELY CLEAR all reconciliation data (${totalReconciled} record(s)).\n` +
+      `⚠️ COMPLETE RESET - UNRECONCILE ALL DATA?\n\n` +
+      `This will RELOAD ALL ${totalReconciled} record(s) fresh from attendance data.\n\n` +
+      `ALL changes will be PERMANENTLY LOST:\n` +
+      `  • All Excel uploads will be cleared\n` +
+      `  • All manual status changes will be reset\n` +
+      `  • All comments will be removed\n` +
+      `  • Original Status will reload from source\n\n` +
       `The Monthly Report will become empty.\n` +
-      `All Final Statuses will reset to Original Status.\n` +
-      `All Comments will be cleared.\n` +
-      `Excel Status will be preserved.\n\n` +
-      `This action allows you to perform complete re-reconciliation.\n\n` +
+      `You can perform complete re-reconciliation after this.\n\n` +
       `Are you ABSOLUTELY sure?`
     );
 
     if (!confirmed) return;
 
-    const resetRecords = (records: ReconciliationRecord[]) => {
-      return records.map(rec => {
-        const { excelStatus, ...rest } = rec;  // Remove excelStatus property
-        return {
-          ...rest,
-          finalStatus: rec.originalStatus,
-          comments: '',
-          isReconciled: false,
-          reconciledBy: '',
-          reconciledOn: ''
-        };
-      });
-    };
-
-    const updatedAbsent = resetRecords(absentRecords);
-    const updatedPresent = resetRecords(presentRecords);
-    const updatedWorkedOff = resetRecords(workedOffRecords);
-    const updatedOffDays = resetRecords(offDaysRecords);
-    const updatedErrors = resetRecords(errorRecords);
-    const updatedAudit = resetRecords(auditRecords);
+    // Reload ALL records fresh from attendance data
+    const updatedAbsent = reloadRecordsFromAttendance(absentRecords);
+    const updatedPresent = reloadRecordsFromAttendance(presentRecords);
+    const updatedWorkedOff = reloadRecordsFromAttendance(workedOffRecords);
+    const updatedOffDays = reloadRecordsFromAttendance(offDaysRecords);
+    const updatedErrors = reloadRecordsFromAttendance(errorRecords);
+    const updatedAudit = reloadRecordsFromAttendance(auditRecords);
 
     setAbsentRecords(updatedAbsent);
     setPresentRecords(updatedPresent);
@@ -1035,7 +1064,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
     onUpdate(moduleData, newModuleStatuses);
 
-    alert(`✅ Successfully unreconciled ${totalReconciled} record(s) across all tabs!\n\nMonthly Report is now empty. You can perform re-reconciliation.`);
+    alert(`✅ Complete Reset Successful!\n\nReloaded ${totalReconciled} record(s) fresh from attendance data.\n\nAll Excel uploads, comments, and manual changes have been cleared.\n\nMonthly Report is now empty. You can perform fresh reconciliation.`);
   };
 
   const handleMarkModuleComplete = (module: string) => {
