@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calendar, Upload, FileDown, AlertCircle, TrendingUp, DollarSign, Users, CheckCircle } from 'lucide-react';
+import { Calendar, Upload, FileDown, AlertCircle, TrendingUp, DollarSign, Users, CheckCircle, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { AppData } from '../types';
 
@@ -221,6 +221,56 @@ const ShiftDeviation: React.FC<ShiftDeviationProps> = ({ data, role }) => {
     e.target.value = ''; // Reset input
   };
 
+  // Download template
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        'Employee ID': 'ASP001',
+        'Date': '2026-01-01',
+        'Shift': 'G',
+        'Department': 'Production',
+        'Location': 'Mumbai'
+      },
+      {
+        'Employee ID': 'ASP001',
+        'Date': '2026-01-02',
+        'Shift': 'G',
+        'Department': 'Production',
+        'Location': 'Mumbai'
+      },
+      {
+        'Employee ID': 'ASP002',
+        'Date': '2026-01-01',
+        'Shift': 'N',
+        'Department': 'Production',
+        'Location': 'Mumbai'
+      },
+      {
+        'Employee ID': 'ASP003',
+        'Date': '2026-01-01',
+        'Shift': 'G',
+        'Department': 'Finance & Admin',
+        'Location': 'Mumbai'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // Employee ID
+      { wch: 12 }, // Date
+      { wch: 8 },  // Shift
+      { wch: 20 }, // Department
+      { wch: 15 }  // Location
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Shift Schedule');
+
+    XLSX.writeFile(wb, 'Shift_Schedule_Template.xlsx');
+  };
+
   // Export deviation report
   const handleExportReport = () => {
     if (filteredDeviations.length === 0) {
@@ -321,17 +371,26 @@ const ShiftDeviation: React.FC<ShiftDeviationProps> = ({ data, role }) => {
             Upload Monthly Shift Schedule
           </h2>
           <div className="space-y-4">
-            <label className="flex items-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all cursor-pointer font-black text-sm uppercase tracking-widest shadow-lg">
-              <Upload size={18} />
-              <span>Choose Excel File</span>
-              <input
-                type="file"
-                className="hidden"
-                accept=".xlsx, .xls"
-                onChange={handlePlannedShiftUpload}
-                disabled={isProcessing}
-              />
-            </label>
+            <div className="flex gap-3">
+              <label className="flex-1 flex items-center justify-center space-x-3 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all cursor-pointer font-black text-sm uppercase tracking-widest shadow-lg">
+                <Upload size={18} />
+                <span>Choose Excel File</span>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".xlsx, .xls"
+                  onChange={handlePlannedShiftUpload}
+                  disabled={isProcessing}
+                />
+              </label>
+              <button
+                onClick={handleDownloadTemplate}
+                className="flex items-center space-x-2 px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
+              >
+                <Download size={18} />
+                <span>Download Template</span>
+              </button>
+            </div>
             {uploadStatus && (
               <div className="px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
                 {uploadStatus}

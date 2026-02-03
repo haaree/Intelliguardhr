@@ -1,0 +1,10 @@
+Employee ID,Date,Shift,Department,Location
+ASP001,2026-01-01,G,Production,Mumbai
+ASP001,2026-01-02,G,Production,Mumbai
+ASP001,2026-01-03,G,Production,Mumbai
+ASP002,2026-01-01,N,Production,Mumbai
+ASP002,2026-01-02,N,Production,Mumbai
+ASP002,2026-01-03,N,Production,Mumbai
+ASP003,2026-01-01,G,Finance & Admin,Mumbai
+ASP003,2026-01-02,G,Finance & Admin,Mumbai
+ASP003,2026-01-03,G,Finance & Admin,Mumbai
