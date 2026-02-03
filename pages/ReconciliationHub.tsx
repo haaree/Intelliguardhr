@@ -811,6 +811,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
           ...rec,
           originalStatus: rec.originalStatus,
           finalStatus: rec.originalStatus,
+          excelStatus: undefined,
           comments: '',
           isReconciled: false,
           reconciledBy: '',
@@ -838,12 +839,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         totalHours: attRecord.totalHours || '00:00',
         originalStatus: attRecord.status === 'Absent' ? 'A' : attRecord.status,
         finalStatus: attRecord.status === 'Absent' ? 'A' : attRecord.status,
+        excelStatus: undefined,
         comments: '',
         isReconciled: false,
         deviation: attRecord.deviation,
         lateBy: attRecord.lateBy,
         earlyBy: attRecord.earlyBy
-        // Note: excelStatus is intentionally omitted (cleared)
       };
     });
   };
