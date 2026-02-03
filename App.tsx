@@ -18,7 +18,7 @@ const ReconciliationHub = lazy(() => import('./pages/ReconciliationHub.tsx'));
 // Legacy components temporarily disabled
 // const LeaveManagement = lazy(() => import('./pages/LeaveReconciliationOptimized.tsx'));
 // const AuditQueue = lazy(() => import('./pages/AuditQueue.tsx'));
-const MonthlyConsolidation = lazy(() => import('./pages/MonthlyConsolidation.tsx'));
+const MonthlyConsolidation = lazy(() => import('./pages/MonthlyConsolidationNew.tsx'));
 const ShiftMatrix = lazy(() => import('./pages/ShiftMatrix.tsx'));
 
 const App: React.FC = () => {
