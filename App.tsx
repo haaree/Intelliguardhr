@@ -15,6 +15,7 @@ const EmployeeUpload = lazy(() => import('./pages/EmployeeUpload.tsx'));
 const BiometricUpload = lazy(() => import('./pages/BiometricUpload.tsx'));
 const AttendanceUpload = lazy(() => import('./pages/AttendanceUpload.tsx'));
 const ReconciliationHub = lazy(() => import('./pages/ReconciliationHub.tsx'));
+const ShiftDeviation = lazy(() => import('./pages/ShiftDeviation.tsx'));
 // Legacy components temporarily disabled
 // const LeaveManagement = lazy(() => import('./pages/LeaveReconciliationOptimized.tsx'));
 // const AuditQueue = lazy(() => import('./pages/AuditQueue.tsx'));
@@ -425,6 +426,12 @@ const App: React.FC = () => {
                   <p className="text-xs text-slate-500 mt-2">Please use the Logs Audit page for now.</p>
                 </div>
               </div>
+            )}
+            {currentPage === 'shift-deviation' && (
+              <ShiftDeviation
+                data={appData}
+                role={session.user.role}
+              />
             )}
             {currentPage === 'monthly' && (
               <MonthlyConsolidation
