@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Calendar, Download, Filter, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Calendar, Download, Filter, ChevronLeft, ChevronRight, Search, ToggleLeft, ToggleRight, AlertCircle } from 'lucide-react';
 import { AppData, UserRole } from '../types.ts';
 import * as XLSX from 'xlsx';
 
@@ -42,6 +42,7 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
   const [shiftFilter, setShiftFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showReconciledOnly, setShowReconciledOnly] = useState(true);
 
   // Get month name
   const monthName = new Date(selectedYear, selectedMonth).toLocaleString('en-US', { month: 'long' });
@@ -69,14 +70,16 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
     }
 
     // Create reconciliation map for quick lookup
-    const reconciliationMap = new Map<string, { finalStatus: string }>();
+    const reconciliationMap = new Map<string, { finalStatus: string; isReconciled: boolean }>();
 
     if (data.reconciliationRecords && Array.isArray(data.reconciliationRecords)) {
       data.reconciliationRecords.forEach((rec: any) => {
-        if (rec.isReconciled === true) {
+        // Include all records (both reconciled and unreconciled) based on filter
+        if (!showReconciledOnly || rec.isReconciled === true) {
           const key = `${rec.employeeNumber}-${rec.date}`.toUpperCase();
           reconciliationMap.set(key, {
-            finalStatus: rec.finalStatus || '-'
+            finalStatus: rec.finalStatus || '-',
+            isReconciled: rec.isReconciled === true
           });
         }
       });
@@ -133,7 +136,7 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
     });
 
     return Array.from(employeeMap.values());
-  }, [data, selectedYear, selectedMonth, daysInMonth]);
+  }, [data, selectedYear, selectedMonth, daysInMonth, showReconciledOnly]);
 
   // Get all unique statuses dynamically from reconciliation data
   const allStatuses = useMemo(() => {
@@ -453,7 +456,61 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
             </div>
           </div>
         </div>
+
+        {/* Reconciliation Toggle */}
+        <div className="mt-4 flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowReconciledOnly(!showReconciledOnly)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
+                showReconciledOnly
+                  ? 'bg-teal-600 text-white'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {showReconciledOnly ? <ToggleRight size={20} /> : <ToggleLeft size={20} />}
+              {showReconciledOnly ? 'Reconciled Only' : 'All Records'}
+            </button>
+            <span className="text-xs text-slate-600">
+              {showReconciledOnly ? 'Showing only reconciled records' : 'Showing all records (including unreconciled)'}
+            </span>
+          </div>
+          <div className="text-xs font-bold text-slate-700">
+            Total Records: {filteredData.reduce((sum, emp) => sum + emp.total, 0)}
+          </div>
+        </div>
       </div>
+
+      {/* Unreconciled Records Alert */}
+      {!showReconciledOnly && data.reconciliationRecords && (() => {
+        const unreconciledCount = data.reconciliationRecords.filter((rec: any) => rec.isReconciled !== true).length;
+        return unreconciledCount > 0 ? (
+          <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+            <AlertCircle className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+            <div className="flex-1">
+              <h4 className="font-black text-amber-900 text-sm mb-1">
+                {unreconciledCount} Unreconciled Record{unreconciledCount !== 1 ? 's' : ''} Found
+              </h4>
+              <p className="text-xs text-amber-800">
+                These records exist in the system but have not been marked as reconciled.
+                They are included in the counts above but may need attention.
+              </p>
+              <button
+                onClick={() => {
+                  const unreconciled = data.reconciliationRecords!.filter((rec: any) => rec.isReconciled !== true);
+                  const details = unreconciled.map((rec: any) =>
+                    `${rec.employeeNumber} - ${rec.employeeName || 'Unknown'} - ${rec.date} - Status: ${rec.finalStatus || rec.originalStatus || 'N/A'}`
+                  ).join('\n');
+                  alert(`Unreconciled Records (${unreconciledCount}):\n\n${details}`);
+                }}
+                className="mt-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-all font-bold text-xs uppercase tracking-wider"
+              >
+                View Details
+              </button>
+            </div>
+          </div>
+        ) : null;
+      })()}
 
       {/* Calendar Report Table */}
       <div className="bg-white rounded-3xl border border-slate-100 shadow-2xl overflow-hidden">
