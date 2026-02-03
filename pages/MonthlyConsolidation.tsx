@@ -338,7 +338,8 @@ const MonthlyConsolidation: React.FC<MonthlyConsolidationProps> = ({ data, role,
     const reconciliationMap = new Map<string, { isReconciled: boolean; finalStatus: string }>();
     if (data.reconciliationRecords && Array.isArray(data.reconciliationRecords)) {
       data.reconciliationRecords.forEach((rec: any) => {
-        const key = `${rec.employeeNumber}-${rec.date}`.toUpperCase();
+        // Use the record ID directly (already in format: employeeNumber-date)
+        const key = rec.id ? rec.id.toUpperCase() : `${rec.employeeNumber}-${rec.date}`.toUpperCase();
         reconciliationMap.set(key, {
           isReconciled: rec.isReconciled || false,
           finalStatus: rec.finalStatus || rec.originalStatus || '-'
