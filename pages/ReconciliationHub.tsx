@@ -233,8 +233,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         inTime: att.inTime || '00:00',
         outTime: att.outTime || '00:00',
         totalHours: att.totalHours || '00:00',
-        originalStatus: att.status,
-        finalStatus: att.status,
+        originalStatus: att.status === 'Absent' ? 'A' : att.status,  // Normalize "Absent" to "A"
+        finalStatus: att.status === 'Absent' ? 'A' : att.status,  // Normalize "Absent" to "A"
         comments: '',
         isReconciled: false,
         deviation: att.deviation,
@@ -838,8 +838,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         comments: '',
         isReconciled: false,
         reconciledBy: '',
-        reconciledOn: ''
-        // Keep excelStatus
+        reconciledOn: '',
+        excelStatus: undefined  // Clear Excel upload status to avoid confusion
       }));
     };
 
@@ -961,7 +961,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         comments: '',
         isReconciled: false,
         reconciledBy: '',
-        reconciledOn: ''
+        reconciledOn: '',
+        excelStatus: undefined  // Clear Excel upload status to avoid confusion
       }));
     };
 
