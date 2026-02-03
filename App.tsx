@@ -375,23 +375,19 @@ const App: React.FC = () => {
               <ReconciliationHub
                 data={appData}
                 onUpdate={(moduleData: any, moduleStatuses: any) => {
-                  // Store all module data
-                  setAppData({
-                    ...appData,
-                    reconciliationRecords: [
-                      ...moduleData.absent,
-                      ...moduleData.present,
-                      ...moduleData.workedoff,
-                      ...moduleData.offdays,
-                      ...moduleData.errors,
-                      ...moduleData.audit
-                    ]
-                  });
-                }}
-                onFinalizeAll={() => {
-                  // Apply all reconciliation changes to attendance
+                  // Combine all reconciliation records from all modules
+                  const allReconciliationRecords = [
+                    ...moduleData.absent,
+                    ...moduleData.present,
+                    ...moduleData.workedoff,
+                    ...moduleData.offdays,
+                    ...moduleData.errors,
+                    ...moduleData.audit
+                  ];
+
+                  // Apply reconciliation changes to attendance immediately
                   const reconciledMap = new Map();
-                  (appData.reconciliationRecords || []).forEach((rec: any) => {
+                  allReconciliationRecords.forEach((rec: any) => {
                     if (rec.isReconciled) {
                       reconciledMap.set(`${rec.employeeNumber}-${rec.date}`, rec.finalStatus);
                     }
@@ -403,12 +399,18 @@ const App: React.FC = () => {
                     return newStatus ? { ...att, status: newStatus } : att;
                   });
 
+                  // Store reconciliation records AND update attendance
                   const updatedData = {
                     ...appData,
+                    reconciliationRecords: allReconciliationRecords,
                     attendance: updatedAttendance,
                     isReconciliationComplete: true
                   };
                   setAppData({ ...updatedData, attendance: recalculateAttendance(updatedData) });
+                }}
+                onFinalizeAll={() => {
+                  // onFinalizeAll is now just a confirmation - actual work is done in onUpdate
+                  // No additional work needed here since onUpdate already handles everything
                 }}
                 role={session.user.role}
                 currentUser={session.user.email}
