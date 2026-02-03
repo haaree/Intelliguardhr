@@ -29,6 +29,13 @@ interface EmployeeReport {
 }
 
 const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data, role }) => {
+  console.log('[MonthlyConsolidationNew] Component rendered with data:', {
+    hasData: !!data,
+    employeeCount: data?.employees?.length,
+    attendanceCount: data?.attendance?.length,
+    reconciliationCount: data?.reconciliationRecords?.length
+  });
+
   const currentDate = new Date();
   const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
@@ -65,6 +72,12 @@ const MonthlyConsolidationNew: React.FC<MonthlyConsolidationNewProps> = ({ data,
   const reportData = useMemo(() => {
     // Safety check
     if (!data || !data.employees || !Array.isArray(data.employees)) {
+      console.log('[MonthlyConsolidationNew] No data available:', {
+        hasData: !!data,
+        hasEmployees: !!data?.employees,
+        isArray: Array.isArray(data?.employees),
+        employeeCount: data?.employees?.length
+      });
       return [];
     }
 
