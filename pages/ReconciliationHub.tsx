@@ -621,7 +621,13 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       }
     };
 
-    const records = getRecords();
+    let records = getRecords();
+
+    // Filter by active sub-tab for audit module
+    if (module === 'audit') {
+      records = records.filter(r => categorizeAuditRecord(r) === auditSubTab);
+    }
+
     const pendingCount = records.filter(r => !r.isReconciled).length;
 
     if (pendingCount === 0) {
@@ -635,7 +641,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
     const updateRecords = (recs: ReconciliationRecord[]) => {
       return recs.map(rec => {
-        if (!rec.isReconciled) {
+        // For audit module, only update records matching the active sub-tab
+        const shouldUpdate = module === 'audit'
+          ? categorizeAuditRecord(rec) === auditSubTab && !rec.isReconciled
+          : !rec.isReconciled;
+
+        if (shouldUpdate) {
           return {
             ...rec,
             isReconciled: true,
