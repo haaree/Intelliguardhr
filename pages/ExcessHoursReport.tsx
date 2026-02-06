@@ -67,6 +67,12 @@ const ExcessHoursReport: React.FC<ExcessHoursReportProps> = ({ data, role }) => 
     // Get unique employees from attendance
     const employeeMap = new Map<string, EmployeeExcessData>();
 
+    console.log('ExcessHours: Processing attendance data', {
+      totalRecords: data.attendance.length,
+      selectedMonth,
+      sampleDate: data.attendance[0]?.date
+    });
+
     data.attendance.forEach(att => {
       const attDate = att.date;
       if (!attDate.startsWith(selectedMonth)) return;
@@ -75,7 +81,9 @@ const ExcessHoursReport: React.FC<ExcessHoursReportProps> = ({ data, role }) => 
       if (!employee) return;
 
       // Check if employee has biometric punch (inTime or outTime exists)
-      const hasPunch = att.inTime && att.inTime !== 'NA' && att.inTime !== '-';
+      const hasInTime = att.inTime && att.inTime !== 'NA' && att.inTime !== '-' && att.inTime !== '';
+      const hasOutTime = att.outTime && att.outTime !== 'NA' && att.outTime !== '-' && att.outTime !== '';
+      const hasPunch = hasInTime || hasOutTime;
       if (!hasPunch) return; // Skip days without punch
 
       if (!employeeMap.has(att.employeeNumber)) {
@@ -125,7 +133,14 @@ const ExcessHoursReport: React.FC<ExcessHoursReportProps> = ({ data, role }) => 
       }
     });
 
-    return Array.from(employeeMap.values());
+    const result = Array.from(employeeMap.values());
+    console.log('ExcessHours: Report data generated', {
+      employeeCount: result.length,
+      sampleEmployee: result[0]?.employeeName,
+      sampleTotal: result[0]?.totalExcessHours
+    });
+
+    return result;
   }, [data, selectedMonth]);
 
   // Apply filters
