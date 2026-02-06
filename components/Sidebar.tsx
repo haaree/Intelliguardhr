@@ -8,10 +8,7 @@ import {
   Settings,
   Shield,
   Fingerprint,
-  CalendarDays,
-  FileText,
-  AlertTriangle,
-  Calendar
+  FileBarChart
 } from 'lucide-react';
 import { Page, UserRole } from '../types.ts';
 
@@ -29,10 +26,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, onLogout, onO
     { id: 'employees', label: 'Employee', icon: Users, roles: ['SaaS_Admin', 'Admin'] },
     { id: 'biometric', label: 'Biometric', icon: Fingerprint, roles: ['SaaS_Admin', 'Admin'] },
     { id: 'attendance', label: 'Logs Audit', icon: Clock, roles: ['SaaS_Admin', 'Admin', 'Employee'] },
-    { id: 'leave', label: 'Reconciliation', icon: FileText, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
-    // Temporarily disabled: { id: 'audit-queue', label: 'Audit Queue', icon: AlertTriangle, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
-    { id: 'shift-deviation', label: 'Shift Deviation', icon: Calendar, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
-    { id: 'monthly', label: 'Monthly Report', icon: CalendarDays, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
+    { id: 'reports', label: 'Reports', icon: FileBarChart, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
     { id: 'shifts', label: 'Settings', icon: Settings, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
   ];
 
