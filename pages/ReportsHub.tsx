@@ -52,8 +52,8 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
     },
     {
       id: 'excess-hours',
-      title: 'Excess Hours Report',
-      description: 'Day-wise excess hours calendar view based on shift end time and actual logout time',
+      title: 'Excess Hours Reconciliation',
+      description: 'Categorized excess hours by duration - Present days and Weekly Offs with reconciliation workflow',
       icon: Clock,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
