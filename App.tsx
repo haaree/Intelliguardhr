@@ -17,6 +17,7 @@ const AttendanceUpload = lazy(() => import('./pages/AttendanceUpload.tsx'));
 const ReconciliationHub = lazy(() => import('./pages/ReconciliationHub.tsx'));
 const ShiftDeviation = lazy(() => import('./pages/ShiftDeviation.tsx'));
 const ReportsHub = lazy(() => import('./pages/ReportsHub.tsx'));
+const ExcessHoursReport = lazy(() => import('./pages/ExcessHoursReport.tsx'));
 // Legacy components temporarily disabled
 // const LeaveManagement = lazy(() => import('./pages/LeaveReconciliationOptimized.tsx'));
 // const AuditQueue = lazy(() => import('./pages/AuditQueue.tsx'));
@@ -436,6 +437,12 @@ const App: React.FC = () => {
             )}
             {currentPage === 'shift-deviation' && (
               <ShiftDeviation
+                data={appData}
+                role={session.user.role}
+              />
+            )}
+            {currentPage === 'excess-hours' && (
+              <ExcessHoursReport
                 data={appData}
                 role={session.user.role}
               />

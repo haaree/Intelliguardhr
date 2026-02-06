@@ -50,11 +50,10 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
       hoverColor: 'hover:bg-emerald-100',
       roles: ['SaaS_Admin', 'Admin', 'Manager']
     },
-    // Placeholder for future reports
     {
-      id: 'dashboard',
-      title: 'Overtime Analysis',
-      description: 'Detailed overtime hours tracking, eligibility verification, and payroll calculations',
+      id: 'excess-hours',
+      title: 'Excess Hours Report',
+      description: 'Day-wise excess hours calendar view based on shift end time and actual logout time',
       icon: Clock,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
@@ -88,7 +87,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
 
   const handleReportClick = (reportId: Page) => {
     // For implemented reports, navigate to them
-    if (reportId === 'monthly' || reportId === 'shift-deviation' || reportId === 'leave') {
+    if (reportId === 'monthly' || reportId === 'shift-deviation' || reportId === 'leave' || reportId === 'excess-hours') {
       onNavigate(reportId);
     } else {
       // For placeholder reports, show coming soon message
@@ -116,7 +115,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {availableReports.map((report) => {
             const Icon = report.icon;
-            const isImplemented = report.id === 'monthly' || report.id === 'shift-deviation' || report.id === 'leave';
+            const isImplemented = report.id === 'monthly' || report.id === 'shift-deviation' || report.id === 'leave' || report.id === 'excess-hours';
 
             return (
               <button

@@ -186,7 +186,7 @@ export interface AppData {
   isReconciliationComplete?: boolean; // Flag to enable/disable monthly report
 }
 
-export type Page = 'landing' | 'login' | 'dashboard' | 'employees' | 'biometric' | 'attendance' | 'monthly' | 'shifts' | 'leave' | 'audit-queue' | 'reports' | 'shift-deviation';
+export type Page = 'landing' | 'login' | 'dashboard' | 'employees' | 'biometric' | 'attendance' | 'monthly' | 'shifts' | 'leave' | 'audit-queue' | 'reports' | 'shift-deviation' | 'excess-hours';
 
 declare global {
   interface AIStudio {
