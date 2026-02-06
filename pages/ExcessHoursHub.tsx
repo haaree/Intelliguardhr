@@ -48,14 +48,33 @@ const ExcessHoursHub: React.FC<ExcessHoursHubProps> = ({ data, role }) => {
 
   // Calculate excess hours for each attendance record
   const excessHoursRecords = useMemo(() => {
+    console.log('ExcessHours: Sample attendance records', data.attendance.slice(0, 5).map(att => ({
+      date: att.date,
+      status: att.status,
+      shift: att.shift,
+      inTime: att.inTime,
+      outTime: att.outTime,
+      shiftStart: att.shiftStart,
+      shiftEnd: att.shiftEnd
+    })));
+
+    // Check what statuses exist
+    const statuses = new Set(data.attendance.map(att => att.status));
+    console.log('ExcessHours: All unique statuses found:', Array.from(statuses));
+
     return data.attendance
       .map((att, idx) => {
+        // Only include Present (P) and Worked Off Holiday (WOH) statuses
+        // Exclude: WO (weekly off not worked), H (holiday not worked), A (absent), etc.
+        const isPresent = att.status === 'P';
+        const isWorkedOff = att.status === 'WOH'; // Working on holiday/weekly off
+
+        if (!isPresent && !isWorkedOff) return null;
+
         // Check if there's a punch
         const hasInTime = att.inTime && att.inTime !== 'NA' && att.inTime !== '-' && att.inTime !== '';
         const hasOutTime = att.outTime && att.outTime !== 'NA' && att.outTime !== '-' && att.outTime !== '';
         if (!hasInTime && !hasOutTime) return null;
-
-        const isWorkedOff = att.status === 'WO' || att.status === 'WOH';
 
         let excessMinutes = 0;
         let finalPayableMinutes = 0;
@@ -98,7 +117,7 @@ const ExcessHoursHub: React.FC<ExcessHoursHubProps> = ({ data, role }) => {
 
   // Categorize records
   const categorizeRecord = (record: ExcessHoursRecord): ExcessCategory => {
-    const isWorkedOff = record.status === 'WO' || record.status === 'WOH';
+    const isWorkedOff = record.status === 'WOH'; // Working on holiday/weekly off
     const hours = record.excessHours;
 
     if (isWorkedOff) {
@@ -120,8 +139,8 @@ const ExcessHoursHub: React.FC<ExcessHoursHubProps> = ({ data, role }) => {
     const workedOff: ExcessHoursRecord[] = [];
 
     excessHoursRecords.forEach(rec => {
-      const isWO = rec.status === 'WO' || rec.status === 'WOH';
-      if (isWO) {
+      const isWOH = rec.status === 'WOH'; // Working on holiday/weekly off
+      if (isWOH) {
         workedOff.push(rec);
       } else {
         present.push(rec);
@@ -434,7 +453,7 @@ const ExcessHoursHub: React.FC<ExcessHoursHubProps> = ({ data, role }) => {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                        rec.status === 'WO' || rec.status === 'WOH'
+                        rec.status === 'WOH'
                           ? 'bg-purple-100 text-purple-700'
                           : 'bg-green-100 text-green-700'
                       }`}>
