@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarDays, Calendar, AlertTriangle, FileBarChart, TrendingUp, Users, Clock, FileText } from 'lucide-react';
+import { CalendarDays, Calendar, AlertTriangle, FileBarChart, TrendingUp, Users, Clock, FileText, Download } from 'lucide-react';
 import { Page, UserRole } from '../types';
 
 interface ReportCard {
@@ -61,6 +61,16 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
       roles: ['SaaS_Admin', 'Admin', 'Manager']
     },
     {
+      id: 'manager-pdf',
+      title: 'Manager PDF Reports',
+      description: 'Generate comprehensive violation reports by manager with absent, worked off, errors, and more',
+      icon: Download,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      hoverColor: 'hover:bg-purple-100',
+      roles: ['SaaS_Admin', 'Admin']
+    },
+    {
       id: 'dashboard',
       title: 'Leave Balance Report',
       description: 'Employee-wise leave balances, accruals, and leave type breakdown',
@@ -87,7 +97,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
 
   const handleReportClick = (reportId: Page) => {
     // For implemented reports, navigate to them
-    if (reportId === 'monthly' || reportId === 'shift-deviation' || reportId === 'leave' || reportId === 'excess-hours') {
+    if (reportId === 'monthly' || reportId === 'shift-deviation' || reportId === 'leave' || reportId === 'excess-hours' || reportId === 'manager-pdf') {
       onNavigate(reportId);
     } else {
       // For placeholder reports, show coming soon message
@@ -115,7 +125,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {availableReports.map((report) => {
             const Icon = report.icon;
-            const isImplemented = report.id === 'monthly' || report.id === 'shift-deviation' || report.id === 'leave' || report.id === 'excess-hours';
+            const isImplemented = report.id === 'monthly' || report.id === 'shift-deviation' || report.id === 'leave' || report.id === 'excess-hours' || report.id === 'manager-pdf';
 
             return (
               <button
@@ -165,7 +175,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
               </div>
               <div>
                 <p className="text-xs text-slate-500 font-medium">Available Reports</p>
-                <p className="text-lg font-black text-slate-900">{availableReports.filter(r => r.id === 'monthly' || r.id === 'shift-deviation' || r.id === 'leave').length}</p>
+                <p className="text-lg font-black text-slate-900">{availableReports.filter(r => r.id === 'monthly' || r.id === 'shift-deviation' || r.id === 'leave' || r.id === 'excess-hours' || r.id === 'manager-pdf').length}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">

@@ -18,6 +18,7 @@ const ReconciliationHub = lazy(() => import('./pages/ReconciliationHub.tsx'));
 const ShiftDeviation = lazy(() => import('./pages/ShiftDeviation.tsx'));
 const ReportsHub = lazy(() => import('./pages/ReportsHub.tsx'));
 const ExcessHoursHub = lazy(() => import('./pages/ExcessHoursHub.tsx'));
+const ManagerPDFReport = lazy(() => import('./pages/ManagerPDFReport.tsx'));
 // Legacy components temporarily disabled
 // const LeaveManagement = lazy(() => import('./pages/LeaveReconciliationOptimized.tsx'));
 // const AuditQueue = lazy(() => import('./pages/AuditQueue.tsx'));
@@ -443,6 +444,12 @@ const App: React.FC = () => {
             )}
             {currentPage === 'excess-hours' && (
               <ExcessHoursHub
+                data={appData}
+                role={session.user.role}
+              />
+            )}
+            {currentPage === 'manager-pdf' && (
+              <ManagerPDFReport
                 data={appData}
                 role={session.user.role}
               />
