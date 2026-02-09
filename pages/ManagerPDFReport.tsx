@@ -1002,6 +1002,209 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     alert(`Generating ${managers.length} consolidated Excel reports (one per manager). Please allow multiple downloads in your browser.`);
   };
 
+  // Helper function to convert time string to minutes
+  const timeToMinutes = (timeStr: string): number => {
+    if (!timeStr || timeStr === '-' || timeStr === 'NA') return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Generate Excess Hours Report for Manager
+  const handleExcessHoursReport = () => {
+    if (!fromDate || !toDate) {
+      alert('Please select both from and to dates');
+      return;
+    }
+
+    if (selectedManager === 'All') {
+      alert('Please select a specific manager for Excess Hours report');
+      return;
+    }
+
+    // Get all attendance records for this manager
+    const managerRecords = data.attendance.filter(att => {
+      const normalizedDate = convertDDMMMYYYYtoYYYYMMDD(att.date);
+      if (normalizedDate < fromDate || normalizedDate > toDate) return false;
+
+      const manager = att.reportingManager || 'Unknown';
+      if (manager !== selectedManager) return false;
+
+      // Apply entity filters
+      const employee = data.employees.find(e => e.employeeNumber === att.employeeNumber);
+      if (selectedLegalEntity !== 'All' && employee?.legalEntity !== selectedLegalEntity) return false;
+      if (selectedLocation !== 'All' && att.location !== selectedLocation) return false;
+      if (selectedDepartment !== 'All' && att.department !== selectedDepartment) return false;
+      if (selectedSubDepartment !== 'All' && att.subDepartment !== selectedSubDepartment) return false;
+
+      return true;
+    });
+
+    // Process records to calculate excess hours
+    const excessHoursData: any[] = [];
+
+    managerRecords.forEach(att => {
+      const attStatus = att.status || '';
+      const isPresent = attStatus === 'P' || attStatus === 'Present' || attStatus === 'Clean';
+      const isWorkedOff = attStatus === 'WOH' || attStatus === 'Worked Off';
+
+      // Skip if not Present or Worked Off
+      if (!isPresent && !isWorkedOff) return;
+
+      // Check if there's valid punch data
+      const hasOutTime = att.outTime && att.outTime !== 'NA' && att.outTime !== '-' && att.outTime !== '';
+      if (!hasOutTime) return;
+
+      let excessMinutes = 0;
+      let calculationMethod = '';
+
+      if (isPresent) {
+        // Present days: Calculate excess based on Shift End time to Out time
+        // Only include if excess > 9 hours (540 minutes)
+        const shiftEndMinutes = timeToMinutes(att.shiftEnd);
+        const outTimeMinutes = timeToMinutes(att.outTime);
+
+        if (outTimeMinutes > shiftEndMinutes) {
+          excessMinutes = outTimeMinutes - shiftEndMinutes;
+
+          // Only include if excess > 9 hours
+          if (excessMinutes > 540) {
+            calculationMethod = 'Out Time - Shift End (>9 hrs)';
+          } else {
+            return; // Skip if not more than 9 hours
+          }
+        } else {
+          return; // No excess
+        }
+      } else if (isWorkedOff) {
+        // Worked Off days: Calculate from Shift Start time to Out time
+        const shiftStartMinutes = timeToMinutes(att.shiftStart);
+        const outTimeMinutes = timeToMinutes(att.outTime);
+
+        if (outTimeMinutes > shiftStartMinutes) {
+          excessMinutes = outTimeMinutes - shiftStartMinutes;
+          calculationMethod = 'Out Time - Shift Start';
+        } else {
+          return; // No excess
+        }
+      }
+
+      // Also check "Others" category (>16 hours)
+      const totalHours = att.totalHours || '00:00';
+      const [hoursStr, minutesStr] = totalHours.split(':');
+      const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
+
+      const excessHours = (excessMinutes / 60).toFixed(2);
+
+      excessHoursData.push({
+        employeeNumber: att.employeeNumber,
+        employeeName: att.employeeName,
+        date: att.date,
+        jobTitle: att.jobTitle,
+        department: att.department,
+        subDepartment: att.subDepartment,
+        location: att.location,
+        status: attStatus,
+        shift: att.shift,
+        shiftStart: att.shiftStart,
+        shiftEnd: att.shiftEnd,
+        inTime: att.inTime,
+        outTime: att.outTime,
+        totalHours: att.totalHours,
+        excessHours: excessHours,
+        excessMinutes: excessMinutes,
+        calculationMethod: calculationMethod,
+        isOver16Hours: totalWorkHours > 16 ? 'Yes' : 'No'
+      });
+    });
+
+    // Sort by employee name and date
+    excessHoursData.sort((a, b) => {
+      const nameCompare = a.employeeName.localeCompare(b.employeeName);
+      if (nameCompare !== 0) return nameCompare;
+      return a.date.localeCompare(b.date);
+    });
+
+    // Create Excel workbook
+    const wb = XLSX.utils.book_new();
+
+    // Summary sheet
+    const summaryData: any[] = [
+      ['Excess Hours Report'],
+      [],
+      ['Manager:', selectedManager],
+      ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
+      ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
+      [],
+      ['Total Records:', excessHoursData.length],
+      ['Present Days (>9 hrs):', excessHoursData.filter(r => r.status === 'P' || r.status === 'Present').length],
+      ['Worked Off Days:', excessHoursData.filter(r => r.status === 'WOH').length],
+      ['Over 16 Hours:', excessHoursData.filter(r => r.isOver16Hours === 'Yes').length],
+      [],
+      ['Note:'],
+      ['- Present days: Excess calculated as Out Time - Shift End Time (only >9 hours included)'],
+      ['- Worked Off days: Calculated as Out Time - Shift Start Time'],
+      ['- Over 16 Hours: Flagged in "Others" category']
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+    // Details sheet
+    if (excessHoursData.length > 0) {
+      const detailsData: any[][] = [
+        ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hours', 'Excess Hours', 'Calculation Method', 'Over 16 Hrs'],
+        ...excessHoursData.map(rec => [
+          rec.employeeNumber,
+          rec.employeeName,
+          rec.date,
+          rec.jobTitle,
+          rec.department || '-',
+          rec.subDepartment || '-',
+          rec.location || '-',
+          rec.status,
+          rec.shift || '-',
+          rec.shiftStart || '-',
+          rec.shiftEnd || '-',
+          rec.inTime || '-',
+          rec.outTime || '-',
+          rec.totalHours || '-',
+          rec.excessHours,
+          rec.calculationMethod,
+          rec.isOver16Hours
+        ])
+      ];
+
+      const detailsWs = XLSX.utils.aoa_to_sheet(detailsData);
+
+      // Set column widths
+      detailsWs['!cols'] = [
+        { wch: 12 }, // Employee ID
+        { wch: 25 }, // Employee Name
+        { wch: 12 }, // Date
+        { wch: 20 }, // Job Title
+        { wch: 20 }, // Department
+        { wch: 20 }, // Sub Department
+        { wch: 15 }, // Location
+        { wch: 10 }, // Status
+        { wch: 10 }, // Shift
+        { wch: 12 }, // Shift Start
+        { wch: 12 }, // Shift End
+        { wch: 10 }, // In Time
+        { wch: 10 }, // Out Time
+        { wch: 12 }, // Total Hours
+        { wch: 12 }, // Excess Hours
+        { wch: 35 }, // Calculation Method
+        { wch: 12 }  // Over 16 Hrs
+      ];
+
+      XLSX.utils.book_append_sheet(wb, detailsWs, 'Excess Hours Details');
+    }
+
+    // Save the file
+    const fileName = `Excess_Hours_${selectedManager.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 to-blue-50 p-8 overflow-auto">
       <div className="max-w-7xl mx-auto">
@@ -1234,6 +1437,28 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   Download Bulk Excel
                 </button>
               </div>
+            </div>
+
+            {/* Excess Hours Report */}
+            <div className="mt-4">
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excess Hours Report</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExcessHoursReport}
+                  disabled={selectedManager === 'All'}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                    selectedManager === 'All'
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-700 hover:to-orange-700 shadow-lg'
+                  }`}
+                >
+                  <Download size={18} />
+                  Download Excess Hours Excel
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Includes: Present days (&gt;9 hrs beyond shift end) & Worked Off days (Shift start to Out time)
+              </p>
             </div>
 
             <p className="text-xs text-slate-500 mt-3">
