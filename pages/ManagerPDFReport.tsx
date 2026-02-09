@@ -1223,26 +1223,28 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    // Get filtered manager records
-    const managerRecords = detailedManagerReportData.filter(data =>
-      data.managerName === selectedManager &&
-      (selectedLegalEntity === 'All' || data.legalEntity === selectedLegalEntity) &&
-      (selectedLocation === 'All' || data.location === selectedLocation) &&
-      (selectedDepartment === 'All' || data.department === selectedDepartment)
-    );
+    // Get all attendance records for this manager (same logic as Excel function)
+    const managerRecords = data.attendance.filter(att => {
+      const normalizedDate = convertDDMMMYYYYtoYYYYMMDD(att.date);
+      if (normalizedDate < fromDate || normalizedDate > toDate) return false;
 
-    if (managerRecords.length === 0) {
-      alert('No records found for the selected manager and filters');
-      return;
-    }
+      const manager = att.reportingManager || 'Unknown';
+      if (manager !== selectedManager) return false;
+
+      // Apply entity filters
+      const employee = data.employees.find(e => e.employeeNumber === att.employeeNumber);
+      if (selectedLegalEntity !== 'All' && employee?.legalEntity !== selectedLegalEntity) return false;
+      if (selectedLocation !== 'All' && att.location !== selectedLocation) return false;
+      if (selectedDepartment !== 'All' && att.department !== selectedDepartment) return false;
+      if (selectedSubDepartment !== 'All' && att.subDepartment !== selectedSubDepartment) return false;
+
+      return true;
+    });
 
     // Collect all excess hours data
     const excessHoursData: any[] = [];
 
-    managerRecords.forEach(data => {
-      data.attendance.forEach(att => {
-        const attDate = att.date;
-        if (attDate < fromDate || attDate > toDate) return;
+    managerRecords.forEach(att => {
 
         const attStatus = att.status || '';
         const normalizedStatus = attStatus.toUpperCase();
@@ -1320,7 +1322,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           employeeOTForm: '', // To be filled manually
           finalPayableOTHours: '' // To be filled manually
         });
-      });
     });
 
     // Sort by employee name and date
