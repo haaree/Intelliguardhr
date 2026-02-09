@@ -669,7 +669,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
       addDetailSection('Worked < 4 Hours', managerData.details.lessThan4hrs, true);
       addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
-      addDetailSection('Shift Deviation', managerData.details.shiftDeviation);
+      addDetailSection('Shift Deviation', managerData.details.shiftDeviation, true);
       addDetailSection('Missing Punch', managerData.details.missingPunch, true);
       addDetailSection('Others', managerData.details.otherViolations, true);
     });
