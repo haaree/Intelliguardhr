@@ -105,7 +105,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       reconRecordsCount: reconRecords.length,
       auditQueueCount: data.auditQueue.length,
       sampleReconRecord: reconRecords[0],
-      sampleAuditRecord: data.auditQueue[0]
+      sampleAuditRecord: data.auditQueue[0],
+      // Additional debugging
+      reconRecordDates: reconRecords.slice(0, 5).map(r => r.date),
+      reconRecordManagers: [...new Set(reconRecords.map(r => r.reportingManager))].slice(0, 10),
+      filteredReconRecords: reconRecords.filter(rec =>
+        rec.date >= fromDate && rec.date <= toDate &&
+        (selectedManager === 'All' || rec.reportingManager === selectedManager)
+      ).length
     });
 
     reconRecords.forEach(rec => {
