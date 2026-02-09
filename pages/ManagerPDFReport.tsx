@@ -381,29 +381,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text('Attendance Report Summary', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
-    // Report Details - Show only contextually relevant information
+    // Report Details - Only show Manager and Period in header
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`Manager: ${managerData.managerName}`, 14, yPos);
     yPos += 6;
-
-    // Only show fields that are being filtered or grouped
-    if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
-      doc.text(`Legal Entity: ${managerData.legalEntity}`, 14, yPos);
-      yPos += 6;
-    }
-    if (managerData.location && managerData.location !== 'Unknown') {
-      doc.text(`Location: ${managerData.location}`, 14, yPos);
-      yPos += 6;
-    }
-    if (managerData.department && managerData.department !== 'Unknown') {
-      doc.text(`Department: ${managerData.department}`, 14, yPos);
-      yPos += 6;
-    }
-    if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
-      doc.text(`Sub Department: ${managerData.subDepartment}`, 14, yPos);
-      yPos += 6;
-    }
     doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
     yPos += 6;
     doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
@@ -465,25 +447,49 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text(title, 14, yPos);
+
+      // Add contextual grouping info in section header if applicable
+      let sectionTitle = title;
+      if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
+        sectionTitle += ` - ${managerData.legalEntity}`;
+      }
+      if (managerData.location && managerData.location !== 'Unknown') {
+        sectionTitle += ` - ${managerData.location}`;
+      }
+      if (managerData.department && managerData.department !== 'Unknown') {
+        sectionTitle += ` - ${managerData.department}`;
+      }
+      if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
+        sectionTitle += ` - ${managerData.subDepartment}`;
+      }
+
+      doc.text(sectionTitle, 14, yPos);
       yPos += 5;
 
       if (isAudit) {
+        // Audit records should show shift details, deviation, late/early info
         autoTable(doc, {
           startY: yPos,
-          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Reason', 'Status']],
-          body: records.map((rec: AuditQueueRecord) => [
+          head: [['Employee ID', 'Employee Name', 'Date', 'Dept', 'Sub Dept', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Deviation', 'Late By', 'Early By', 'Keka Status']],
+          body: records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
             rec.date,
             rec.department || '-',
-            '-',
-            rec.auditReason,
-            rec.reviewStatus
+            rec.subDepartment || '-',
+            rec.shift || '-',
+            rec.shiftStart || '-',
+            rec.inTime || '-',
+            rec.outTime || '-',
+            rec.totalHours || '-',
+            rec.deviation || '-',
+            rec.lateBy || '-',
+            rec.earlyBy || '-',
+            rec.excelStatus || '-'
           ]),
           theme: 'striped',
           headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-          styles: { fontSize: 7 },
+          styles: { fontSize: 5.5 },
           margin: { left: 14, right: 14 }
         });
       } else {
@@ -592,24 +598,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     const summaryData: any[] = [
       ['Attendance Report Summary'],
       [],
-      ['Manager:', managerData.managerName]
-    ];
-
-    // Only show fields that are being filtered or grouped
-    if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
-      summaryData.push(['Legal Entity:', managerData.legalEntity]);
-    }
-    if (managerData.location && managerData.location !== 'Unknown') {
-      summaryData.push(['Location:', managerData.location]);
-    }
-    if (managerData.department && managerData.department !== 'Unknown') {
-      summaryData.push(['Department:', managerData.department]);
-    }
-    if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
-      summaryData.push(['Sub Department:', managerData.subDepartment]);
-    }
-
-    summaryData.push(
+      ['Manager:', managerData.managerName],
       ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
       ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
       [],
@@ -628,7 +617,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       ['Others', managerData.violations.otherViolations],
       [],
       ['Total', total]
-    );
+    ];
 
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
@@ -639,21 +628,56 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       let data: any[][] = [];
 
+      // Add contextual grouping info to sheet name if applicable
+      let finalSheetName = sheetName;
+      const contextInfo: string[] = [];
+      if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
+        contextInfo.push(managerData.legalEntity);
+      }
+      if (managerData.location && managerData.location !== 'Unknown') {
+        contextInfo.push(managerData.location);
+      }
+      if (managerData.department && managerData.department !== 'Unknown') {
+        contextInfo.push(managerData.department);
+      }
+      if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
+        contextInfo.push(managerData.subDepartment);
+      }
+
+      // Add context as first rows in the sheet
+      const headerRows: any[][] = [];
+      if (contextInfo.length > 0) {
+        headerRows.push(['Context:', contextInfo.join(' - ')]);
+        headerRows.push([]);
+      }
+
       if (isAudit) {
+        // Audit records should include shift details and deviation info
         data = [
-          ['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Audit Reason', 'Review Status'],
-          ...records.map((rec: AuditQueueRecord) => [
+          ...headerRows,
+          ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Deviation', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
+          ...records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
             rec.date,
+            rec.jobTitle || '-',
             rec.department || '-',
-            '-',
-            rec.auditReason,
-            rec.reviewStatus
+            rec.subDepartment || '-',
+            rec.shift || '-',
+            rec.shiftStart || '-',
+            rec.inTime || '-',
+            rec.outTime || '-',
+            rec.totalHours || '-',
+            rec.deviation || '-',
+            rec.lateBy || '-',
+            rec.earlyBy || '-',
+            rec.excelStatus || '-',
+            rec.finalStatus || '-'
           ])
         ];
       } else {
         data = [
+          ...headerRows,
           ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
           ...records.map((rec: any) => [
             rec.employeeNumber,
@@ -679,11 +703,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Set column widths
       const colWidths = isAudit
-        ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 15 }]
+        ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }]
         : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
       ws['!cols'] = colWidths;
 
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
     };
 
     // Add all detail sheets
