@@ -1042,9 +1042,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 <tbody>
                   {managerReportData.map((manager, idx) => {
                     const total = Object.values(manager.violations).reduce((sum, v) => sum + v, 0);
+
+                    // Build display label showing manager and relevant grouping context
+                    const contextParts: string[] = [manager.managerName];
+                    if (manager.legalEntity && manager.legalEntity !== 'Unknown') {
+                      contextParts.push(manager.legalEntity);
+                    }
+                    if (manager.location && manager.location !== 'Unknown') {
+                      contextParts.push(manager.location);
+                    }
+                    if (manager.department && manager.department !== 'Unknown') {
+                      contextParts.push(manager.department);
+                    }
+                    if (manager.subDepartment && manager.subDepartment !== 'Unknown') {
+                      contextParts.push(manager.subDepartment);
+                    }
+                    const displayLabel = contextParts.join(' - ');
+
                     return (
-                      <tr key={manager.managerName} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                        <td className="px-4 py-3 text-sm font-bold text-slate-900">{manager.managerName}</td>
+                      <tr key={`${manager.managerName}-${idx}`} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
+                        <td className="px-4 py-3 text-sm font-bold text-slate-900">{displayLabel}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.present}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.absent}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.offDay}</td>
