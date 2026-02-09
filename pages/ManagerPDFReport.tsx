@@ -421,7 +421,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       } else {
         autoTable(doc, {
           startY: yPos,
-          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Excel Status']],
+          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Keka Status']],
           body: records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
@@ -444,10 +444,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       yPos = (doc as any).lastAutoTable.finalY + 10;
     };
 
-    // Add all detail sections
-    addDetailSection('Present', managerData.details.present);
+    // Add all detail sections (excluding Present and Off Day to save pages)
     addDetailSection('Absent', managerData.details.absent);
-    addDetailSection('Off Day', managerData.details.offDay);
     addDetailSection('Worked Off', managerData.details.workedOff);
     addDetailSection('Errors', managerData.details.errors, true);
     addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
