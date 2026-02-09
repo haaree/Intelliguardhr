@@ -97,6 +97,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     // Process reconciliation records
     const reconRecords = data.reconciliationRecords || [];
+
+    console.log('Manager PDF Report - Data Check:', {
+      fromDate,
+      toDate,
+      selectedManager,
+      reconRecordsCount: reconRecords.length,
+      auditQueueCount: data.auditQueue.length,
+      sampleReconRecord: reconRecords[0],
+      sampleAuditRecord: data.auditQueue[0]
+    });
+
     reconRecords.forEach(rec => {
       // Date filter
       if (rec.date < fromDate || rec.date > toDate) return;
@@ -747,8 +758,30 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         {fromDate && toDate && managerReportData.length === 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-12 text-center">
             <FileText size={48} className="mx-auto mb-4 text-slate-300" />
-            <p className="text-lg font-bold text-slate-500">No data found for the selected date range and manager</p>
-            <p className="text-sm text-slate-400 mt-2">Try adjusting your filters</p>
+            <p className="text-lg font-bold text-slate-500">No Violation Data Found</p>
+            <p className="text-sm text-slate-400 mt-2">
+              No reconciliation records or audit queue items found for the selected date range and manager.
+            </p>
+            <div className="mt-6 text-left max-w-2xl mx-auto bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <p className="text-xs font-black text-blue-900 uppercase tracking-widest mb-2">Data Requirements:</p>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-600 mt-0.5">•</span>
+                  <span><strong>Reconciliation Records:</strong> Visit the Reconciliation Report to reconcile attendance data</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-600 mt-0.5">•</span>
+                  <span><strong>Audit Queue:</strong> Items flagged for review (late/early, missing punch, errors)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-600 mt-0.5">•</span>
+                  <span><strong>Date Range:</strong> Ensure the selected dates match your reconciled data period</span>
+                </li>
+              </ul>
+            </div>
+            <p className="text-xs text-slate-400 mt-4">
+              Open browser console (F12) to see detailed data availability information
+            </p>
           </div>
         )}
       </div>
