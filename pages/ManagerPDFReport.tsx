@@ -198,46 +198,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     const reports = new Map<string, ManagerData>();
 
-    // Debug counters
-    const debugCounters = {
-      total: 0,
-      absent: 0,
-      present: 0,
-      workedOff: 0,
-      offDay: 0,
-      errors: 0,
-      audit: 0,
-      auditSubCategories: {
-        missingPunch: 0,
-        shiftDeviation: 0,
-        lessThan4hrs: 0,
-        hours4to7: 0,
-        lateEarly: 0,
-        others: 0
-      }
-    };
-
-    // Process ATTENDANCE records directly - same as Reconciliation Hub!
-    console.log('Manager PDF Report - Starting Processing:', {
-      fromDate,
-      toDate,
-      selectedManager,
-      attendanceCount: data.attendance.length,
-      dateRange: `${fromDate} to ${toDate}`
-    });
-
-    // Sample first 5 attendance records to see what dates we have
-    console.log('Manager PDF Report - Sample Attendance Records:', {
-      sample: data.attendance.slice(0, 5).map(att => ({
-        date: att.date,
-        employeeNumber: att.employeeNumber,
-        status: att.status
-      }))
-    });
-
-    let dateFilteredOut = 0;
-    let managerFilteredOut = 0;
-
     data.attendance.forEach(att => {
       // Date filter - attendance dates are in DD-MMM-YYYY format (e.g., '01-FEB-2026')
       // Convert to YYYY-MM-DD for comparison
@@ -246,7 +206,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Filter by date range
       if (normalizedDate < fromDate || normalizedDate > toDate) {
-        dateFilteredOut++;
         return;
       }
 
@@ -262,7 +221,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       // Manager filter
       const manager = att.reportingManager || 'Unknown';
       if (selectedManager !== 'All' && manager !== selectedManager) {
-        managerFilteredOut++;
         return;
       }
 
@@ -346,43 +304,33 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const attStatus = att.status || '';
       const deviation = att.deviation || '';
 
-      debugCounters.total++;
-
       // Categorize records using the EXACT same logic as Reconciliation Hub (lines 247-259)
       if (attStatus === 'Absent' || attStatus === 'A') {
         managerData.details.absent.push(enrichedRec);
         managerData.violations.absent++;
-        debugCounters.absent++;
       } else if (attStatus === 'Clean' || attStatus === 'P' || attStatus === 'Present') {
         managerData.details.present.push(enrichedRec);
         managerData.violations.present++;
-        debugCounters.present++;
       } else if (attStatus === 'Worked Off' || attStatus === 'WOH') {
         managerData.details.workedOff.push(enrichedRec);
         managerData.violations.workedOff++;
-        debugCounters.workedOff++;
       } else if (attStatus === 'Weekly Off' || attStatus === 'WO' || attStatus === 'Holiday' || attStatus === 'H') {
         managerData.details.offDay.push(enrichedRec);
         managerData.violations.offDay++;
-        debugCounters.offDay++;
       } else if (attStatus === 'ID Error' || attStatus.includes('Error')) {
         managerData.details.errors.push(enrichedRec);
         managerData.violations.errors++;
-        debugCounters.errors++;
       } else if (attStatus === 'Audit' || attStatus === 'Very Late' || deviation) {
-        debugCounters.audit++;
         // This is an audit record - sub-categorize it using categorizeAuditRecord logic
         // Missing Punches - highest priority
         if (deviation.includes('Missing') || deviation.includes('Punch')) {
           managerData.details.missingPunch.push(enrichedRec);
           managerData.violations.missingPunch++;
-          debugCounters.auditSubCategories.missingPunch++;
         }
         // Shift Deviations
         else if (deviation.includes('Shift') || deviation.includes('Very Early')) {
           managerData.details.shiftDeviation.push(enrichedRec);
           managerData.violations.shiftDeviation++;
-          debugCounters.auditSubCategories.shiftDeviation++;
         }
         // Check total work hours for hours-based categorization
         else {
@@ -394,11 +342,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           if (totalWorkHours > 0 && totalWorkHours < 4) {
             managerData.details.lessThan4hrs.push(enrichedRec);
             managerData.violations.lessThan4hrs++;
-            debugCounters.auditSubCategories.lessThan4hrs++;
           } else if (totalWorkHours >= 4 && totalWorkHours < 7) {
             managerData.details.hours4to7.push(enrichedRec);
             managerData.violations.hours4to7++;
-            debugCounters.auditSubCategories.hours4to7++;
           } else {
             // Check if it's a late/early violation
             const lateBy = att.lateBy || '00:00';
@@ -408,35 +354,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             if (isLateOrEarly) {
               managerData.details.lateEarly.push(enrichedRec);
               managerData.violations.lateEarly++;
-              debugCounters.auditSubCategories.lateEarly++;
             } else {
               // All other violations (working > 16 hours, or other deviations)
               managerData.details.otherViolations.push(enrichedRec);
               managerData.violations.otherViolations++;
-              debugCounters.auditSubCategories.others++;
             }
           }
         }
       }
-    });
-
-    console.log('Manager PDF Report - Filtering Summary:', {
-      totalAttendance: data.attendance.length,
-      dateFilteredOut,
-      managerFilteredOut,
-      processed: debugCounters.total
-    });
-
-    console.log('Manager PDF Report - Categorization Results:', {
-      totalProcessed: debugCounters.total,
-      absent: debugCounters.absent,
-      present: debugCounters.present,
-      workedOff: debugCounters.workedOff,
-      offDay: debugCounters.offDay,
-      errors: debugCounters.errors,
-      auditTotal: debugCounters.audit,
-      auditBreakdown: debugCounters.auditSubCategories,
-      managersFound: reports.size
     });
 
     return Array.from(reports.values()).sort((a, b) =>
