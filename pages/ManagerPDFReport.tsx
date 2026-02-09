@@ -75,6 +75,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     return hours + minutes / 60;
   };
 
+  // Helper: Format date to DD/MMM/YYYY
+  const formatDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   // Categorize audit queue record
   const categorizeAuditRecord = (record: AuditQueueRecord): string => {
     const reason = record.auditReason?.toLowerCase() || '';
@@ -245,23 +254,23 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Title
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Manager Attendance Violations Report', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('Attendance Report Summary', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
     // Report Details
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Manager: ${managerData.managerName}`, 14, yPos);
+    doc.text(`Reporting: ${managerData.managerName}`, 14, yPos);
     yPos += 6;
-    doc.text(`Period: ${fromDate} to ${toDate}`, 14, yPos);
+    doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
     yPos += 6;
-    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, yPos);
+    doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
     yPos += 10;
 
     // Summary Table
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Violations Summary', 14, yPos);
+    doc.text('Summary', 14, yPos);
     yPos += 5;
 
     // Calculate total
@@ -291,7 +300,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         ['Worked 4-7 hours', managerData.violations.hours4to7],
         ['Shift Deviation', managerData.violations.shiftDeviation],
         ['Missing Punch', managerData.violations.missingPunch],
-        ['Other Violations', managerData.violations.otherViolations]
+        ['Others', managerData.violations.otherViolations]
       ],
       foot: [['Total', total]],
       theme: 'grid',
@@ -320,25 +329,31 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       if (isAudit) {
         autoTable(doc, {
           startY: yPos,
-          head: [['Employee', 'Date', 'Reason', 'Status']],
+          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Reason', 'Status']],
           body: records.map((rec: AuditQueueRecord) => [
-            `${rec.employeeName} (${rec.employeeNumber})`,
+            rec.employeeNumber,
+            rec.employeeName,
             rec.date,
+            rec.department || '-',
+            '-',
             rec.auditReason,
             rec.reviewStatus
           ]),
           theme: 'striped',
           headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-          styles: { fontSize: 8 },
+          styles: { fontSize: 7 },
           margin: { left: 14, right: 14 }
         });
       } else {
         autoTable(doc, {
           startY: yPos,
-          head: [['Employee', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Excel Status']],
+          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Excel Status']],
           body: records.map((rec: any) => [
-            `${rec.employeeName} (${rec.employeeNumber})`,
+            rec.employeeNumber,
+            rec.employeeName,
             rec.date,
+            rec.department || '-',
+            rec.subDepartment || '-',
             rec.shift || '-',
             rec.shiftStart || '-',
             rec.inTime || '-',
@@ -347,7 +362,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           ]),
           theme: 'striped',
           headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-          styles: { fontSize: 7 },
+          styles: { fontSize: 6 },
           margin: { left: 14, right: 14 }
         });
       }
@@ -366,7 +381,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
     addDetailSection('Shift Deviation', managerData.details.shiftDeviation);
     addDetailSection('Missing Punch', managerData.details.missingPunch, true);
-    addDetailSection('Other Violations', managerData.details.otherViolations, true);
+    addDetailSection('Others', managerData.details.otherViolations, true);
 
     // Save PDF
     const fileName = `Manager_Report_${managerData.managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.pdf`;
@@ -434,13 +449,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   managerData.violations.otherViolations;
 
     const summaryData = [
-      ['Manager Attendance Violations Report'],
+      ['Attendance Report Summary'],
       [],
-      ['Manager:', managerData.managerName],
-      ['Period:', `${fromDate} to ${toDate}`],
-      ['Generated:', new Date().toLocaleDateString()],
+      ['Reporting:', managerData.managerName],
+      ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
+      ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
       [],
-      ['Violations Summary'],
+      ['Summary'],
       ['Violation Type', 'Count'],
       ['Present', managerData.violations.present],
       ['Absent', managerData.violations.absent],
@@ -452,7 +467,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       ['Worked 4-7 hours', managerData.violations.hours4to7],
       ['Shift Deviation', managerData.violations.shiftDeviation],
       ['Missing Punch', managerData.violations.missingPunch],
-      ['Other Violations', managerData.violations.otherViolations],
+      ['Others', managerData.violations.otherViolations],
       [],
       ['Total', total]
     ];
@@ -468,26 +483,27 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       if (isAudit) {
         data = [
-          ['Employee Number', 'Employee Name', 'Date', 'Department', 'Location', 'Audit Reason', 'Review Status'],
+          ['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Audit Reason', 'Review Status'],
           ...records.map((rec: AuditQueueRecord) => [
             rec.employeeNumber,
             rec.employeeName,
             rec.date,
-            rec.department,
-            rec.location,
+            rec.department || '-',
+            '-',
             rec.auditReason,
             rec.reviewStatus
           ])
         ];
       } else {
         data = [
-          ['Employee Number', 'Employee Name', 'Date', 'Job Title', 'Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
+          ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
           ...records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
             rec.date,
             rec.jobTitle,
-            rec.department,
+            rec.department || '-',
+            rec.subDepartment || '-',
             rec.shift || '-',
             rec.shiftStart || '-',
             rec.inTime || '-',
@@ -504,8 +520,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Set column widths
       const colWidths = isAudit
-        ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 15 }]
-        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+        ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 15 }]
+        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
       ws['!cols'] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -522,7 +538,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     addDetailSheet('4-7 Hours', managerData.details.hours4to7, true);
     addDetailSheet('Shift Deviation', managerData.details.shiftDeviation);
     addDetailSheet('Missing Punch', managerData.details.missingPunch, true);
-    addDetailSheet('Other Violations', managerData.details.otherViolations, true);
+    addDetailSheet('Others', managerData.details.otherViolations, true);
 
     // Save Excel
     const fileName = `Manager_Report_${managerData.managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
@@ -583,7 +599,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             </div>
             <div>
               <h1 className="text-3xl font-black text-slate-900">Manager PDF Reports</h1>
-              <p className="text-sm text-slate-500 font-medium">Generate comprehensive violation reports by manager</p>
+              <p className="text-sm text-slate-500 font-medium">Generate comprehensive reports by manager</p>
             </div>
           </div>
         </div>
@@ -658,7 +674,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   <FileText size={24} className="text-rose-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Total Violations</p>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Total</p>
                   <p className="text-2xl font-black text-slate-900">
                     {managerReportData.reduce((sum, m) =>
                       sum + Object.values(m.violations).reduce((s, v) => s + v, 0), 0
@@ -750,12 +766,12 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           </div>
         )}
 
-        {/* Manager Violation Summary Table */}
+        {/* Manager Summary Table */}
         {fromDate && toDate && managerReportData.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-200">
               <p className="text-sm font-bold text-slate-700">
-                Manager Violations Summary ({managerReportData.length} managers)
+                Manager Summary ({managerReportData.length} managers)
               </p>
             </div>
 
@@ -763,7 +779,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <table className="w-full">
                 <thead className="bg-slate-900 text-white">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest">Manager</th>
+                    <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest">Reporting</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Present</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Absent</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Off Day</th>
@@ -774,7 +790,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">4-7 hrs</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Shift Dev</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Missing</th>
-                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Other</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Others</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Total</th>
                   </tr>
                 </thead>

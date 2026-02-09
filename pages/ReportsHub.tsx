@@ -63,7 +63,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
     {
       id: 'manager-pdf',
       title: 'Manager PDF Reports',
-      description: 'Generate comprehensive violation reports by manager with absent, worked off, errors, and more',
+      description: 'Generate comprehensive reports by manager with absent, worked off, errors, and more',
       icon: Download,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
