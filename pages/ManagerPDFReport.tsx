@@ -83,19 +83,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
-  // Get unique managers from reconciliation records
+  // Get unique managers from attendance records
   const managers = useMemo(() => {
     const managerSet = new Set<string>();
 
-    // From reconciliation records
-    data.enrichedRecords?.forEach(rec => {
-      if (rec.reportingManager) managerSet.add(rec.reportingManager);
-    });
-
-    // From audit queue
-    data.auditQueue.forEach(rec => {
-      const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
-      if (employee?.reportingTo) managerSet.add(employee.reportingTo);
+    // From attendance records
+    data.attendance.forEach(att => {
+      if (att.reportingManager) managerSet.add(att.reportingManager);
     });
 
     return ['All', ...Array.from(managerSet).sort()];
@@ -104,9 +98,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique legal entities
   const legalEntities = useMemo(() => {
     const entitySet = new Set<string>();
-    data.enrichedRecords?.forEach(rec => {
-      const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
-      if (employee?.legalEntity) entitySet.add(employee.legalEntity);
+    data.attendance.forEach(att => {
+      if (att.legalEntity) entitySet.add(att.legalEntity);
     });
     return ['All', ...Array.from(entitySet).sort()];
   }, [data]);
@@ -114,8 +107,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique locations
   const locations = useMemo(() => {
     const locationSet = new Set<string>();
-    data.enrichedRecords?.forEach(rec => {
-      if (rec.location) locationSet.add(rec.location);
+    data.attendance.forEach(att => {
+      if (att.location) locationSet.add(att.location);
     });
     return ['All', ...Array.from(locationSet).sort()];
   }, [data]);
@@ -123,8 +116,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique departments
   const departments = useMemo(() => {
     const deptSet = new Set<string>();
-    data.enrichedRecords?.forEach(rec => {
-      if (rec.department) deptSet.add(rec.department);
+    data.attendance.forEach(att => {
+      if (att.department) deptSet.add(att.department);
     });
     return ['All', ...Array.from(deptSet).sort()];
   }, [data]);
@@ -132,8 +125,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique sub departments
   const subDepartments = useMemo(() => {
     const subDeptSet = new Set<string>();
-    data.enrichedRecords?.forEach(rec => {
-      if (rec.subDepartment) subDeptSet.add(rec.subDepartment);
+    data.attendance.forEach(att => {
+      if (att.subDepartment) subDeptSet.add(att.subDepartment);
     });
     return ['All', ...Array.from(subDeptSet).sort()];
   }, [data]);
