@@ -116,8 +116,25 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     });
 
     reconRecords.forEach(rec => {
-      // Date filter
-      if (rec.date < fromDate || rec.date > toDate) return;
+      // Date filter - handle different date formats
+      const recordDate = rec.date;
+
+      // Convert date to comparable format (YYYY-MM-DD)
+      let normalizedDate = recordDate;
+
+      // Check if date is in DD-MMM-YYYY format (e.g., '02-FEB-2026')
+      if (recordDate.includes('-') && recordDate.match(/\d{2}-[A-Z]{3}-\d{4}/)) {
+        const [day, monthName, year] = recordDate.split('-');
+        const monthMap: {[key: string]: string} = {
+          'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+          'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+          'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+        };
+        normalizedDate = `${year}-${monthMap[monthName]}-${day}`;
+      }
+
+      // Filter by date range
+      if (normalizedDate < fromDate || normalizedDate > toDate) return;
 
       // Manager filter
       const manager = rec.reportingManager || 'Unknown';
