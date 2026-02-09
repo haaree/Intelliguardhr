@@ -206,12 +206,27 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       dateRange: `${fromDate} to ${toDate}`
     });
 
+    // Sample first 5 attendance records to see what dates we have
+    console.log('Manager PDF Report - Sample Attendance Records:', {
+      sample: data.attendance.slice(0, 5).map(att => ({
+        date: att.date,
+        employeeNumber: att.employeeNumber,
+        status: att.status
+      }))
+    });
+
+    let dateFilteredOut = 0;
+    let managerFilteredOut = 0;
+
     data.attendance.forEach(att => {
       // Date filter
       const recordDate = att.date;
 
       // Filter by date range (attendance dates are in YYYY-MM-DD format)
-      if (recordDate < fromDate || recordDate > toDate) return;
+      if (recordDate < fromDate || recordDate > toDate) {
+        dateFilteredOut++;
+        return;
+      }
 
       // Get employee details for filters
       const employee = data.employees.find(e => e.employeeNumber === att.employeeNumber);
@@ -224,7 +239,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Manager filter
       const manager = att.reportingManager || 'Unknown';
-      if (selectedManager !== 'All' && manager !== selectedManager) return;
+      if (selectedManager !== 'All' && manager !== selectedManager) {
+        managerFilteredOut++;
+        return;
+      }
 
       // Initialize manager data if needed
       if (!reports.has(manager)) {
@@ -365,6 +383,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           }
         }
       }
+    });
+
+    console.log('Manager PDF Report - Filtering Summary:', {
+      totalAttendance: data.attendance.length,
+      dateFilteredOut,
+      managerFilteredOut,
+      processed: debugCounters.total
     });
 
     console.log('Manager PDF Report - Categorization Results:', {
