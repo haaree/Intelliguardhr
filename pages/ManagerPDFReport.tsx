@@ -26,6 +26,10 @@ interface ViolationCounts {
 
 interface ManagerData {
   managerName: string;
+  legalEntity?: string;
+  location?: string;
+  department?: string;
+  subDepartment?: string;
   violations: ViolationCounts;
   details: {
     present: ReconciliationRecord[];
@@ -46,6 +50,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selectedManager, setSelectedManager] = useState('All');
+  const [selectedLegalEntity, setSelectedLegalEntity] = useState('All');
+  const [selectedLocation, setSelectedLocation] = useState('All');
+  const [selectedDepartment, setSelectedDepartment] = useState('All');
+  const [selectedSubDepartment, setSelectedSubDepartment] = useState('All');
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
@@ -65,6 +73,43 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     });
 
     return ['All', ...Array.from(managerSet).sort()];
+  }, [data]);
+
+  // Get unique legal entities
+  const legalEntities = useMemo(() => {
+    const entitySet = new Set<string>();
+    data.reconciliationRecords?.forEach(rec => {
+      const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
+      if (employee?.legalEntity) entitySet.add(employee.legalEntity);
+    });
+    return ['All', ...Array.from(entitySet).sort()];
+  }, [data]);
+
+  // Get unique locations
+  const locations = useMemo(() => {
+    const locationSet = new Set<string>();
+    data.reconciliationRecords?.forEach(rec => {
+      if (rec.location) locationSet.add(rec.location);
+    });
+    return ['All', ...Array.from(locationSet).sort()];
+  }, [data]);
+
+  // Get unique departments
+  const departments = useMemo(() => {
+    const deptSet = new Set<string>();
+    data.reconciliationRecords?.forEach(rec => {
+      if (rec.department) deptSet.add(rec.department);
+    });
+    return ['All', ...Array.from(deptSet).sort()];
+  }, [data]);
+
+  // Get unique sub departments
+  const subDepartments = useMemo(() => {
+    const subDeptSet = new Set<string>();
+    data.reconciliationRecords?.forEach(rec => {
+      if (rec.subDepartment) subDeptSet.add(rec.subDepartment);
+    });
+    return ['All', ...Array.from(subDeptSet).sort()];
   }, [data]);
 
   // Helper: Parse hours from time string
@@ -146,6 +191,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       // Filter by date range
       if (normalizedDate < fromDate || normalizedDate > toDate) return;
 
+      // Get employee details for filters
+      const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
+
+      // Entity filters
+      if (selectedLegalEntity !== 'All' && employee?.legalEntity !== selectedLegalEntity) return;
+      if (selectedLocation !== 'All' && rec.location !== selectedLocation) return;
+      if (selectedDepartment !== 'All' && rec.department !== selectedDepartment) return;
+      if (selectedSubDepartment !== 'All' && rec.subDepartment !== selectedSubDepartment) return;
+
       // Manager filter
       const manager = rec.reportingManager || 'Unknown';
       if (selectedManager !== 'All' && manager !== selectedManager) return;
@@ -154,6 +208,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       if (!reports.has(manager)) {
         reports.set(manager, {
           managerName: manager,
+          legalEntity: employee?.legalEntity,
+          location: rec.location,
+          department: rec.department,
+          subDepartment: rec.subDepartment,
           violations: {
             present: 0,
             absent: 0,
@@ -243,7 +301,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     return Array.from(reports.values()).sort((a, b) =>
       a.managerName.localeCompare(b.managerName)
     );
-  }, [data, fromDate, toDate, selectedManager]);
+  }, [data, fromDate, toDate, selectedManager, selectedLegalEntity, selectedLocation, selectedDepartment, selectedSubDepartment]);
 
   // Generate PDF for a single manager
   const generatePDF = (managerData: ManagerData) => {
@@ -262,6 +320,22 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.setFont('helvetica', 'normal');
     doc.text(`Reporting: ${managerData.managerName}`, 14, yPos);
     yPos += 6;
+    if (managerData.legalEntity) {
+      doc.text(`Legal Entity: ${managerData.legalEntity}`, 14, yPos);
+      yPos += 6;
+    }
+    if (managerData.location) {
+      doc.text(`Location: ${managerData.location}`, 14, yPos);
+      yPos += 6;
+    }
+    if (managerData.department) {
+      doc.text(`Department: ${managerData.department}`, 14, yPos);
+      yPos += 6;
+    }
+    if (managerData.subDepartment) {
+      doc.text(`Sub Department: ${managerData.subDepartment}`, 14, yPos);
+      yPos += 6;
+    }
     doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
     yPos += 6;
     doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
@@ -448,10 +522,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   managerData.violations.missingPunch +
                   managerData.violations.otherViolations;
 
-    const summaryData = [
+    const summaryData: any[] = [
       ['Attendance Report Summary'],
       [],
-      ['Reporting:', managerData.managerName],
+      ['Reporting:', managerData.managerName]
+    ];
+
+    if (managerData.legalEntity) {
+      summaryData.push(['Legal Entity:', managerData.legalEntity]);
+    }
+    if (managerData.location) {
+      summaryData.push(['Location:', managerData.location]);
+    }
+    if (managerData.department) {
+      summaryData.push(['Department:', managerData.department]);
+    }
+    if (managerData.subDepartment) {
+      summaryData.push(['Sub Department:', managerData.subDepartment]);
+    }
+
+    summaryData.push(
       ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
       ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
       [],
@@ -611,7 +701,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             Select Report Parameters
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
                 From Date
@@ -647,6 +737,68 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               >
                 {managers.map(mgr => (
                   <option key={mgr} value={mgr}>{mgr}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
+                Legal Entity
+              </label>
+              <select
+                value={selectedLegalEntity}
+                onChange={(e) => setSelectedLegalEntity(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {legalEntities.map(entity => (
+                  <option key={entity} value={entity}>{entity}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
+                Location
+              </label>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {locations.map(loc => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
+                Department
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
+                Sub Department
+              </label>
+              <select
+                value={selectedSubDepartment}
+                onChange={(e) => setSelectedSubDepartment(e.target.value)}
+                className="w-full px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {subDepartments.map(subDept => (
+                  <option key={subDept} value={subDept}>{subDept}</option>
                 ))}
               </select>
             </div>
