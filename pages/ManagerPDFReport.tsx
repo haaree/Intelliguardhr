@@ -436,11 +436,12 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     );
   }, [detailedManagerReportData]);
 
-  // Generate PDF for a single manager
-  const generatePDF = (managerData: ManagerData) => {
+  // Generate consolidated PDF for a manager (includes all entity/location/dept combinations)
+  const generateConsolidatedPDF = (managerReports: ManagerData[]) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     let yPos = 20;
+    const managerName = managerReports[0].managerName;
 
     // Title
     doc.setFontSize(18);
@@ -451,47 +452,65 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Report Details - Only show Manager and Period in header
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Manager: ${managerData.managerName}`, 14, yPos);
+    doc.text(`Manager: ${managerName}`, 14, yPos);
     yPos += 6;
     doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
     yPos += 6;
     doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
     yPos += 10;
 
-    // Summary Table
+    // Overall Summary Table (aggregated across all entities/locations/depts)
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('Summary', 14, yPos);
+    doc.text('Overall Summary', 14, yPos);
     yPos += 5;
 
-    // Calculate total
-    const total = managerData.violations.present +
-                  managerData.violations.absent +
-                  managerData.violations.offDay +
-                  managerData.violations.workedOff +
-                  managerData.violations.errors +
-                  managerData.violations.lateEarly +
-                  managerData.violations.lessThan4hrs +
-                  managerData.violations.hours4to7 +
-                  managerData.violations.shiftDeviation +
-                  managerData.violations.missingPunch +
-                  managerData.violations.otherViolations;
+    // Calculate aggregated totals
+    const aggregated = {
+      present: 0,
+      absent: 0,
+      offDay: 0,
+      workedOff: 0,
+      errors: 0,
+      lateEarly: 0,
+      lessThan4hrs: 0,
+      hours4to7: 0,
+      shiftDeviation: 0,
+      missingPunch: 0,
+      otherViolations: 0
+    };
+
+    managerReports.forEach(report => {
+      aggregated.present += report.violations.present;
+      aggregated.absent += report.violations.absent;
+      aggregated.offDay += report.violations.offDay;
+      aggregated.workedOff += report.violations.workedOff;
+      aggregated.errors += report.violations.errors;
+      aggregated.lateEarly += report.violations.lateEarly;
+      aggregated.lessThan4hrs += report.violations.lessThan4hrs;
+      aggregated.hours4to7 += report.violations.hours4to7;
+      aggregated.shiftDeviation += report.violations.shiftDeviation;
+      aggregated.missingPunch += report.violations.missingPunch;
+      aggregated.otherViolations += report.violations.otherViolations;
+    });
+
+    const total = Object.values(aggregated).reduce((sum, v) => sum + v, 0);
 
     autoTable(doc, {
       startY: yPos,
       head: [['Violation Type', 'Count']],
       body: [
-        ['Present', managerData.violations.present],
-        ['Absent', managerData.violations.absent],
-        ['Off Day', managerData.violations.offDay],
-        ['Worked Off', managerData.violations.workedOff],
-        ['Errors', managerData.violations.errors],
-        ['Late & Early Occurrence', managerData.violations.lateEarly],
-        ['Worked < 4 hours', managerData.violations.lessThan4hrs],
-        ['Worked 4-7 hours', managerData.violations.hours4to7],
-        ['Shift Deviation', managerData.violations.shiftDeviation],
-        ['Missing Punch', managerData.violations.missingPunch],
-        ['Others', managerData.violations.otherViolations]
+        ['Present', aggregated.present],
+        ['Absent', aggregated.absent],
+        ['Off Day', aggregated.offDay],
+        ['Worked Off', aggregated.workedOff],
+        ['Errors', aggregated.errors],
+        ['Late & Early Occurrence', aggregated.lateEarly],
+        ['Worked < 4 hours', aggregated.lessThan4hrs],
+        ['Worked 4-7 hours', aggregated.hours4to7],
+        ['Shift Deviation', aggregated.shiftDeviation],
+        ['Missing Punch', aggregated.missingPunch],
+        ['Others', aggregated.otherViolations]
       ],
       foot: [['Total', total]],
       theme: 'grid',
@@ -502,103 +521,161 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     yPos = (doc as any).lastAutoTable.finalY + 10;
 
-    // Detailed Sections
-    const addDetailSection = (title: string, records: any[], isAudit: boolean = false) => {
-      if (records.length === 0) return;
-
-      // Check if we need a new page
-      if (yPos > 250) {
+    // Now process each organizational unit (entity/location/dept combination)
+    managerReports.forEach((managerData, reportIndex) => {
+      // Add page break before each new organizational unit (except first)
+      if (reportIndex > 0) {
         doc.addPage();
         yPos = 20;
       }
 
-      doc.setFontSize(12);
+      // Section header showing the organizational context
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-
-      // Add contextual grouping info in section header if applicable
-      let sectionTitle = title;
+      const contextParts: string[] = [];
       if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
-        sectionTitle += ` - ${managerData.legalEntity}`;
+        contextParts.push(managerData.legalEntity);
       }
       if (managerData.location && managerData.location !== 'Unknown') {
-        sectionTitle += ` - ${managerData.location}`;
+        contextParts.push(managerData.location);
       }
       if (managerData.department && managerData.department !== 'Unknown') {
-        sectionTitle += ` - ${managerData.department}`;
+        contextParts.push(managerData.department);
       }
       if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
-        sectionTitle += ` - ${managerData.subDepartment}`;
+        contextParts.push(managerData.subDepartment);
       }
 
-      doc.text(sectionTitle, 14, yPos);
+      if (contextParts.length > 0) {
+        doc.text(contextParts.join(' - '), 14, yPos);
+        yPos += 8;
+      }
+
+      // Summary for this organizational unit
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Summary', 14, yPos);
       yPos += 5;
 
-      if (isAudit) {
-        // Audit records should show shift details, deviation, late/early info
-        autoTable(doc, {
-          startY: yPos,
-          head: [['Employee ID', 'Employee Name', 'Date', 'Dept', 'Sub Dept', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Deviation', 'Late By', 'Early By', 'Keka Status']],
-          body: records.map((rec: any) => [
-            rec.employeeNumber,
-            rec.employeeName,
-            rec.date,
-            rec.department || '-',
-            rec.subDepartment || '-',
-            rec.shift || '-',
-            rec.shiftStart || '-',
-            rec.inTime || '-',
-            rec.outTime || '-',
-            rec.totalHours || '-',
-            rec.deviation || '-',
-            rec.lateBy || '-',
-            rec.earlyBy || '-',
-            rec.excelStatus || '-'
-          ]),
-          theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-          styles: { fontSize: 5.5 },
-          margin: { left: 14, right: 14 }
-        });
-      } else {
-        autoTable(doc, {
-          startY: yPos,
-          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status']],
-          body: records.map((rec: any) => [
-            rec.employeeNumber,
-            rec.employeeName,
-            rec.date,
-            rec.department || '-',
-            rec.subDepartment || '-',
-            rec.shift || '-',
-            rec.shiftStart || '-',
-            rec.inTime || '-',
-            rec.outTime || '-',
-            rec.totalHours || '-',
-            rec.excelStatus || '-'
-          ]),
-          theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-          styles: { fontSize: 6 },
-          margin: { left: 14, right: 14 }
-        });
-      }
+      const unitTotal = managerData.violations.present +
+                        managerData.violations.absent +
+                        managerData.violations.offDay +
+                        managerData.violations.workedOff +
+                        managerData.violations.errors +
+                        managerData.violations.lateEarly +
+                        managerData.violations.lessThan4hrs +
+                        managerData.violations.hours4to7 +
+                        managerData.violations.shiftDeviation +
+                        managerData.violations.missingPunch +
+                        managerData.violations.otherViolations;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Violation Type', 'Count']],
+        body: [
+          ['Present', managerData.violations.present],
+          ['Absent', managerData.violations.absent],
+          ['Off Day', managerData.violations.offDay],
+          ['Worked Off', managerData.violations.workedOff],
+          ['Errors', managerData.violations.errors],
+          ['Late & Early Occurrence', managerData.violations.lateEarly],
+          ['Worked < 4 hours', managerData.violations.lessThan4hrs],
+          ['Worked 4-7 hours', managerData.violations.hours4to7],
+          ['Shift Deviation', managerData.violations.shiftDeviation],
+          ['Missing Punch', managerData.violations.missingPunch],
+          ['Others', managerData.violations.otherViolations]
+        ],
+        foot: [['Total', unitTotal]],
+        theme: 'grid',
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+        footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 9 }
+      });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
-    };
 
-    // Add all detail sections (excluding Present and Off Day to save pages)
-    addDetailSection('Absent', managerData.details.absent);
-    addDetailSection('Worked Off', managerData.details.workedOff);
-    addDetailSection('Errors', managerData.details.errors, true);
-    addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
-    addDetailSection('Worked < 4 Hours', managerData.details.lessThan4hrs, true);
-    addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
-    addDetailSection('Shift Deviation', managerData.details.shiftDeviation);
-    addDetailSection('Missing Punch', managerData.details.missingPunch, true);
-    addDetailSection('Others', managerData.details.otherViolations, true);
+      // Detailed Sections for this organizational unit
+      const addDetailSection = (title: string, records: any[], isAudit: boolean = false) => {
+        if (records.length === 0) return;
 
-    // Save PDF
-    const fileName = `Manager_Report_${managerData.managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.pdf`;
+        // Check if we need a new page
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, 14, yPos);
+        yPos += 5;
+
+        if (isAudit) {
+          // Audit records should show shift details, deviation, late/early info
+          autoTable(doc, {
+            startY: yPos,
+            head: [['Employee ID', 'Employee Name', 'Date', 'Dept', 'Sub Dept', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Deviation', 'Late By', 'Early By', 'Keka Status']],
+            body: records.map((rec: any) => [
+              rec.employeeNumber,
+              rec.employeeName,
+              rec.date,
+              rec.department || '-',
+              rec.subDepartment || '-',
+              rec.shift || '-',
+              rec.shiftStart || '-',
+              rec.inTime || '-',
+              rec.outTime || '-',
+              rec.totalHours || '-',
+              rec.deviation || '-',
+              rec.lateBy || '-',
+              rec.earlyBy || '-',
+              rec.excelStatus || '-'
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+            styles: { fontSize: 5.5 },
+            margin: { left: 14, right: 14 }
+          });
+        } else {
+          autoTable(doc, {
+            startY: yPos,
+            head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status']],
+            body: records.map((rec: any) => [
+              rec.employeeNumber,
+              rec.employeeName,
+              rec.date,
+              rec.department || '-',
+              rec.subDepartment || '-',
+              rec.shift || '-',
+              rec.shiftStart || '-',
+              rec.inTime || '-',
+              rec.outTime || '-',
+              rec.totalHours || '-',
+              rec.excelStatus || '-'
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+            styles: { fontSize: 6 },
+            margin: { left: 14, right: 14 }
+          });
+        }
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      };
+
+      // Add all detail sections for this unit (excluding Present and Off Day to save pages)
+      addDetailSection('Absent', managerData.details.absent);
+      addDetailSection('Worked Off', managerData.details.workedOff);
+      addDetailSection('Errors', managerData.details.errors, true);
+      addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
+      addDetailSection('Worked < 4 Hours', managerData.details.lessThan4hrs, true);
+      addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
+      addDetailSection('Shift Deviation', managerData.details.shiftDeviation);
+      addDetailSection('Missing Punch', managerData.details.missingPunch, true);
+      addDetailSection('Others', managerData.details.otherViolations, true);
+    });
+
+    // Save consolidated PDF
+    const fileName = `Manager_Report_${managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.pdf`;
     doc.save(fileName);
   };
 
@@ -614,19 +691,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    // Get all detailed reports for this manager
+    // Get all detailed reports for this manager (all entity/location/dept combinations)
     const managerReports = detailedManagerReportData.filter(m => m.managerName === selectedManager);
     if (managerReports.length === 0) {
       alert('No data found for selected manager in the date range');
       return;
     }
 
-    // Generate PDF for each detailed report (entity/location/dept combination)
-    managerReports.forEach((report, index) => {
-      setTimeout(() => {
-        generatePDF(report);
-      }, index * 500);
-    });
+    // Generate single consolidated PDF with all organizational units
+    generateConsolidatedPDF(managerReports);
   };
 
   // Generate bulk PDFs
@@ -641,167 +714,236 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    // Generate PDF for each detailed report
-    detailedManagerReportData.forEach((managerData, index) => {
+    // Group reports by manager name
+    const reportsByManager = new Map<string, ManagerData[]>();
+    detailedManagerReportData.forEach(report => {
+      const existing = reportsByManager.get(report.managerName) || [];
+      existing.push(report);
+      reportsByManager.set(report.managerName, existing);
+    });
+
+    // Generate one consolidated PDF per manager
+    const managers = Array.from(reportsByManager.entries());
+    managers.forEach(([managerName, reports], index) => {
       setTimeout(() => {
-        generatePDF(managerData);
+        generateConsolidatedPDF(reports);
       }, index * 500); // Delay to prevent browser blocking multiple downloads
     });
 
-    alert(`Generating ${detailedManagerReportData.length} PDF reports. Please allow multiple downloads in your browser.`);
+    alert(`Generating ${managers.length} PDF reports (one per manager). Please allow multiple downloads in your browser.`);
   };
 
-  // Generate Excel for a single manager
-  const generateExcel = (managerData: ManagerData) => {
+  // Generate consolidated Excel for a manager (includes all entity/location/dept combinations)
+  const generateConsolidatedExcel = (managerReports: ManagerData[]) => {
     const wb = XLSX.utils.book_new();
+    const managerName = managerReports[0].managerName;
 
-    // Summary Sheet
-    const total = managerData.violations.present +
-                  managerData.violations.absent +
-                  managerData.violations.offDay +
-                  managerData.violations.workedOff +
-                  managerData.violations.errors +
-                  managerData.violations.lateEarly +
-                  managerData.violations.lessThan4hrs +
-                  managerData.violations.hours4to7 +
-                  managerData.violations.shiftDeviation +
-                  managerData.violations.missingPunch +
-                  managerData.violations.otherViolations;
+    // Overall Summary Sheet (aggregated across all entities/locations/depts)
+    const aggregated = {
+      present: 0,
+      absent: 0,
+      offDay: 0,
+      workedOff: 0,
+      errors: 0,
+      lateEarly: 0,
+      lessThan4hrs: 0,
+      hours4to7: 0,
+      shiftDeviation: 0,
+      missingPunch: 0,
+      otherViolations: 0
+    };
+
+    managerReports.forEach(report => {
+      aggregated.present += report.violations.present;
+      aggregated.absent += report.violations.absent;
+      aggregated.offDay += report.violations.offDay;
+      aggregated.workedOff += report.violations.workedOff;
+      aggregated.errors += report.violations.errors;
+      aggregated.lateEarly += report.violations.lateEarly;
+      aggregated.lessThan4hrs += report.violations.lessThan4hrs;
+      aggregated.hours4to7 += report.violations.hours4to7;
+      aggregated.shiftDeviation += report.violations.shiftDeviation;
+      aggregated.missingPunch += report.violations.missingPunch;
+      aggregated.otherViolations += report.violations.otherViolations;
+    });
+
+    const total = Object.values(aggregated).reduce((sum, v) => sum + v, 0);
 
     const summaryData: any[] = [
       ['Attendance Report Summary'],
       [],
-      ['Manager:', managerData.managerName],
+      ['Manager:', managerName],
       ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
       ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
       [],
-      ['Summary'],
+      ['Overall Summary (All Units)'],
       ['Violation Type', 'Count'],
-      ['Present', managerData.violations.present],
-      ['Absent', managerData.violations.absent],
-      ['Off Day', managerData.violations.offDay],
-      ['Worked Off', managerData.violations.workedOff],
-      ['Errors', managerData.violations.errors],
-      ['Late & Early Occurrence', managerData.violations.lateEarly],
-      ['Worked < 4 hours', managerData.violations.lessThan4hrs],
-      ['Worked 4-7 hours', managerData.violations.hours4to7],
-      ['Shift Deviation', managerData.violations.shiftDeviation],
-      ['Missing Punch', managerData.violations.missingPunch],
-      ['Others', managerData.violations.otherViolations],
+      ['Present', aggregated.present],
+      ['Absent', aggregated.absent],
+      ['Off Day', aggregated.offDay],
+      ['Worked Off', aggregated.workedOff],
+      ['Errors', aggregated.errors],
+      ['Late & Early Occurrence', aggregated.lateEarly],
+      ['Worked < 4 hours', aggregated.lessThan4hrs],
+      ['Worked 4-7 hours', aggregated.hours4to7],
+      ['Shift Deviation', aggregated.shiftDeviation],
+      ['Missing Punch', aggregated.missingPunch],
+      ['Others', aggregated.otherViolations],
       [],
       ['Total', total]
     ];
 
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Overall Summary');
 
-    // Helper function to add detail sheet
-    const addDetailSheet = (sheetName: string, records: any[], isAudit: boolean = false) => {
-      if (records.length === 0) return;
-
-      let data: any[][] = [];
-
-      // Add contextual grouping info to sheet name if applicable
-      let finalSheetName = sheetName;
-      const contextInfo: string[] = [];
+    // Now create sheets for each organizational unit
+    managerReports.forEach((managerData, unitIndex) => {
+      // Build context label for sheet naming
+      const contextParts: string[] = [];
       if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
-        contextInfo.push(managerData.legalEntity);
+        contextParts.push(managerData.legalEntity);
       }
       if (managerData.location && managerData.location !== 'Unknown') {
-        contextInfo.push(managerData.location);
+        contextParts.push(managerData.location);
       }
       if (managerData.department && managerData.department !== 'Unknown') {
-        contextInfo.push(managerData.department);
+        contextParts.push(managerData.department);
       }
       if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
-        contextInfo.push(managerData.subDepartment);
+        contextParts.push(managerData.subDepartment);
       }
 
-      // Add context as first rows in the sheet
-      const headerRows: any[][] = [];
-      if (contextInfo.length > 0) {
-        headerRows.push(['Context:', contextInfo.join(' - ')]);
-        headerRows.push([]);
-      }
+      const unitLabel = contextParts.length > 0 ? contextParts.join('-') : `Unit${unitIndex + 1}`;
+      const safeUnitLabel = unitLabel.substring(0, 25); // Excel sheet name limit
 
-      if (isAudit) {
-        // Audit records should include shift details and deviation info
-        data = [
-          ...headerRows,
-          ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Deviation', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
-          ...records.map((rec: any) => [
-            rec.employeeNumber,
-            rec.employeeName,
-            rec.date,
-            rec.jobTitle || '-',
-            rec.department || '-',
-            rec.subDepartment || '-',
-            rec.shift || '-',
-            rec.shiftStart || '-',
-            rec.inTime || '-',
-            rec.outTime || '-',
-            rec.totalHours || '-',
-            rec.deviation || '-',
-            rec.lateBy || '-',
-            rec.earlyBy || '-',
-            rec.excelStatus || '-',
-            rec.finalStatus || '-'
-          ])
+      // Unit summary
+      const unitTotal = managerData.violations.present +
+                        managerData.violations.absent +
+                        managerData.violations.offDay +
+                        managerData.violations.workedOff +
+                        managerData.violations.errors +
+                        managerData.violations.lateEarly +
+                        managerData.violations.lessThan4hrs +
+                        managerData.violations.hours4to7 +
+                        managerData.violations.shiftDeviation +
+                        managerData.violations.missingPunch +
+                        managerData.violations.otherViolations;
+
+      const unitSummaryData: any[] = [
+        [contextParts.join(' - ')],
+        [],
+        ['Summary'],
+        ['Violation Type', 'Count'],
+        ['Present', managerData.violations.present],
+        ['Absent', managerData.violations.absent],
+        ['Off Day', managerData.violations.offDay],
+        ['Worked Off', managerData.violations.workedOff],
+        ['Errors', managerData.violations.errors],
+        ['Late & Early Occurrence', managerData.violations.lateEarly],
+        ['Worked < 4 hours', managerData.violations.lessThan4hrs],
+        ['Worked 4-7 hours', managerData.violations.hours4to7],
+        ['Shift Deviation', managerData.violations.shiftDeviation],
+        ['Missing Punch', managerData.violations.missingPunch],
+        ['Others', managerData.violations.otherViolations],
+        [],
+        ['Total', unitTotal]
+      ];
+
+      const unitSummaryWs = XLSX.utils.aoa_to_sheet(unitSummaryData);
+      XLSX.utils.book_append_sheet(wb, unitSummaryWs, `${safeUnitLabel}-Summary`);
+
+      // Helper function to add detail sheet for this unit
+      const addDetailSheet = (sheetName: string, records: any[], isAudit: boolean = false) => {
+        if (records.length === 0) return;
+
+        let data: any[][] = [];
+
+        // Create sheet name with unit prefix
+        const finalSheetName = `${safeUnitLabel}-${sheetName}`.substring(0, 31); // Excel sheet name limit
+
+        // Add context as first rows in the sheet
+        const headerRows: any[][] = [
+          ['Context:', contextParts.join(' - ')],
+          []
         ];
-      } else {
-        data = [
-          ...headerRows,
-          ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
-          ...records.map((rec: any) => [
-            rec.employeeNumber,
-            rec.employeeName,
-            rec.date,
-            rec.jobTitle,
-            rec.department || '-',
-            rec.subDepartment || '-',
-            rec.shift || '-',
-            rec.shiftStart || '-',
-            rec.inTime || '-',
-            rec.outTime || '-',
-            rec.totalHours || '-',
-            rec.absentStatus,
-            rec.excelStatus,
-            rec.finalStatus,
-            rec.comments
-          ])
-        ];
-      }
 
-      const ws = XLSX.utils.aoa_to_sheet(data);
+        if (isAudit) {
+          // Audit records should include shift details and deviation info
+          data = [
+            ...headerRows,
+            ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Deviation', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
+            ...records.map((rec: any) => [
+              rec.employeeNumber,
+              rec.employeeName,
+              rec.date,
+              rec.jobTitle || '-',
+              rec.department || '-',
+              rec.subDepartment || '-',
+              rec.shift || '-',
+              rec.shiftStart || '-',
+              rec.inTime || '-',
+              rec.outTime || '-',
+              rec.totalHours || '-',
+              rec.deviation || '-',
+              rec.lateBy || '-',
+              rec.earlyBy || '-',
+              rec.excelStatus || '-',
+              rec.finalStatus || '-'
+            ])
+          ];
+        } else {
+          data = [
+            ...headerRows,
+            ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Absent Status', 'Keka Status', 'Final Status', 'Comments'],
+            ...records.map((rec: any) => [
+              rec.employeeNumber,
+              rec.employeeName,
+              rec.date,
+              rec.jobTitle,
+              rec.department || '-',
+              rec.subDepartment || '-',
+              rec.shift || '-',
+              rec.shiftStart || '-',
+              rec.inTime || '-',
+              rec.outTime || '-',
+              rec.totalHours || '-',
+              rec.absentStatus,
+              rec.excelStatus,
+              rec.finalStatus,
+              rec.comments
+            ])
+          ];
+        }
 
-      // Set column widths
-      const colWidths = isAudit
-        ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }]
-        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
-      ws['!cols'] = colWidths;
+        const ws = XLSX.utils.aoa_to_sheet(data);
 
-      XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
-    };
+        // Set column widths
+        const colWidths = isAudit
+          ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }]
+          : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+        ws['!cols'] = colWidths;
 
-    // Add all detail sheets
-    addDetailSheet('Present', managerData.details.present);
-    addDetailSheet('Absent', managerData.details.absent);
-    addDetailSheet('Off Day', managerData.details.offDay);
-    addDetailSheet('Worked Off', managerData.details.workedOff);
-    addDetailSheet('Errors', managerData.details.errors, true);
-    addDetailSheet('Late & Early', managerData.details.lateEarly, true);
-    addDetailSheet('Less than 4hrs', managerData.details.lessThan4hrs, true);
-    addDetailSheet('4-7 Hours', managerData.details.hours4to7, true);
-    addDetailSheet('Shift Deviation', managerData.details.shiftDeviation);
-    addDetailSheet('Missing Punch', managerData.details.missingPunch, true);
-    addDetailSheet('Others', managerData.details.otherViolations, true);
+        XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
+      };
 
-    // Save Excel
-    const fileName = `Manager_Report_${managerData.managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
+      // Add all detail sheets for this organizational unit
+      addDetailSheet('Absent', managerData.details.absent);
+      addDetailSheet('WorkedOff', managerData.details.workedOff);
+      addDetailSheet('Errors', managerData.details.errors, true);
+      addDetailSheet('LateEarly', managerData.details.lateEarly, true);
+      addDetailSheet('Less4hrs', managerData.details.lessThan4hrs, true);
+      addDetailSheet('4-7hrs', managerData.details.hours4to7, true);
+      addDetailSheet('ShiftDev', managerData.details.shiftDeviation, true);
+      addDetailSheet('MissPunch', managerData.details.missingPunch, true);
+      addDetailSheet('Others', managerData.details.otherViolations, true);
+    });
+
+    // Save Excel file
+    const fileName = `Manager_Report_${managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
-  // Generate individual Excel
+  // Generate individual Excel (consolidated for all org units of a manager)
   const handleIndividualExcel = () => {
     if (!fromDate || !toDate) {
       alert('Please select both from and to dates');
@@ -820,15 +962,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    // Generate Excel for each detailed report (entity/location/dept combination)
-    managerReports.forEach((report, index) => {
-      setTimeout(() => {
-        generateExcel(report);
-      }, index * 500);
-    });
+    // Generate one consolidated Excel with all organizational units
+    generateConsolidatedExcel(managerReports);
   };
 
-  // Generate bulk Excel files
+  // Generate bulk Excel files (one consolidated file per manager)
   const handleBulkExcel = () => {
     if (!fromDate || !toDate) {
       alert('Please select both from and to dates');
@@ -840,14 +978,23 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    // Generate Excel for each detailed report
-    detailedManagerReportData.forEach((managerData, index) => {
+    // Group reports by manager name
+    const reportsByManager = new Map<string, ManagerData[]>();
+    detailedManagerReportData.forEach(report => {
+      const existing = reportsByManager.get(report.managerName) || [];
+      existing.push(report);
+      reportsByManager.set(report.managerName, existing);
+    });
+
+    // Generate one consolidated Excel per manager
+    const managers = Array.from(reportsByManager.entries());
+    managers.forEach(([managerName, reports], index) => {
       setTimeout(() => {
-        generateExcel(managerData);
+        generateConsolidatedExcel(reports);
       }, index * 500); // Delay to prevent browser blocking multiple downloads
     });
 
-    alert(`Generating ${detailedManagerReportData.length} Excel reports. Please allow multiple downloads in your browser.`);
+    alert(`Generating ${managers.length} consolidated Excel reports (one per manager). Please allow multiple downloads in your browser.`);
   };
 
   return (
