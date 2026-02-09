@@ -79,11 +79,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     if (reason.includes('missing') || reason.includes('punch')) return 'missingPunch';
     if (reason.includes('error') || reason.includes('id')) return 'errors';
 
-    // Check for short hours
+    // Check for short hours - lookup attendance record to get actual hours
     if (reason.includes('short') || reason.includes('hour')) {
-      // Try to extract hours from the record or reason
-      // This is a simplified check - adjust based on your actual data
-      return 'otherViolations';
+      const attRecord = data.attendance.find(
+        att => att.employeeNumber === record.employeeNumber && att.date === record.date
+      );
+
+      if (attRecord) {
+        const effectiveHours = parseHours(attRecord.effectiveHours);
+        if (effectiveHours > 0 && effectiveHours < 4) return 'lessThan4hrs';
+        if (effectiveHours >= 4 && effectiveHours < 7) return 'hours4to7';
+      }
     }
 
     return 'otherViolations';
@@ -242,6 +248,12 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       } else if (category === 'errors') {
         managerData.violations.errors++;
         managerData.details.errors.push(rec);
+      } else if (category === 'lessThan4hrs') {
+        managerData.violations.lessThan4hrs++;
+        managerData.details.lessThan4hrs.push(rec);
+      } else if (category === 'hours4to7') {
+        managerData.violations.hours4to7++;
+        managerData.details.hours4to7.push(rec);
       } else {
         managerData.violations.otherViolations++;
         managerData.details.otherViolations.push(rec);
