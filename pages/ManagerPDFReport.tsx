@@ -1251,7 +1251,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         // Identify Present and Worked Off days
         const isPresent = normalizedStatus === 'P' || normalizedStatus === 'PRESENT' || normalizedStatus === 'CLEAN';
-        const isWorkedOff = normalizedStatus === 'WOH';
+        const isWorkedOff = normalizedStatus === 'WOH' || normalizedStatus === 'WORKED OFF';
 
         if (!isPresent && !isWorkedOff) return;
 
@@ -1341,7 +1341,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       rec.status.toUpperCase() === 'P' || rec.status.toUpperCase() === 'PRESENT' || rec.status.toUpperCase() === 'CLEAN'
     );
     const workedOffRecords = excessHoursData.filter(rec =>
-      rec.status.toUpperCase() === 'WOH'
+      rec.status.toUpperCase() === 'WOH' || rec.status.toUpperCase() === 'WORKED OFF'
     );
 
     // Generate PDF
