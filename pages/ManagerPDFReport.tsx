@@ -101,7 +101,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     const reports = new Map<string, ManagerData>();
 
-    // Process reconciliation records
+    // Process reconciliation records - this is the source of truth!
     const reconRecords = data.reconciliationRecords || [];
 
     console.log('Manager PDF Report - Data Check:', {
@@ -109,16 +109,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       toDate,
       selectedManager,
       reconRecordsCount: reconRecords.length,
-      auditQueueCount: data.auditQueue.length,
-      sampleReconRecord: reconRecords[0],
-      sampleAuditRecord: data.auditQueue[0],
-      // Additional debugging
-      reconRecordDates: reconRecords.slice(0, 5).map(r => r.date),
-      reconRecordManagers: [...new Set(reconRecords.map(r => r.reportingManager))].slice(0, 10),
-      filteredReconRecords: reconRecords.filter(rec =>
-        rec.date >= fromDate && rec.date <= toDate &&
-        (selectedManager === 'All' || rec.reportingManager === selectedManager)
-      ).length
+      sampleReconRecord: reconRecords[0]
     });
 
     reconRecords.forEach(rec => {
@@ -177,87 +168,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       const managerData = reports.get(manager)!;
 
-      // Categorize by status
-      const status = rec.finalStatus || rec.absentStatus;
+      // Get attendance details for this record
+      const attRecord = data.attendance.find(
+        att => att.employeeNumber === rec.employeeNumber && att.date === normalizedDate
+      );
 
-      if (status === 'A') {
-        managerData.violations.absent++;
-        managerData.details.absent.push(rec);
-      } else if (status === 'WOH') {
-        managerData.violations.workedOff++;
-        managerData.details.workedOff.push(rec);
-      }
+      // Attach attendance details to the reconciliation record for display
+      const enrichedRec = {
+        ...rec,
+        shift: attRecord?.shift || '-',
+        shiftStart: attRecord?.shiftStart || '-',
+        inTime: attRecord?.inTime || '-',
+        outTime: attRecord?.outTime || '-'
+      };
 
-      // Check for shift deviation (if excelStatus doesn't match absentStatus)
-      if (rec.excelStatus && rec.absentStatus && rec.excelStatus !== rec.absentStatus) {
-        managerData.violations.shiftDeviation++;
-        managerData.details.shiftDeviation.push(rec);
-      }
-    });
+      // Categorize based on status - directly from Reconciliation Hub data
+      const status = enrichedRec.excelStatus || enrichedRec.absentStatus || enrichedRec.finalStatus;
 
-    // Process audit queue
-    data.auditQueue.forEach(rec => {
-      // Date filter
-      if (rec.date < fromDate || rec.date > toDate) return;
-
-      // Get manager from employee data
-      const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
-      const manager = employee?.reportingTo || 'Unknown';
-
-      // Manager filter
-      if (selectedManager !== 'All' && manager !== selectedManager) return;
-
-      // Initialize manager data if needed
-      if (!reports.has(manager)) {
-        reports.set(manager, {
-          managerName: manager,
-          violations: {
-            absent: 0,
-            workedOff: 0,
-            errors: 0,
-            lateEarly: 0,
-            lessThan4hrs: 0,
-            hours4to7: 0,
-            shiftDeviation: 0,
-            missingPunch: 0,
-            otherViolations: 0
-          },
-          details: {
-            absent: [],
-            workedOff: [],
-            errors: [],
-            lateEarly: [],
-            lessThan4hrs: [],
-            hours4to7: [],
-            shiftDeviation: [],
-            missingPunch: [],
-            otherViolations: []
-          }
-        });
-      }
-
-      const managerData = reports.get(manager)!;
-      const category = categorizeAuditRecord(rec);
-
-      if (category === 'lateEarly') {
-        managerData.violations.lateEarly++;
-        managerData.details.lateEarly.push(rec);
-      } else if (category === 'missingPunch') {
-        managerData.violations.missingPunch++;
-        managerData.details.missingPunch.push(rec);
-      } else if (category === 'errors') {
-        managerData.violations.errors++;
-        managerData.details.errors.push(rec);
-      } else if (category === 'lessThan4hrs') {
-        managerData.violations.lessThan4hrs++;
-        managerData.details.lessThan4hrs.push(rec);
-      } else if (category === 'hours4to7') {
-        managerData.violations.hours4to7++;
-        managerData.details.hours4to7.push(rec);
-      } else {
-        managerData.violations.otherViolations++;
-        managerData.details.otherViolations.push(rec);
-      }
+      // Simply add ALL records - let reconciliation hub's data speak for itself
+      managerData.details.absent.push(enrichedRec);
+      managerData.violations.absent++;
     });
 
     return Array.from(reports.values()).sort((a, b) =>
@@ -347,16 +277,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       } else {
         autoTable(doc, {
           startY: yPos,
-          head: [['Employee', 'Date', 'Absent Status', 'Final Status']],
-          body: records.map((rec: ReconciliationRecord) => [
+          head: [['Employee', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Excel Status']],
+          body: records.map((rec: any) => [
             `${rec.employeeName} (${rec.employeeNumber})`,
             rec.date,
-            rec.absentStatus,
-            rec.finalStatus
+            rec.shift || '-',
+            rec.shiftStart || '-',
+            rec.inTime || '-',
+            rec.outTime || '-',
+            rec.excelStatus || '-'
           ]),
           theme: 'striped',
           headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-          styles: { fontSize: 8 },
+          styles: { fontSize: 7 },
           margin: { left: 14, right: 14 }
         });
       }
@@ -472,13 +405,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         ];
       } else {
         data = [
-          ['Employee Number', 'Employee Name', 'Date', 'Job Title', 'Department', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
-          ...records.map((rec: ReconciliationRecord) => [
+          ['Employee Number', 'Employee Name', 'Date', 'Job Title', 'Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
+          ...records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
             rec.date,
             rec.jobTitle,
             rec.department,
+            rec.shift || '-',
+            rec.shiftStart || '-',
+            rec.inTime || '-',
+            rec.outTime || '-',
             rec.absentStatus,
             rec.excelStatus,
             rec.finalStatus,
@@ -492,7 +429,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       // Set column widths
       const colWidths = isAudit
         ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 15 }]
-        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
       ws['!cols'] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
