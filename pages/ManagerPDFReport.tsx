@@ -266,14 +266,27 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         return;
       }
 
+      // Create a unique key based on selected filters
+      // This allows grouping by legal entity, location, dept, subdept when "All" is selected
+      const legalEntity = employee?.legalEntity || 'Unknown';
+      const location = att.location || 'Unknown';
+      const department = att.department || 'Unknown';
+      const subDepartment = att.subDepartment || 'Unknown';
+
+      let reportKey = manager;
+      if (selectedLegalEntity === 'All') reportKey += `|${legalEntity}`;
+      if (selectedLocation === 'All') reportKey += `|${location}`;
+      if (selectedDepartment === 'All') reportKey += `|${department}`;
+      if (selectedSubDepartment === 'All') reportKey += `|${subDepartment}`;
+
       // Initialize manager data if needed
-      if (!reports.has(manager)) {
-        reports.set(manager, {
+      if (!reports.has(reportKey)) {
+        reports.set(reportKey, {
           managerName: manager,
-          legalEntity: employee?.legalEntity,
-          location: att.location,
-          department: att.department,
-          subDepartment: att.subDepartment,
+          legalEntity: selectedLegalEntity === 'All' ? legalEntity : selectedLegalEntity,
+          location: selectedLocation === 'All' ? location : selectedLocation,
+          department: selectedDepartment === 'All' ? department : selectedDepartment,
+          subDepartment: selectedSubDepartment === 'All' ? subDepartment : selectedSubDepartment,
           violations: {
             present: 0,
             absent: 0,
@@ -303,7 +316,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         });
       }
 
-      const managerData = reports.get(manager)!;
+      const managerData = reports.get(reportKey)!;
 
       // Create an enriched record from attendance for display
       const enrichedRec: EnrichedRecord = {
@@ -443,24 +456,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text('Attendance Report Summary', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
-    // Report Details
+    // Report Details - Show only contextually relevant information
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Reporting: ${managerData.managerName}`, 14, yPos);
+    doc.text(`Manager: ${managerData.managerName}`, 14, yPos);
     yPos += 6;
-    if (managerData.legalEntity) {
+
+    // Only show fields that are being filtered or grouped
+    if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
       doc.text(`Legal Entity: ${managerData.legalEntity}`, 14, yPos);
       yPos += 6;
     }
-    if (managerData.location) {
+    if (managerData.location && managerData.location !== 'Unknown') {
       doc.text(`Location: ${managerData.location}`, 14, yPos);
       yPos += 6;
     }
-    if (managerData.department) {
+    if (managerData.department && managerData.department !== 'Unknown') {
       doc.text(`Department: ${managerData.department}`, 14, yPos);
       yPos += 6;
     }
-    if (managerData.subDepartment) {
+    if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
       doc.text(`Sub Department: ${managerData.subDepartment}`, 14, yPos);
       yPos += 6;
     }
@@ -652,19 +667,20 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     const summaryData: any[] = [
       ['Attendance Report Summary'],
       [],
-      ['Reporting:', managerData.managerName]
+      ['Manager:', managerData.managerName]
     ];
 
-    if (managerData.legalEntity) {
+    // Only show fields that are being filtered or grouped
+    if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
       summaryData.push(['Legal Entity:', managerData.legalEntity]);
     }
-    if (managerData.location) {
+    if (managerData.location && managerData.location !== 'Unknown') {
       summaryData.push(['Location:', managerData.location]);
     }
-    if (managerData.department) {
+    if (managerData.department && managerData.department !== 'Unknown') {
       summaryData.push(['Department:', managerData.department]);
     }
-    if (managerData.subDepartment) {
+    if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
       summaryData.push(['Sub Department:', managerData.subDepartment]);
     }
 
