@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { FileText, Download, Calendar, User } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { AppData, UserRole, ReconciliationRecord, AuditQueueRecord } from '../types';
 
 interface ManagerPDFReportProps {
@@ -375,6 +376,140 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     alert(`Generating ${managerReportData.length} PDF reports. Please allow multiple downloads in your browser.`);
   };
 
+  // Generate Excel for a single manager
+  const generateExcel = (managerData: ManagerData) => {
+    const wb = XLSX.utils.book_new();
+
+    // Summary Sheet
+    const summaryData = [
+      ['Manager Attendance Violations Report'],
+      [],
+      ['Manager:', managerData.managerName],
+      ['Period:', `${fromDate} to ${toDate}`],
+      ['Generated:', new Date().toLocaleDateString()],
+      [],
+      ['Violations Summary'],
+      ['Violation Type', 'Count'],
+      ['Absent', managerData.violations.absent],
+      ['Worked Off Days', managerData.violations.workedOff],
+      ['Errors', managerData.violations.errors],
+      ['Late & Early Occurrence', managerData.violations.lateEarly],
+      ['Worked Less than 4 hours', managerData.violations.lessThan4hrs],
+      ['Worked 4-7 hours', managerData.violations.hours4to7],
+      ['Shift Deviation', managerData.violations.shiftDeviation],
+      ['Missing Punch', managerData.violations.missingPunch],
+      ['Other Violations', managerData.violations.otherViolations]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
+
+    // Helper function to add detail sheet
+    const addDetailSheet = (sheetName: string, records: any[], isAudit: boolean = false) => {
+      if (records.length === 0) return;
+
+      let data: any[][] = [];
+
+      if (isAudit) {
+        data = [
+          ['Employee Number', 'Employee Name', 'Date', 'Department', 'Location', 'Audit Reason', 'Review Status'],
+          ...records.map((rec: AuditQueueRecord) => [
+            rec.employeeNumber,
+            rec.employeeName,
+            rec.date,
+            rec.department,
+            rec.location,
+            rec.auditReason,
+            rec.reviewStatus
+          ])
+        ];
+      } else {
+        data = [
+          ['Employee Number', 'Employee Name', 'Date', 'Job Title', 'Department', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
+          ...records.map((rec: ReconciliationRecord) => [
+            rec.employeeNumber,
+            rec.employeeName,
+            rec.date,
+            rec.jobTitle,
+            rec.department,
+            rec.absentStatus,
+            rec.excelStatus,
+            rec.finalStatus,
+            rec.comments
+          ])
+        ];
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+
+      // Set column widths
+      const colWidths = isAudit
+        ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 15 }, { wch: 30 }, { wch: 15 }]
+        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+      ws['!cols'] = colWidths;
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    };
+
+    // Add all detail sheets
+    addDetailSheet('Absent', managerData.details.absent);
+    addDetailSheet('Worked Off Days', managerData.details.workedOff);
+    addDetailSheet('Errors', managerData.details.errors, true);
+    addDetailSheet('Late & Early', managerData.details.lateEarly, true);
+    addDetailSheet('Less than 4hrs', managerData.details.lessThan4hrs, true);
+    addDetailSheet('4-7 Hours', managerData.details.hours4to7, true);
+    addDetailSheet('Shift Deviation', managerData.details.shiftDeviation);
+    addDetailSheet('Missing Punch', managerData.details.missingPunch, true);
+    addDetailSheet('Other Violations', managerData.details.otherViolations, true);
+
+    // Save Excel
+    const fileName = `Manager_Report_${managerData.managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
+  // Generate individual Excel
+  const handleIndividualExcel = () => {
+    if (!fromDate || !toDate) {
+      alert('Please select both from and to dates');
+      return;
+    }
+
+    if (selectedManager === 'All') {
+      alert('Please select a specific manager for individual Excel');
+      return;
+    }
+
+    const managerData = managerReportData.find(m => m.managerName === selectedManager);
+    if (!managerData) {
+      alert('No data found for the selected manager');
+      return;
+    }
+
+    generateExcel(managerData);
+  };
+
+  // Generate bulk Excel files
+  const handleBulkExcel = () => {
+    if (!fromDate || !toDate) {
+      alert('Please select both from and to dates');
+      return;
+    }
+
+    if (managerReportData.length === 0) {
+      alert('No data found for the selected date range');
+      return;
+    }
+
+    // Generate Excel for each manager
+    managerReportData.forEach((managerData, index) => {
+      setTimeout(() => {
+        generateExcel(managerData);
+      }, index * 500); // Delay to prevent browser blocking multiple downloads
+    });
+
+    alert(`Generating ${managerReportData.length} Excel reports. Please allow multiple downloads in your browser.`);
+  };
+
   return (
     <div className="flex-1 bg-gradient-to-br from-slate-50 to-blue-50 p-8 overflow-auto">
       <div className="max-w-7xl mx-auto">
@@ -492,30 +627,63 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <Download size={20} />
               Download Reports
             </h2>
-            <div className="flex gap-3">
-              <button
-                onClick={handleIndividualPDF}
-                disabled={selectedManager === 'All'}
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                  selectedManager === 'All'
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
-                }`}
-              >
-                <Download size={18} />
-                Download Individual PDF
-              </button>
 
-              <button
-                onClick={handleBulkPDF}
-                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
-              >
-                <Download size={18} />
-                Download Bulk PDFs
-              </button>
+            {/* PDF Downloads */}
+            <div className="mb-4">
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">PDF Reports</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleIndividualPDF}
+                  disabled={selectedManager === 'All'}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                    selectedManager === 'All'
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
+                  }`}
+                >
+                  <Download size={18} />
+                  Download Individual PDF
+                </button>
+
+                <button
+                  onClick={handleBulkPDF}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
+                >
+                  <Download size={18} />
+                  Download Bulk PDFs
+                </button>
+              </div>
             </div>
+
+            {/* Excel Downloads */}
+            <div>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excel Reports</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleIndividualExcel}
+                  disabled={selectedManager === 'All'}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                    selectedManager === 'All'
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg'
+                  }`}
+                >
+                  <Download size={18} />
+                  Download Individual Excel
+                </button>
+
+                <button
+                  onClick={handleBulkExcel}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
+                >
+                  <Download size={18} />
+                  Download Bulk Excel
+                </button>
+              </div>
+            </div>
+
             <p className="text-xs text-slate-500 mt-3">
-              Individual PDF: Select a specific manager. Bulk PDF: Downloads PDFs for all managers in the date range.
+              Individual: Select a specific manager. Bulk: Downloads reports for all managers in the date range.
             </p>
           </div>
         )}
