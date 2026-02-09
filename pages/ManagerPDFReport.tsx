@@ -183,11 +183,38 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       };
 
       // Categorize based on status - directly from Reconciliation Hub data
-      const status = enrichedRec.excelStatus || enrichedRec.absentStatus || enrichedRec.finalStatus;
+      const status = (enrichedRec.excelStatus || enrichedRec.absentStatus || enrichedRec.finalStatus).toUpperCase().trim();
 
-      // Simply add ALL records - let reconciliation hub's data speak for itself
-      managerData.details.absent.push(enrichedRec);
-      managerData.violations.absent++;
+      // Categorize records based on their status
+      if (status === 'A' || status === 'ABSENT') {
+        managerData.details.absent.push(enrichedRec);
+        managerData.violations.absent++;
+      } else if (status === 'WO' || status === 'WORKED OFF' || status.includes('WORKED OFF')) {
+        managerData.details.workedOff.push(enrichedRec);
+        managerData.violations.workedOff++;
+      } else if (status.includes('ERROR') || status.includes('ERR')) {
+        managerData.details.errors.push(enrichedRec);
+        managerData.violations.errors++;
+      } else if (status.includes('LATE') || status.includes('EARLY')) {
+        managerData.details.lateEarly.push(enrichedRec);
+        managerData.violations.lateEarly++;
+      } else if (status.includes('<4') || status.includes('LESS THAN 4')) {
+        managerData.details.lessThan4hrs.push(enrichedRec);
+        managerData.violations.lessThan4hrs++;
+      } else if (status.includes('4-7') || status.includes('4 TO 7')) {
+        managerData.details.hours4to7.push(enrichedRec);
+        managerData.violations.hours4to7++;
+      } else if (status.includes('SHIFT DEVIATION') || status.includes('DEVIATION') || status === 'SD') {
+        managerData.details.shiftDeviation.push(enrichedRec);
+        managerData.violations.shiftDeviation++;
+      } else if (status.includes('MISSING PUNCH') || status === 'MP' || status.includes('PUNCH')) {
+        managerData.details.missingPunch.push(enrichedRec);
+        managerData.violations.missingPunch++;
+      } else {
+        // All other statuses (CL, PL, SL, CO, LOP, MEL, HD, P, etc.)
+        managerData.details.otherViolations.push(enrichedRec);
+        managerData.violations.otherViolations++;
+      }
     });
 
     return Array.from(reports.values()).sort((a, b) =>
