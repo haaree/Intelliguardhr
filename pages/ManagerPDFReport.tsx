@@ -1113,7 +1113,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         excessHours: excessHours,
         excessMinutes: excessMinutes,
         calculationMethod: calculationMethod,
-        isOver16Hours: totalWorkHours > 16 ? 'Yes' : 'No'
+        isOver16Hours: totalWorkHours > 16 ? 'Yes' : 'No',
+        employeeOTForm: '', // To be filled manually
+        finalPayableOTHours: '' // To be filled manually
       });
     });
 
@@ -1152,7 +1154,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Details sheet
     if (excessHoursData.length > 0) {
       const detailsData: any[][] = [
-        ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hours', 'Excess Hours', 'Calculation Method', 'Over 16 Hrs'],
+        ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hours', 'Excess Hours', 'Calculation Method', 'Over 16 Hrs', 'Employee OT Form', 'Final Payable OT Hours'],
         ...excessHoursData.map(rec => [
           rec.employeeNumber,
           rec.employeeName,
@@ -1170,7 +1172,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           rec.totalHours || '-',
           rec.excessHours,
           rec.calculationMethod,
-          rec.isOver16Hours
+          rec.isOver16Hours,
+          rec.employeeOTForm || '',
+          rec.finalPayableOTHours || ''
         ])
       ];
 
@@ -1194,7 +1198,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         { wch: 12 }, // Total Hours
         { wch: 12 }, // Excess Hours
         { wch: 35 }, // Calculation Method
-        { wch: 12 }  // Over 16 Hrs
+        { wch: 12 }, // Over 16 Hrs
+        { wch: 18 }, // Employee OT Form
+        { wch: 22 }  // Final Payable OT Hours
       ];
 
       XLSX.utils.book_append_sheet(wb, detailsWs, 'Excess Hours Details');
@@ -1203,6 +1209,238 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Save the file
     const fileName = `Excess_Hours_${selectedManager.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
     XLSX.writeFile(wb, fileName);
+  };
+
+  // Generate Excess Hours PDF Report
+  const generateExcessHoursPDF = () => {
+    if (!fromDate || !toDate) {
+      alert('Please select both from and to dates');
+      return;
+    }
+
+    if (selectedManager === 'All') {
+      alert('Please select a specific manager for Excess Hours PDF');
+      return;
+    }
+
+    // Get filtered manager records
+    const managerRecords = detailedManagerReportData.filter(data =>
+      data.managerName === selectedManager &&
+      (selectedLegalEntity === 'All' || data.legalEntity === selectedLegalEntity) &&
+      (selectedLocation === 'All' || data.location === selectedLocation) &&
+      (selectedDepartment === 'All' || data.department === selectedDepartment)
+    );
+
+    if (managerRecords.length === 0) {
+      alert('No records found for the selected manager and filters');
+      return;
+    }
+
+    // Collect all excess hours data
+    const excessHoursData: any[] = [];
+
+    managerRecords.forEach(data => {
+      data.attendance.forEach(att => {
+        const attDate = att.date;
+        if (attDate < fromDate || attDate > toDate) return;
+
+        const attStatus = att.status || '';
+        const normalizedStatus = attStatus.toUpperCase();
+
+        // Identify Present and Worked Off days
+        const isPresent = normalizedStatus === 'P' || normalizedStatus === 'PRESENT' || normalizedStatus === 'CLEAN';
+        const isWorkedOff = normalizedStatus === 'WOH';
+
+        if (!isPresent && !isWorkedOff) return;
+
+        // Check if there's valid punch data
+        const hasOutTime = att.outTime && att.outTime !== 'NA' && att.outTime !== '-' && att.outTime !== '';
+        if (!hasOutTime) return;
+
+        let excessMinutes = 0;
+        let calculationMethod = '';
+
+        if (isPresent) {
+          // Present days: Calculate excess based on Shift End time to Out time
+          // Only include if excess > 9 hours (540 minutes)
+          const shiftEndMinutes = timeToMinutes(att.shiftEnd);
+          const outTimeMinutes = timeToMinutes(att.outTime);
+
+          if (outTimeMinutes > shiftEndMinutes) {
+            excessMinutes = outTimeMinutes - shiftEndMinutes;
+
+            // Only include if excess > 9 hours
+            if (excessMinutes > 540) {
+              calculationMethod = 'Out Time - Shift End (>9 hrs)';
+            } else {
+              return; // Skip if not more than 9 hours
+            }
+          } else {
+            return; // No excess
+          }
+        } else if (isWorkedOff) {
+          // Worked Off days: Calculate from Shift Start time to Out time
+          const shiftStartMinutes = timeToMinutes(att.shiftStart);
+          const outTimeMinutes = timeToMinutes(att.outTime);
+
+          if (outTimeMinutes > shiftStartMinutes) {
+            excessMinutes = outTimeMinutes - shiftStartMinutes;
+            calculationMethod = 'Out Time - Shift Start';
+          } else {
+            return; // No excess
+          }
+        }
+
+        // Also check "Others" category (>16 hours)
+        const totalHours = att.totalHours || '00:00';
+        const [hoursStr, minutesStr] = totalHours.split(':');
+        const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
+
+        const excessHours = (excessMinutes / 60).toFixed(2);
+
+        excessHoursData.push({
+          employeeNumber: att.employeeNumber,
+          employeeName: att.employeeName,
+          date: att.date,
+          jobTitle: att.jobTitle,
+          department: att.department,
+          subDepartment: att.subDepartment,
+          location: att.location,
+          status: attStatus,
+          shift: att.shift,
+          shiftStart: att.shiftStart,
+          shiftEnd: att.shiftEnd,
+          inTime: att.inTime,
+          outTime: att.outTime,
+          totalHours: att.totalHours,
+          excessHours: excessHours,
+          excessMinutes: excessMinutes,
+          calculationMethod: calculationMethod,
+          isOver16Hours: totalWorkHours > 16 ? 'Yes' : 'No',
+          employeeOTForm: '', // To be filled manually
+          finalPayableOTHours: '' // To be filled manually
+        });
+      });
+    });
+
+    // Sort by employee name and date
+    excessHoursData.sort((a, b) => {
+      const nameCompare = a.employeeName.localeCompare(b.employeeName);
+      if (nameCompare !== 0) return nameCompare;
+      return a.date.localeCompare(b.date);
+    });
+
+    if (excessHoursData.length === 0) {
+      alert('No excess hours records found for the selected criteria');
+      return;
+    }
+
+    // Separate into Present and Worked Off categories
+    const presentRecords = excessHoursData.filter(rec =>
+      rec.status.toUpperCase() === 'P' || rec.status.toUpperCase() === 'PRESENT' || rec.status.toUpperCase() === 'CLEAN'
+    );
+    const workedOffRecords = excessHoursData.filter(rec =>
+      rec.status.toUpperCase() === 'WOH'
+    );
+
+    // Generate PDF
+    const doc = new jsPDF('landscape'); // Use landscape for more columns
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Excess Hours Report', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Report Details
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Manager: ${selectedManager}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
+    yPos += 10;
+
+    // Overall Summary
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', 14, yPos);
+    yPos += 5;
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Category', 'Count']],
+      body: [
+        ['Present Days (>9 hrs beyond shift end)', presentRecords.length],
+        ['Worked Off Days', workedOffRecords.length],
+        ['Over 16 Hours', excessHoursData.filter(r => r.isOver16Hours === 'Yes').length],
+        ['Total Records', excessHoursData.length]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' }, // Amber color
+      styles: { fontSize: 9 }
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Add detail sections using same structure as Manager PDF
+    const addExcessHoursSection = (title: string, records: any[]) => {
+      if (records.length === 0) return;
+
+      // Check if we need a new page
+      if (yPos > 170) {
+        doc.addPage('landscape');
+        yPos = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, 14, yPos);
+      yPos += 5;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Emp ID', 'Name', 'Date', 'Job Title', 'Dept', 'Sub Dept', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hrs', 'Excess Hrs', 'Calculation', 'Over 16', 'OT Form', 'Final OT Hrs']],
+        body: records.map((rec: any) => [
+          rec.employeeNumber,
+          rec.employeeName,
+          rec.date,
+          rec.jobTitle || '-',
+          rec.department || '-',
+          rec.subDepartment || '-',
+          rec.location || '-',
+          rec.status,
+          rec.shift || '-',
+          rec.shiftStart || '-',
+          rec.shiftEnd || '-',
+          rec.inTime || '-',
+          rec.outTime || '-',
+          rec.totalHours || '-',
+          rec.excessHours,
+          rec.calculationMethod,
+          rec.isOver16Hours,
+          rec.employeeOTForm || '',
+          rec.finalPayableOTHours || ''
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' }, // Amber color
+        styles: { fontSize: 5 },
+        margin: { left: 14, right: 14 }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+    };
+
+    // Add sections by category (matching Manager PDF structure)
+    addExcessHoursSection('Present Days - Excess Hours (>9 hrs beyond shift end)', presentRecords);
+    addExcessHoursSection('Worked Off Days - Excess Hours', workedOffRecords);
+
+    // Save PDF
+    const fileName = `Excess_Hours_${selectedManager.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.pdf`;
+    doc.save(fileName);
   };
 
   return (
@@ -1444,12 +1682,25 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excess Hours Report</p>
               <div className="flex gap-3">
                 <button
-                  onClick={handleExcessHoursReport}
+                  onClick={generateExcessHoursPDF}
                   disabled={selectedManager === 'All'}
                   className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
                     selectedManager === 'All'
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       : 'bg-gradient-to-r from-amber-600 to-orange-600 text-white hover:from-amber-700 hover:to-orange-700 shadow-lg'
+                  }`}
+                >
+                  <Download size={18} />
+                  Download Excess Hours PDF
+                </button>
+
+                <button
+                  onClick={handleExcessHoursReport}
+                  disabled={selectedManager === 'All'}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                    selectedManager === 'All'
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-yellow-600 to-amber-600 text-white hover:from-yellow-700 hover:to-amber-700 shadow-lg'
                   }`}
                 >
                   <Download size={18} />
