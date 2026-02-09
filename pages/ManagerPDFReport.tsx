@@ -139,6 +139,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     return hours + minutes / 60;
   };
 
+  // Helper: Convert DD-MMM-YYYY to YYYY-MM-DD format
+  const convertDDMMMYYYYtoYYYYMMDD = (dateStr: string): string => {
+    // Input format: '01-FEB-2026'
+    // Output format: '2026-02-01'
+    const monthMap: { [key: string]: string } = {
+      'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+      'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+      'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+    };
+
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr; // Return as-is if format is unexpected
+
+    const day = parts[0];
+    const month = monthMap[parts[1].toUpperCase()] || '01';
+    const year = parts[2];
+
+    return `${year}-${month}-${day}`;
+  };
+
   // Helper: Format date to DD/MMM/YYYY
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -219,11 +239,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     let managerFilteredOut = 0;
 
     data.attendance.forEach(att => {
-      // Date filter
+      // Date filter - attendance dates are in DD-MMM-YYYY format (e.g., '01-FEB-2026')
+      // Convert to YYYY-MM-DD for comparison
       const recordDate = att.date;
+      const normalizedDate = convertDDMMMYYYYtoYYYYMMDD(recordDate);
 
-      // Filter by date range (attendance dates are in YYYY-MM-DD format)
-      if (recordDate < fromDate || recordDate > toDate) {
+      // Filter by date range
+      if (normalizedDate < fromDate || normalizedDate > toDate) {
         dateFilteredOut++;
         return;
       }
