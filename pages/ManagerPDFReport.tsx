@@ -167,7 +167,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       toDate,
       selectedManager,
       reconRecordsCount: reconRecords.length,
-      sampleReconRecord: reconRecords[0]
+      attendanceCount: data.attendance.length,
+      sampleReconRecord: reconRecords[0],
+      sampleAttendance: data.attendance[0]
     });
 
     reconRecords.forEach(rec => {
@@ -262,6 +264,16 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       // Get the attendance status to categorize records - matching Reconciliation Hub exactly
       const attStatus = attRecord?.status || '';
       const deviation = enrichedRec.deviation || '';
+
+      // Debug: Log when attRecord is not found
+      if (!attRecord && reports.size === 1) {
+        console.log('Missing attendance record:', {
+          employeeNumber: rec.employeeNumber,
+          date: rec.date,
+          normalizedDate,
+          reconStatus: rec.finalStatus
+        });
+      }
 
       // Categorize records using the EXACT same logic as Reconciliation Hub (lines 247-259)
       if (attStatus === 'Absent' || attStatus === 'A') {
