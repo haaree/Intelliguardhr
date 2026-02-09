@@ -193,7 +193,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   };
 
   // Process data for selected manager and date range
-  const managerReportData = useMemo((): ManagerData[] => {
+  // This creates detailed reports with entity/location/dept breakdown for PDF/Excel
+  const detailedManagerReportData = useMemo((): ManagerData[] => {
     if (!fromDate || !toDate) return [];
 
     const reports = new Map<string, ManagerData>();
@@ -368,6 +369,72 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       a.managerName.localeCompare(b.managerName)
     );
   }, [data, fromDate, toDate, selectedManager, selectedLegalEntity, selectedLocation, selectedDepartment, selectedSubDepartment]);
+
+  // Consolidated data for GUI display - aggregate by manager name only
+  const managerReportData = useMemo((): ManagerData[] => {
+    if (!detailedManagerReportData.length) return [];
+
+    const consolidated = new Map<string, ManagerData>();
+
+    detailedManagerReportData.forEach(report => {
+      const managerName = report.managerName;
+
+      if (!consolidated.has(managerName)) {
+        consolidated.set(managerName, {
+          managerName,
+          legalEntity: undefined,
+          location: undefined,
+          department: undefined,
+          subDepartment: undefined,
+          violations: {
+            present: 0,
+            absent: 0,
+            offDay: 0,
+            workedOff: 0,
+            errors: 0,
+            lateEarly: 0,
+            lessThan4hrs: 0,
+            hours4to7: 0,
+            shiftDeviation: 0,
+            missingPunch: 0,
+            otherViolations: 0
+          },
+          details: {
+            present: [],
+            absent: [],
+            offDay: [],
+            workedOff: [],
+            errors: [],
+            lateEarly: [],
+            lessThan4hrs: [],
+            hours4to7: [],
+            shiftDeviation: [],
+            missingPunch: [],
+            otherViolations: []
+          }
+        });
+      }
+
+      const consolidatedData = consolidated.get(managerName)!;
+
+      // Aggregate violation counts
+      consolidatedData.violations.present += report.violations.present;
+      consolidatedData.violations.absent += report.violations.absent;
+      consolidatedData.violations.offDay += report.violations.offDay;
+      consolidatedData.violations.workedOff += report.violations.workedOff;
+      consolidatedData.violations.errors += report.violations.errors;
+      consolidatedData.violations.lateEarly += report.violations.lateEarly;
+      consolidatedData.violations.lessThan4hrs += report.violations.lessThan4hrs;
+      consolidatedData.violations.hours4to7 += report.violations.hours4to7;
+      consolidatedData.violations.shiftDeviation += report.violations.shiftDeviation;
+      consolidatedData.violations.missingPunch += report.violations.missingPunch;
+      consolidatedData.violations.otherViolations += report.violations.otherViolations;
+    });
+
+    return Array.from(consolidated.values()).sort((a, b) =>
+      a.managerName.localeCompare(b.managerName)
+    );
+  }, [detailedManagerReportData]);
 
   // Generate PDF for a single manager
   const generatePDF = (managerData: ManagerData) => {
@@ -547,13 +614,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    const managerData = managerReportData.find(m => m.managerName === selectedManager);
-    if (!managerData) {
+    // Get all detailed reports for this manager
+    const managerReports = detailedManagerReportData.filter(m => m.managerName === selectedManager);
+    if (managerReports.length === 0) {
       alert('No data found for selected manager in the date range');
       return;
     }
 
-    generatePDF(managerData);
+    // Generate PDF for each detailed report (entity/location/dept combination)
+    managerReports.forEach((report, index) => {
+      setTimeout(() => {
+        generatePDF(report);
+      }, index * 500);
+    });
   };
 
   // Generate bulk PDFs
@@ -563,19 +636,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    if (managerReportData.length === 0) {
+    if (detailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
       return;
     }
 
-    // Generate PDF for each manager
-    managerReportData.forEach((managerData, index) => {
+    // Generate PDF for each detailed report
+    detailedManagerReportData.forEach((managerData, index) => {
       setTimeout(() => {
         generatePDF(managerData);
       }, index * 500); // Delay to prevent browser blocking multiple downloads
     });
 
-    alert(`Generating ${managerReportData.length} PDF reports. Please allow multiple downloads in your browser.`);
+    alert(`Generating ${detailedManagerReportData.length} PDF reports. Please allow multiple downloads in your browser.`);
   };
 
   // Generate Excel for a single manager
@@ -740,13 +813,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    const managerData = managerReportData.find(m => m.managerName === selectedManager);
-    if (!managerData) {
+    // Get all detailed reports for this manager
+    const managerReports = detailedManagerReportData.filter(m => m.managerName === selectedManager);
+    if (managerReports.length === 0) {
       alert('No data found for the selected manager');
       return;
     }
 
-    generateExcel(managerData);
+    // Generate Excel for each detailed report (entity/location/dept combination)
+    managerReports.forEach((report, index) => {
+      setTimeout(() => {
+        generateExcel(report);
+      }, index * 500);
+    });
   };
 
   // Generate bulk Excel files
@@ -756,19 +835,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    if (managerReportData.length === 0) {
+    if (detailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
       return;
     }
 
-    // Generate Excel for each manager
-    managerReportData.forEach((managerData, index) => {
+    // Generate Excel for each detailed report
+    detailedManagerReportData.forEach((managerData, index) => {
       setTimeout(() => {
         generateExcel(managerData);
       }, index * 500); // Delay to prevent browser blocking multiple downloads
     });
 
-    alert(`Generating ${managerReportData.length} Excel reports. Please allow multiple downloads in your browser.`);
+    alert(`Generating ${detailedManagerReportData.length} Excel reports. Please allow multiple downloads in your browser.`);
   };
 
   return (
@@ -1043,25 +1122,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   {managerReportData.map((manager, idx) => {
                     const total = Object.values(manager.violations).reduce((sum, v) => sum + v, 0);
 
-                    // Build display label showing manager and relevant grouping context
-                    const contextParts: string[] = [manager.managerName];
-                    if (manager.legalEntity && manager.legalEntity !== 'Unknown') {
-                      contextParts.push(manager.legalEntity);
-                    }
-                    if (manager.location && manager.location !== 'Unknown') {
-                      contextParts.push(manager.location);
-                    }
-                    if (manager.department && manager.department !== 'Unknown') {
-                      contextParts.push(manager.department);
-                    }
-                    if (manager.subDepartment && manager.subDepartment !== 'Unknown') {
-                      contextParts.push(manager.subDepartment);
-                    }
-                    const displayLabel = contextParts.join(' - ');
-
                     return (
                       <tr key={`${manager.managerName}-${idx}`} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                        <td className="px-4 py-3 text-sm font-bold text-slate-900">{displayLabel}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-slate-900">{manager.managerName}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.present}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.absent}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.offDay}</td>
