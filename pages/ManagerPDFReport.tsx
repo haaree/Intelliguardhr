@@ -441,7 +441,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       } else {
         autoTable(doc, {
           startY: yPos,
-          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Keka Status']],
+          head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status']],
           body: records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
@@ -452,6 +452,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             rec.shiftStart || '-',
             rec.inTime || '-',
             rec.outTime || '-',
+            rec.totalHours || '-',
             rec.excelStatus || '-'
           ]),
           theme: 'striped',
@@ -578,7 +579,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       ['Others', managerData.violations.otherViolations],
       [],
       ['Total', total]
-    ];
+    );
 
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
     XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
@@ -604,7 +605,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         ];
       } else {
         data = [
-          ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
+          ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Absent Status', 'Excel Status', 'Final Status', 'Comments'],
           ...records.map((rec: any) => [
             rec.employeeNumber,
             rec.employeeName,
@@ -616,6 +617,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             rec.shiftStart || '-',
             rec.inTime || '-',
             rec.outTime || '-',
+            rec.totalHours || '-',
             rec.absentStatus,
             rec.excelStatus,
             rec.finalStatus,
@@ -629,7 +631,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       // Set column widths
       const colWidths = isAudit
         ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 15 }]
-        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+        : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
       ws['!cols'] = colWidths;
 
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
