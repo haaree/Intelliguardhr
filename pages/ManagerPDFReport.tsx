@@ -277,6 +277,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       const managerData = reports.get(reportKey)!;
 
+      // Look up reconciliation record for this employee and date to get Excel upload status
+      const reconRecord = data.reconciliationRecords?.find(
+        rec => rec.employeeNumber === att.employeeNumber && rec.date === att.date
+      );
+
       // Create an enriched record from attendance for display
       const enrichedRec: EnrichedRecord = {
         employeeNumber: att.employeeNumber,
@@ -293,9 +298,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         outTime: att.outTime || '-',
         totalHours: att.totalHours || '00:00',
         absentStatus: att.status,
-        excelStatus: att.excelStatus || '-',
-        finalStatus: att.status,
-        comments: att.deviation || '',
+        excelStatus: reconRecord?.excelStatus || '-',
+        finalStatus: reconRecord?.finalStatus || att.status,
+        comments: reconRecord?.comments || att.deviation || '',
         deviation: att.deviation || '',
         lateBy: att.lateBy,
         earlyBy: att.earlyBy
