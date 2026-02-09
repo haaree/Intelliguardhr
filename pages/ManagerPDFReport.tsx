@@ -11,7 +11,9 @@ interface ManagerPDFReportProps {
 }
 
 interface ViolationCounts {
+  present: number;
   absent: number;
+  offDay: number;
   workedOff: number;
   errors: number;
   lateEarly: number;
@@ -26,7 +28,9 @@ interface ManagerData {
   managerName: string;
   violations: ViolationCounts;
   details: {
+    present: ReconciliationRecord[];
     absent: ReconciliationRecord[];
+    offDay: ReconciliationRecord[];
     workedOff: ReconciliationRecord[];
     errors: AuditQueueRecord[];
     lateEarly: AuditQueueRecord[];
@@ -142,7 +146,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         reports.set(manager, {
           managerName: manager,
           violations: {
+            present: 0,
             absent: 0,
+            offDay: 0,
             workedOff: 0,
             errors: 0,
             lateEarly: 0,
@@ -153,7 +159,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             otherViolations: 0
           },
           details: {
+            present: [],
             absent: [],
+            offDay: [],
             workedOff: [],
             errors: [],
             lateEarly: [],
@@ -186,10 +194,16 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const status = (enrichedRec.excelStatus || enrichedRec.absentStatus || enrichedRec.finalStatus).toUpperCase().trim();
 
       // Categorize records based on their status
-      if (status === 'A' || status === 'ABSENT') {
+      if (status === 'P' || status === 'PRESENT') {
+        managerData.details.present.push(enrichedRec);
+        managerData.violations.present++;
+      } else if (status === 'A' || status === 'ABSENT') {
         managerData.details.absent.push(enrichedRec);
         managerData.violations.absent++;
-      } else if (status === 'WO' || status === 'WORKED OFF' || status.includes('WORKED OFF')) {
+      } else if (status === 'WO' || status === 'WEEKLY OFF' || status === 'H' || status === 'HOLIDAY') {
+        managerData.details.offDay.push(enrichedRec);
+        managerData.violations.offDay++;
+      } else if (status === 'WOH' || status === 'WORKED OFF' || status.includes('WORKED OFF')) {
         managerData.details.workedOff.push(enrichedRec);
         managerData.violations.workedOff++;
       } else if (status.includes('ERROR') || status.includes('ERR')) {
@@ -211,7 +225,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         managerData.details.missingPunch.push(enrichedRec);
         managerData.violations.missingPunch++;
       } else {
-        // All other statuses (CL, PL, SL, CO, LOP, MEL, HD, P, etc.)
+        // All other statuses (CL, PL, SL, CO, LOP, MEL, HD, etc.)
         managerData.details.otherViolations.push(enrichedRec);
         managerData.violations.otherViolations++;
       }
@@ -250,22 +264,39 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text('Violations Summary', 14, yPos);
     yPos += 5;
 
+    // Calculate total
+    const total = managerData.violations.present +
+                  managerData.violations.absent +
+                  managerData.violations.offDay +
+                  managerData.violations.workedOff +
+                  managerData.violations.errors +
+                  managerData.violations.lateEarly +
+                  managerData.violations.lessThan4hrs +
+                  managerData.violations.hours4to7 +
+                  managerData.violations.shiftDeviation +
+                  managerData.violations.missingPunch +
+                  managerData.violations.otherViolations;
+
     autoTable(doc, {
       startY: yPos,
       head: [['Violation Type', 'Count']],
       body: [
+        ['Present', managerData.violations.present],
         ['Absent', managerData.violations.absent],
-        ['Worked Off Days', managerData.violations.workedOff],
+        ['Off Day', managerData.violations.offDay],
+        ['Worked Off', managerData.violations.workedOff],
         ['Errors', managerData.violations.errors],
         ['Late & Early Occurrence', managerData.violations.lateEarly],
-        ['Worked Less than 4 hours', managerData.violations.lessThan4hrs],
+        ['Worked < 4 hours', managerData.violations.lessThan4hrs],
         ['Worked 4-7 hours', managerData.violations.hours4to7],
         ['Shift Deviation', managerData.violations.shiftDeviation],
         ['Missing Punch', managerData.violations.missingPunch],
         ['Other Violations', managerData.violations.otherViolations]
       ],
+      foot: [['Total', total]],
       theme: 'grid',
       headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+      footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
       styles: { fontSize: 9 }
     });
 
@@ -325,11 +356,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     };
 
     // Add all detail sections
-    addDetailSection('Absent Records', managerData.details.absent);
-    addDetailSection('Worked Off Days', managerData.details.workedOff);
+    addDetailSection('Present', managerData.details.present);
+    addDetailSection('Absent', managerData.details.absent);
+    addDetailSection('Off Day', managerData.details.offDay);
+    addDetailSection('Worked Off', managerData.details.workedOff);
     addDetailSection('Errors', managerData.details.errors, true);
     addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
-    addDetailSection('Worked Less than 4 Hours', managerData.details.lessThan4hrs, true);
+    addDetailSection('Worked < 4 Hours', managerData.details.lessThan4hrs, true);
     addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
     addDetailSection('Shift Deviation', managerData.details.shiftDeviation);
     addDetailSection('Missing Punch', managerData.details.missingPunch, true);
@@ -388,6 +421,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     const wb = XLSX.utils.book_new();
 
     // Summary Sheet
+    const total = managerData.violations.present +
+                  managerData.violations.absent +
+                  managerData.violations.offDay +
+                  managerData.violations.workedOff +
+                  managerData.violations.errors +
+                  managerData.violations.lateEarly +
+                  managerData.violations.lessThan4hrs +
+                  managerData.violations.hours4to7 +
+                  managerData.violations.shiftDeviation +
+                  managerData.violations.missingPunch +
+                  managerData.violations.otherViolations;
+
     const summaryData = [
       ['Manager Attendance Violations Report'],
       [],
@@ -397,15 +442,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       [],
       ['Violations Summary'],
       ['Violation Type', 'Count'],
+      ['Present', managerData.violations.present],
       ['Absent', managerData.violations.absent],
-      ['Worked Off Days', managerData.violations.workedOff],
+      ['Off Day', managerData.violations.offDay],
+      ['Worked Off', managerData.violations.workedOff],
       ['Errors', managerData.violations.errors],
       ['Late & Early Occurrence', managerData.violations.lateEarly],
-      ['Worked Less than 4 hours', managerData.violations.lessThan4hrs],
+      ['Worked < 4 hours', managerData.violations.lessThan4hrs],
       ['Worked 4-7 hours', managerData.violations.hours4to7],
       ['Shift Deviation', managerData.violations.shiftDeviation],
       ['Missing Punch', managerData.violations.missingPunch],
-      ['Other Violations', managerData.violations.otherViolations]
+      ['Other Violations', managerData.violations.otherViolations],
+      [],
+      ['Total', total]
     ];
 
     const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
@@ -463,8 +512,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     };
 
     // Add all detail sheets
+    addDetailSheet('Present', managerData.details.present);
     addDetailSheet('Absent', managerData.details.absent);
-    addDetailSheet('Worked Off Days', managerData.details.workedOff);
+    addDetailSheet('Off Day', managerData.details.offDay);
+    addDetailSheet('Worked Off', managerData.details.workedOff);
     addDetailSheet('Errors', managerData.details.errors, true);
     addDetailSheet('Late & Early', managerData.details.lateEarly, true);
     addDetailSheet('Less than 4hrs', managerData.details.lessThan4hrs, true);
@@ -713,7 +764,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 <thead className="bg-slate-900 text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest">Manager</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Present</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Absent</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Off Day</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Worked Off</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Errors</th>
                     <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Late/Early</th>
@@ -731,7 +784,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                     return (
                       <tr key={manager.managerName} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
                         <td className="px-4 py-3 text-sm font-bold text-slate-900">{manager.managerName}</td>
+                        <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.present}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.absent}</td>
+                        <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.offDay}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.workedOff}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.errors}</td>
                         <td className="px-4 py-3 text-center text-sm text-slate-700">{manager.violations.lateEarly}</td>
@@ -749,6 +804,27 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                     );
                   })}
                 </tbody>
+                <tfoot className="bg-slate-100 font-bold">
+                  <tr>
+                    <td className="px-4 py-3 text-sm text-slate-900 font-black">TOTAL</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.present, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.absent, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.offDay, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.workedOff, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.errors, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.lateEarly, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.lessThan4hrs, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.hours4to7, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.shiftDeviation, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.missingPunch, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.otherViolations, 0)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="px-3 py-1 bg-rose-200 text-rose-900 rounded-lg text-sm font-black">
+                        {managerReportData.reduce((sum: number, m: ManagerData) => sum + (Object.values(m.violations) as number[]).reduce((s: number, v: number) => s + v, 0), 0)}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
