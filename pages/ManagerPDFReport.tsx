@@ -259,60 +259,65 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         deviation: rec.deviation || attRecord?.deviation || ''
       };
 
-      // Get status for basic categorization
-      const status = (enrichedRec.excelStatus || enrichedRec.absentStatus || enrichedRec.finalStatus).toUpperCase().trim();
+      // Get the attendance status to categorize records - matching Reconciliation Hub exactly
+      const attStatus = attRecord?.status || '';
       const deviation = enrichedRec.deviation || '';
 
-      // Categorize records - matching Reconciliation Hub logic
-      // First check basic status categories
-      if (status === 'P' || status === 'PRESENT') {
-        managerData.details.present.push(enrichedRec);
-        managerData.violations.present++;
-      } else if (status === 'A' || status === 'ABSENT') {
+      // Categorize records using the EXACT same logic as Reconciliation Hub (lines 247-259)
+      if (attStatus === 'Absent' || attStatus === 'A') {
         managerData.details.absent.push(enrichedRec);
         managerData.violations.absent++;
-      } else if (status === 'WO' || status === 'WEEKLY OFF' || status === 'H' || status === 'HOLIDAY') {
-        managerData.details.offDay.push(enrichedRec);
-        managerData.violations.offDay++;
-      } else if (status === 'WOH' || status === 'WORKED OFF' || status.includes('WORKED OFF')) {
+      } else if (attStatus === 'Clean' || attStatus === 'P' || attStatus === 'Present') {
+        managerData.details.present.push(enrichedRec);
+        managerData.violations.present++;
+      } else if (attStatus === 'Worked Off' || attStatus === 'WOH') {
         managerData.details.workedOff.push(enrichedRec);
         managerData.violations.workedOff++;
-      }
-      // Then check for violations based on deviation and hours (matching Reconciliation Hub audit categorization)
-      else if (deviation.includes('Missing') || deviation.includes('Punch')) {
-        managerData.details.missingPunch.push(enrichedRec);
-        managerData.violations.missingPunch++;
-      } else if (deviation.includes('Shift') || deviation.includes('Very Early')) {
-        managerData.details.shiftDeviation.push(enrichedRec);
-        managerData.violations.shiftDeviation++;
-      } else if (deviation.includes('ERROR') || deviation.includes('ERR') || status.includes('ERROR') || status.includes('ERR')) {
+      } else if (attStatus === 'Weekly Off' || attStatus === 'WO' || attStatus === 'Holiday' || attStatus === 'H') {
+        managerData.details.offDay.push(enrichedRec);
+        managerData.violations.offDay++;
+      } else if (attStatus === 'ID Error' || attStatus.includes('Error')) {
         managerData.details.errors.push(enrichedRec);
         managerData.violations.errors++;
-      } else {
+      } else if (attStatus === 'Audit' || attStatus === 'Very Late' || deviation) {
+        // This is an audit record - sub-categorize it using categorizeAuditRecord logic
+        // Missing Punches - highest priority
+        if (deviation.includes('Missing') || deviation.includes('Punch')) {
+          managerData.details.missingPunch.push(enrichedRec);
+          managerData.violations.missingPunch++;
+        }
+        // Shift Deviations
+        else if (deviation.includes('Shift') || deviation.includes('Very Early')) {
+          managerData.details.shiftDeviation.push(enrichedRec);
+          managerData.violations.shiftDeviation++;
+        }
         // Check total work hours for hours-based categorization
-        const totalHours = enrichedRec.totalHours || '00:00';
-        const [hoursStr, minutesStr] = totalHours.split(':');
-        const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
+        else {
+          const totalHours = enrichedRec.totalHours || '00:00';
+          const [hoursStr, minutesStr] = totalHours.split(':');
+          const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
 
-        if (totalWorkHours > 0 && totalWorkHours < 4) {
-          managerData.details.lessThan4hrs.push(enrichedRec);
-          managerData.violations.lessThan4hrs++;
-        } else if (totalWorkHours >= 4 && totalWorkHours < 7) {
-          managerData.details.hours4to7.push(enrichedRec);
-          managerData.violations.hours4to7++;
-        } else {
-          // Check if it's a late/early violation
-          const lateBy = attRecord?.lateBy || rec.lateBy || '00:00';
-          const earlyBy = attRecord?.earlyBy || rec.earlyBy || '00:00';
-          const isLateOrEarly = (lateBy && lateBy !== '00:00') || (earlyBy && earlyBy !== '00:00');
-
-          if (isLateOrEarly) {
-            managerData.details.lateEarly.push(enrichedRec);
-            managerData.violations.lateEarly++;
+          // Hours-based categories (priority over frequency)
+          if (totalWorkHours > 0 && totalWorkHours < 4) {
+            managerData.details.lessThan4hrs.push(enrichedRec);
+            managerData.violations.lessThan4hrs++;
+          } else if (totalWorkHours >= 4 && totalWorkHours < 7) {
+            managerData.details.hours4to7.push(enrichedRec);
+            managerData.violations.hours4to7++;
           } else {
-            // All other violations (working > 16 hours, or other deviations that don't fit above categories)
-            managerData.details.otherViolations.push(enrichedRec);
-            managerData.violations.otherViolations++;
+            // Check if it's a late/early violation
+            const lateBy = attRecord?.lateBy || '00:00';
+            const earlyBy = attRecord?.earlyBy || '00:00';
+            const isLateOrEarly = (lateBy && lateBy !== '00:00') || (earlyBy && earlyBy !== '00:00');
+
+            if (isLateOrEarly) {
+              managerData.details.lateEarly.push(enrichedRec);
+              managerData.violations.lateEarly++;
+            } else {
+              // All other violations (working > 16 hours, or other deviations)
+              managerData.details.otherViolations.push(enrichedRec);
+              managerData.violations.otherViolations++;
+            }
           }
         }
       }
