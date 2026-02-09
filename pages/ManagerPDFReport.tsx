@@ -24,6 +24,32 @@ interface ViolationCounts {
   otherViolations: number;
 }
 
+// Extended record type for Manager PDF Report with all display fields
+interface EnrichedRecord {
+  employeeNumber: string;
+  employeeName: string;
+  date: string;
+  jobTitle?: string;
+  department?: string;
+  subDepartment?: string;
+  location?: string;
+  reportingManager?: string;
+  shift?: string;
+  shiftStart?: string;
+  inTime?: string;
+  outTime?: string;
+  totalHours?: string;
+  absentStatus?: string;
+  excelStatus?: string;
+  finalStatus?: string;
+  comments?: string;
+  deviation?: string;
+  lateBy?: string;
+  earlyBy?: string;
+  auditReason?: string;
+  reviewStatus?: string;
+}
+
 interface ManagerData {
   managerName: string;
   legalEntity?: string;
@@ -32,17 +58,17 @@ interface ManagerData {
   subDepartment?: string;
   violations: ViolationCounts;
   details: {
-    present: ReconciliationRecord[];
-    absent: ReconciliationRecord[];
-    offDay: ReconciliationRecord[];
-    workedOff: ReconciliationRecord[];
-    errors: AuditQueueRecord[];
-    lateEarly: AuditQueueRecord[];
-    lessThan4hrs: AuditQueueRecord[];
-    hours4to7: AuditQueueRecord[];
-    shiftDeviation: ReconciliationRecord[];
-    missingPunch: AuditQueueRecord[];
-    otherViolations: AuditQueueRecord[];
+    present: EnrichedRecord[];
+    absent: EnrichedRecord[];
+    offDay: EnrichedRecord[];
+    workedOff: EnrichedRecord[];
+    errors: EnrichedRecord[];
+    lateEarly: EnrichedRecord[];
+    lessThan4hrs: EnrichedRecord[];
+    hours4to7: EnrichedRecord[];
+    shiftDeviation: EnrichedRecord[];
+    missingPunch: EnrichedRecord[];
+    otherViolations: EnrichedRecord[];
   };
 }
 
@@ -62,7 +88,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     const managerSet = new Set<string>();
 
     // From reconciliation records
-    data.reconciliationRecords?.forEach(rec => {
+    data.enrichedRecords?.forEach(rec => {
       if (rec.reportingManager) managerSet.add(rec.reportingManager);
     });
 
@@ -78,7 +104,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique legal entities
   const legalEntities = useMemo(() => {
     const entitySet = new Set<string>();
-    data.reconciliationRecords?.forEach(rec => {
+    data.enrichedRecords?.forEach(rec => {
       const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
       if (employee?.legalEntity) entitySet.add(employee.legalEntity);
     });
@@ -88,7 +114,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique locations
   const locations = useMemo(() => {
     const locationSet = new Set<string>();
-    data.reconciliationRecords?.forEach(rec => {
+    data.enrichedRecords?.forEach(rec => {
       if (rec.location) locationSet.add(rec.location);
     });
     return ['All', ...Array.from(locationSet).sort()];
@@ -97,7 +123,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique departments
   const departments = useMemo(() => {
     const deptSet = new Set<string>();
-    data.reconciliationRecords?.forEach(rec => {
+    data.enrichedRecords?.forEach(rec => {
       if (rec.department) deptSet.add(rec.department);
     });
     return ['All', ...Array.from(deptSet).sort()];
@@ -106,7 +132,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   // Get unique sub departments
   const subDepartments = useMemo(() => {
     const subDeptSet = new Set<string>();
-    data.reconciliationRecords?.forEach(rec => {
+    data.enrichedRecords?.forEach(rec => {
       if (rec.subDepartment) subDeptSet.add(rec.subDepartment);
     });
     return ['All', ...Array.from(subDeptSet).sort()];
@@ -159,51 +185,33 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     const reports = new Map<string, ManagerData>();
 
-    // Process reconciliation records - this is the source of truth!
-    const reconRecords = data.reconciliationRecords || [];
-
+    // Process ATTENDANCE records directly - same as Reconciliation Hub!
     console.log('Manager PDF Report - Data Check:', {
       fromDate,
       toDate,
       selectedManager,
-      reconRecordsCount: reconRecords.length,
       attendanceCount: data.attendance.length,
-      sampleReconRecord: reconRecords[0],
       sampleAttendance: data.attendance[0]
     });
 
-    reconRecords.forEach(rec => {
-      // Date filter - handle different date formats
-      const recordDate = rec.date;
+    data.attendance.forEach(att => {
+      // Date filter
+      const recordDate = att.date;
 
-      // Convert date to comparable format (YYYY-MM-DD)
-      let normalizedDate = recordDate;
-
-      // Check if date is in DD-MMM-YYYY format (e.g., '02-FEB-2026')
-      if (recordDate.includes('-') && recordDate.match(/\d{2}-[A-Z]{3}-\d{4}/)) {
-        const [day, monthName, year] = recordDate.split('-');
-        const monthMap: {[key: string]: string} = {
-          'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
-          'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
-          'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
-        };
-        normalizedDate = `${year}-${monthMap[monthName]}-${day}`;
-      }
-
-      // Filter by date range
-      if (normalizedDate < fromDate || normalizedDate > toDate) return;
+      // Filter by date range (attendance dates are in YYYY-MM-DD format)
+      if (recordDate < fromDate || recordDate > toDate) return;
 
       // Get employee details for filters
-      const employee = data.employees.find(e => e.employeeNumber === rec.employeeNumber);
+      const employee = data.employees.find(e => e.employeeNumber === att.employeeNumber);
 
       // Entity filters
       if (selectedLegalEntity !== 'All' && employee?.legalEntity !== selectedLegalEntity) return;
-      if (selectedLocation !== 'All' && rec.location !== selectedLocation) return;
-      if (selectedDepartment !== 'All' && rec.department !== selectedDepartment) return;
-      if (selectedSubDepartment !== 'All' && rec.subDepartment !== selectedSubDepartment) return;
+      if (selectedLocation !== 'All' && att.location !== selectedLocation) return;
+      if (selectedDepartment !== 'All' && att.department !== selectedDepartment) return;
+      if (selectedSubDepartment !== 'All' && att.subDepartment !== selectedSubDepartment) return;
 
       // Manager filter
-      const manager = rec.reportingManager || 'Unknown';
+      const manager = att.reportingManager || 'Unknown';
       if (selectedManager !== 'All' && manager !== selectedManager) return;
 
       // Initialize manager data if needed
@@ -211,9 +219,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         reports.set(manager, {
           managerName: manager,
           legalEntity: employee?.legalEntity,
-          location: rec.location,
-          department: rec.department,
-          subDepartment: rec.subDepartment,
+          location: att.location,
+          department: att.department,
+          subDepartment: att.subDepartment,
           violations: {
             present: 0,
             absent: 0,
@@ -245,35 +253,33 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       const managerData = reports.get(manager)!;
 
-      // Get attendance details for this record
-      const attRecord = data.attendance.find(
-        att => att.employeeNumber === rec.employeeNumber && att.date === normalizedDate
-      );
-
-      // Attach attendance details to the reconciliation record for display
-      const enrichedRec = {
-        ...rec,
-        shift: attRecord?.shift || '-',
-        shiftStart: attRecord?.shiftStart || '-',
-        inTime: attRecord?.inTime || '-',
-        outTime: attRecord?.outTime || '-',
-        totalHours: attRecord?.totalHours || '00:00',
-        deviation: rec.deviation || attRecord?.deviation || ''
+      // Create an enriched record from attendance for display
+      const enrichedRec: EnrichedRecord = {
+        employeeNumber: att.employeeNumber,
+        employeeName: att.employeeName,
+        date: att.date,
+        jobTitle: att.jobTitle || employee?.jobTitle || '-',
+        location: att.location,
+        department: att.department,
+        subDepartment: att.subDepartment,
+        reportingManager: att.reportingManager,
+        shift: att.shift || '-',
+        shiftStart: att.shiftStart || '-',
+        inTime: att.inTime || '-',
+        outTime: att.outTime || '-',
+        totalHours: att.totalHours || '00:00',
+        absentStatus: att.status,
+        excelStatus: att.excelStatus || '-',
+        finalStatus: att.status,
+        comments: att.deviation || '',
+        deviation: att.deviation || '',
+        lateBy: att.lateBy,
+        earlyBy: att.earlyBy
       };
 
       // Get the attendance status to categorize records - matching Reconciliation Hub exactly
-      const attStatus = attRecord?.status || '';
-      const deviation = enrichedRec.deviation || '';
-
-      // Debug: Log when attRecord is not found
-      if (!attRecord && reports.size === 1) {
-        console.log('Missing attendance record:', {
-          employeeNumber: rec.employeeNumber,
-          date: rec.date,
-          normalizedDate,
-          reconStatus: rec.finalStatus
-        });
-      }
+      const attStatus = att.status || '';
+      const deviation = att.deviation || '';
 
       // Categorize records using the EXACT same logic as Reconciliation Hub (lines 247-259)
       if (attStatus === 'Absent' || attStatus === 'A') {
@@ -305,7 +311,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         }
         // Check total work hours for hours-based categorization
         else {
-          const totalHours = enrichedRec.totalHours || '00:00';
+          const totalHours = att.totalHours || '00:00';
           const [hoursStr, minutesStr] = totalHours.split(':');
           const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
 
@@ -318,8 +324,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             managerData.violations.hours4to7++;
           } else {
             // Check if it's a late/early violation
-            const lateBy = attRecord?.lateBy || '00:00';
-            const earlyBy = attRecord?.earlyBy || '00:00';
+            const lateBy = att.lateBy || '00:00';
+            const earlyBy = att.earlyBy || '00:00';
             const isLateOrEarly = (lateBy && lateBy !== '00:00') || (earlyBy && earlyBy !== '00:00');
 
             if (isLateOrEarly) {
