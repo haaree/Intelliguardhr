@@ -254,13 +254,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         shift: attRecord?.shift || '-',
         shiftStart: attRecord?.shiftStart || '-',
         inTime: attRecord?.inTime || '-',
-        outTime: attRecord?.outTime || '-'
+        outTime: attRecord?.outTime || '-',
+        totalHours: attRecord?.totalHours || '00:00',
+        deviation: rec.deviation || attRecord?.deviation || ''
       };
 
-      // Categorize based on status - directly from Reconciliation Hub data
+      // Get status for basic categorization
       const status = (enrichedRec.excelStatus || enrichedRec.absentStatus || enrichedRec.finalStatus).toUpperCase().trim();
+      const deviation = enrichedRec.deviation || '';
 
-      // Categorize records based on their status
+      // Categorize records - matching Reconciliation Hub logic
+      // First check basic status categories
       if (status === 'P' || status === 'PRESENT') {
         managerData.details.present.push(enrichedRec);
         managerData.violations.present++;
@@ -273,28 +277,44 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       } else if (status === 'WOH' || status === 'WORKED OFF' || status.includes('WORKED OFF')) {
         managerData.details.workedOff.push(enrichedRec);
         managerData.violations.workedOff++;
-      } else if (status.includes('ERROR') || status.includes('ERR')) {
-        managerData.details.errors.push(enrichedRec);
-        managerData.violations.errors++;
-      } else if (status.includes('LATE') || status.includes('EARLY')) {
-        managerData.details.lateEarly.push(enrichedRec);
-        managerData.violations.lateEarly++;
-      } else if (status.includes('<4') || status.includes('LESS THAN 4')) {
-        managerData.details.lessThan4hrs.push(enrichedRec);
-        managerData.violations.lessThan4hrs++;
-      } else if (status.includes('4-7') || status.includes('4 TO 7')) {
-        managerData.details.hours4to7.push(enrichedRec);
-        managerData.violations.hours4to7++;
-      } else if (status.includes('SHIFT DEVIATION') || status.includes('DEVIATION') || status === 'SD') {
-        managerData.details.shiftDeviation.push(enrichedRec);
-        managerData.violations.shiftDeviation++;
-      } else if (status.includes('MISSING PUNCH') || status === 'MP' || status.includes('PUNCH')) {
+      }
+      // Then check for violations based on deviation and hours (matching Reconciliation Hub audit categorization)
+      else if (deviation.includes('Missing') || deviation.includes('Punch')) {
         managerData.details.missingPunch.push(enrichedRec);
         managerData.violations.missingPunch++;
+      } else if (deviation.includes('Shift') || deviation.includes('Very Early')) {
+        managerData.details.shiftDeviation.push(enrichedRec);
+        managerData.violations.shiftDeviation++;
+      } else if (deviation.includes('ERROR') || deviation.includes('ERR') || status.includes('ERROR') || status.includes('ERR')) {
+        managerData.details.errors.push(enrichedRec);
+        managerData.violations.errors++;
       } else {
-        // All other statuses (CL, PL, SL, CO, LOP, MEL, HD, etc.)
-        managerData.details.otherViolations.push(enrichedRec);
-        managerData.violations.otherViolations++;
+        // Check total work hours for hours-based categorization
+        const totalHours = enrichedRec.totalHours || '00:00';
+        const [hoursStr, minutesStr] = totalHours.split(':');
+        const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
+
+        if (totalWorkHours > 0 && totalWorkHours < 4) {
+          managerData.details.lessThan4hrs.push(enrichedRec);
+          managerData.violations.lessThan4hrs++;
+        } else if (totalWorkHours >= 4 && totalWorkHours < 7) {
+          managerData.details.hours4to7.push(enrichedRec);
+          managerData.violations.hours4to7++;
+        } else {
+          // Check if it's a late/early violation
+          const lateBy = attRecord?.lateBy || rec.lateBy || '00:00';
+          const earlyBy = attRecord?.earlyBy || rec.earlyBy || '00:00';
+          const isLateOrEarly = (lateBy && lateBy !== '00:00') || (earlyBy && earlyBy !== '00:00');
+
+          if (isLateOrEarly) {
+            managerData.details.lateEarly.push(enrichedRec);
+            managerData.violations.lateEarly++;
+          } else {
+            // All other violations (working > 16 hours, or other deviations that don't fit above categories)
+            managerData.details.otherViolations.push(enrichedRec);
+            managerData.violations.otherViolations++;
+          }
+        }
       }
     });
 
