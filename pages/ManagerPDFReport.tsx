@@ -454,10 +454,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text('Attendance Report Summary', pageWidth / 2, yPos, { align: 'center' });
     yPos += 10;
 
-    // Report Details - Only show Manager and Period in header
+    // Report Details - Only show Reporting Incharge and Period in header
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Manager: ${managerName}`, 14, yPos);
+    doc.text(`Reporting Incharge: ${managerName}`, 14, yPos);
     yPos += 6;
     doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
     yPos += 6;
@@ -1576,7 +1576,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Report Details
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Manager: ${selectedManager}`, 14, yPos);
+    doc.text(`Reporting Incharge: ${selectedManager}`, 14, yPos);
     yPos += 6;
     doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
     yPos += 6;
@@ -1811,8 +1811,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <FileText size={24} className="text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-slate-900">Manager PDF Reports</h1>
-              <p className="text-sm text-slate-500 font-medium">Generate comprehensive reports by manager</p>
+              <h1 className="text-3xl font-black text-slate-900">Reporting Incharge Reports</h1>
+              <p className="text-sm text-slate-500 font-medium">Generate comprehensive reports by reporting incharge</p>
             </div>
           </div>
         </div>
@@ -1981,14 +1981,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               Download Reports
             </h2>
 
-            {/* PDF Downloads - DISABLED */}
+            {/* PDF Downloads */}
             <div className="mb-4">
-              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">PDF Reports (Temporarily Disabled)</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">PDF Reports</p>
               <div className="flex gap-3">
                 <button
                   onClick={handleIndividualPDF}
-                  disabled={true}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
+                  disabled={selectedManager === 'All'}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                    selectedManager === 'All'
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
+                  }`}
                 >
                   <Download size={18} />
                   Download Individual PDF
@@ -1996,8 +2000,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
                 <button
                   onClick={handleBulkPDF}
-                  disabled={true}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
                 >
                   <Download size={18} />
                   Download Bulk PDFs
@@ -2005,14 +2008,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               </div>
             </div>
 
-            {/* Excel Downloads - DISABLED */}
+            {/* Excel Downloads */}
             <div>
-              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excel Reports (Temporarily Disabled)</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excel Reports</p>
               <div className="flex gap-3">
                 <button
                   onClick={handleIndividualExcel}
-                  disabled={true}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
+                  disabled={selectedManager === 'All'}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
+                    selectedManager === 'All'
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg'
+                  }`}
                 >
                   <Download size={18} />
                   Download Individual Excel
@@ -2020,8 +2027,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
                 <button
                   onClick={handleBulkExcel}
-                  disabled={true}
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
                 >
                   <Download size={18} />
                   Download Bulk Excel
