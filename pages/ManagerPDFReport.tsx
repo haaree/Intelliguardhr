@@ -660,20 +660,21 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             ]),
             theme: 'striped',
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 7, cellPadding: 2 },
+            styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+            tableWidth: 'auto',
             columnStyles: {
-              0: { cellWidth: 8 },   // S.No
-              1: { cellWidth: 13 },  // Emp ID
-              2: { cellWidth: 32 },  // Name
-              3: { cellWidth: 18 },  // Date
-              4: { cellWidth: 12 },  // Shift
-              5: { cellWidth: 16 },  // Shift Start
-              6: { cellWidth: 13 },  // In Time
-              7: { cellWidth: 13 },  // Out Time
-              8: { cellWidth: 14 },  // Work Hrs
-              9: { cellWidth: 13 },  // Late By
-              10: { cellWidth: 13 }, // Early By
-              11: { cellWidth: 18 }  // Keka Status
+              0: { cellWidth: 'auto', minCellWidth: 8 },   // S.No
+              1: { cellWidth: 'auto', minCellWidth: 12 },  // Emp ID
+              2: { cellWidth: 'auto', minCellWidth: 30 },  // Name - wider minimum
+              3: { cellWidth: 'auto', minCellWidth: 15 },  // Date
+              4: { cellWidth: 'auto', minCellWidth: 10 },  // Shift
+              5: { cellWidth: 'auto', minCellWidth: 12 },  // Shift Start
+              6: { cellWidth: 'auto', minCellWidth: 10 },  // In Time
+              7: { cellWidth: 'auto', minCellWidth: 10 },  // Out Time
+              8: { cellWidth: 'auto', minCellWidth: 10 },  // Work Hrs
+              9: { cellWidth: 'auto', minCellWidth: 10 },  // Late By
+              10: { cellWidth: 'auto', minCellWidth: 10 }, // Early By
+              11: { cellWidth: 'auto', minCellWidth: 15 }  // Keka Status
             },
             margin: { left: 7, right: 7 }
           });
@@ -697,18 +698,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             ]),
             theme: 'striped',
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 7, cellPadding: 2 },
+            styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+            tableWidth: 'auto',
             columnStyles: {
-              0: { cellWidth: 8 },   // S.No
-              1: { cellWidth: 16 },  // Emp ID
-              2: { cellWidth: 40 },  // Name
-              3: { cellWidth: 20 },  // Date
-              4: { cellWidth: 14 },  // Shift
-              5: { cellWidth: 18 },  // Shift Start
-              6: { cellWidth: 14 },  // In Time
-              7: { cellWidth: 14 },  // Out Time
-              8: { cellWidth: 17 },  // Work Hours
-              9: { cellWidth: 20 }   // Keka Status
+              0: { cellWidth: 'auto', minCellWidth: 8 },   // S.No
+              1: { cellWidth: 'auto', minCellWidth: 14 },  // Emp ID
+              2: { cellWidth: 'auto', minCellWidth: 35 },  // Name - wider minimum
+              3: { cellWidth: 'auto', minCellWidth: 18 },  // Date
+              4: { cellWidth: 'auto', minCellWidth: 12 },  // Shift
+              5: { cellWidth: 'auto', minCellWidth: 15 },  // Shift Start
+              6: { cellWidth: 'auto', minCellWidth: 12 },  // In Time
+              7: { cellWidth: 'auto', minCellWidth: 12 },  // Out Time
+              8: { cellWidth: 'auto', minCellWidth: 15 },  // Work Hours
+              9: { cellWidth: 'auto', minCellWidth: 18 }   // Keka Status
             },
             margin: { left: 7, right: 7 }
           });
@@ -1745,25 +1747,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           ]),
           theme: 'striped',
           headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
-          styles: { fontSize: 6, cellPadding: 1.5 },
+          styles: { fontSize: 6, cellPadding: 1.5, overflow: 'linebreak' },
+          tableWidth: 'auto',
           columnStyles: {
-            0: { cellWidth: 8 },  // S.No
-            1: { cellWidth: 12 }, // Emp ID
-            2: { cellWidth: 28 }, // Name
-            3: { cellWidth: 16 }, // Date
-            4: { cellWidth: 22 }, // Job Title
-            5: { cellWidth: 16 }, // Location
-            6: { cellWidth: 11 }, // Status
-            7: { cellWidth: 11 }, // Shift
-            8: { cellWidth: 13 }, // Shift Start
-            9: { cellWidth: 13 }, // Shift End
-            10: { cellWidth: 11 }, // In Time
-            11: { cellWidth: 11 }, // Out Time
-            12: { cellWidth: 13 }, // Total Hrs
-            13: { cellWidth: 13 }, // Excess Hrs
-            14: { cellWidth: 11 }, // Over 16
-            15: { cellWidth: 14 }, // OT Form
-            16: { cellWidth: 17 }  // Final OT Hrs
+            0: { cellWidth: 'auto', minCellWidth: 7 },   // S.No
+            1: { cellWidth: 'auto', minCellWidth: 11 },  // Emp ID
+            2: { cellWidth: 'auto', minCellWidth: 25 },  // Name - wider minimum
+            3: { cellWidth: 'auto', minCellWidth: 14 },  // Date
+            4: { cellWidth: 'auto', minCellWidth: 18 },  // Job Title
+            5: { cellWidth: 'auto', minCellWidth: 14 },  // Location
+            6: { cellWidth: 'auto', minCellWidth: 9 },   // Status
+            7: { cellWidth: 'auto', minCellWidth: 9 },   // Shift
+            8: { cellWidth: 'auto', minCellWidth: 11 },  // Shift Start
+            9: { cellWidth: 'auto', minCellWidth: 11 },  // Shift End
+            10: { cellWidth: 'auto', minCellWidth: 9 },  // In Time
+            11: { cellWidth: 'auto', minCellWidth: 9 },  // Out Time
+            12: { cellWidth: 'auto', minCellWidth: 11 }, // Total Hrs
+            13: { cellWidth: 'auto', minCellWidth: 11 }, // Excess Hrs
+            14: { cellWidth: 'auto', minCellWidth: 9 },  // Over 16
+            15: { cellWidth: 'auto', minCellWidth: 12 }, // OT Form
+            16: { cellWidth: 'auto', minCellWidth: 14 }  // Final OT Hrs
           },
           margin: { left: 7, right: 7 }
         });
