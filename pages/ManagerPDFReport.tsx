@@ -662,18 +662,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
             styles: { fontSize: 7, cellPadding: 2 },
             columnStyles: {
-              0: { cellWidth: 10 },  // S.No
-              1: { cellWidth: 15 }, // Emp ID
-              2: { cellWidth: 38 }, // Name
-              3: { cellWidth: 20 }, // Date
-              4: { cellWidth: 13 }, // Shift
-              5: { cellWidth: 18 }, // Shift Start
-              6: { cellWidth: 15 }, // In Time
-              7: { cellWidth: 15 }, // Out Time
-              8: { cellWidth: 15 }, // Work Hrs
-              9: { cellWidth: 15 }, // Late By
-              10: { cellWidth: 15 }, // Early By
-              11: { cellWidth: 20 }  // Keka Status
+              0: { cellWidth: 8 },   // S.No
+              1: { cellWidth: 13 },  // Emp ID
+              2: { cellWidth: 32 },  // Name
+              3: { cellWidth: 18 },  // Date
+              4: { cellWidth: 12 },  // Shift
+              5: { cellWidth: 16 },  // Shift Start
+              6: { cellWidth: 13 },  // In Time
+              7: { cellWidth: 13 },  // Out Time
+              8: { cellWidth: 14 },  // Work Hrs
+              9: { cellWidth: 13 },  // Late By
+              10: { cellWidth: 13 }, // Early By
+              11: { cellWidth: 18 }  // Keka Status
             },
             margin: { left: 7, right: 7 }
           });
@@ -699,16 +699,16 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
             styles: { fontSize: 7, cellPadding: 2 },
             columnStyles: {
-              0: { cellWidth: 10 },  // S.No
-              1: { cellWidth: 18 }, // Emp ID
-              2: { cellWidth: 45 }, // Name
-              3: { cellWidth: 22 }, // Date
-              4: { cellWidth: 15 }, // Shift
-              5: { cellWidth: 18 }, // Shift Start
-              6: { cellWidth: 15 }, // In Time
-              7: { cellWidth: 15 }, // Out Time
-              8: { cellWidth: 18 }, // Work Hours
-              9: { cellWidth: 22 }  // Keka Status
+              0: { cellWidth: 8 },   // S.No
+              1: { cellWidth: 16 },  // Emp ID
+              2: { cellWidth: 40 },  // Name
+              3: { cellWidth: 20 },  // Date
+              4: { cellWidth: 14 },  // Shift
+              5: { cellWidth: 18 },  // Shift Start
+              6: { cellWidth: 14 },  // In Time
+              7: { cellWidth: 14 },  // Out Time
+              8: { cellWidth: 17 },  // Work Hours
+              9: { cellWidth: 20 }   // Keka Status
             },
             margin: { left: 7, right: 7 }
           });
@@ -1749,23 +1749,23 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           columnStyles: {
             0: { cellWidth: 8 },  // S.No
             1: { cellWidth: 12 }, // Emp ID
-            2: { cellWidth: 25 }, // Name
-            3: { cellWidth: 15 }, // Date
-            4: { cellWidth: 20 }, // Job Title
-            5: { cellWidth: 15 }, // Location
-            6: { cellWidth: 10 }, // Status
-            7: { cellWidth: 10 }, // Shift
-            8: { cellWidth: 12 }, // Shift Start
-            9: { cellWidth: 12 }, // Shift End
-            10: { cellWidth: 10 }, // In Time
-            11: { cellWidth: 10 }, // Out Time
-            12: { cellWidth: 12 }, // Total Hrs
-            13: { cellWidth: 12 }, // Excess Hrs
-            14: { cellWidth: 10 }, // Over 16
-            15: { cellWidth: 12 }, // OT Form
-            16: { cellWidth: 15 }  // Final OT Hrs
+            2: { cellWidth: 28 }, // Name
+            3: { cellWidth: 16 }, // Date
+            4: { cellWidth: 22 }, // Job Title
+            5: { cellWidth: 16 }, // Location
+            6: { cellWidth: 11 }, // Status
+            7: { cellWidth: 11 }, // Shift
+            8: { cellWidth: 13 }, // Shift Start
+            9: { cellWidth: 13 }, // Shift End
+            10: { cellWidth: 11 }, // In Time
+            11: { cellWidth: 11 }, // Out Time
+            12: { cellWidth: 13 }, // Total Hrs
+            13: { cellWidth: 13 }, // Excess Hrs
+            14: { cellWidth: 11 }, // Over 16
+            15: { cellWidth: 14 }, // OT Form
+            16: { cellWidth: 17 }  // Final OT Hrs
           },
-          margin: { left: 14, right: 14 }
+          margin: { left: 7, right: 7 }
         });
 
         console.log(`    Table created with ${records.length} rows`);
@@ -1933,7 +1933,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Total</p>
                   <p className="text-2xl font-black text-slate-900">
                     {managerReportData.reduce((sum, m) =>
-                      sum + Object.values(m.violations).reduce((s, v) => s + v, 0), 0
+                      sum + Object.values(m.violations).reduce((s: number, v: any) => s + v, 0), 0
                     )}
                   </p>
                 </div>
@@ -2087,7 +2087,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 </thead>
                 <tbody>
                   {managerReportData.map((manager, idx) => {
-                    const total = Object.values(manager.violations).reduce((sum, v) => sum + v, 0);
+                    const total = Object.values(manager.violations).reduce((sum: number, v: any) => sum + v, 0);
 
                     return (
                       <tr key={`${manager.managerName}-${idx}`} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
