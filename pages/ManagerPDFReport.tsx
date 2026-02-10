@@ -1412,6 +1412,16 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Use the SAME logic as Excel to group by organizational units
     const orgUnitMap = new Map<string, any[]>();
 
+    // Debug counters
+    let debugCounters = {
+      totalRecords: 0,
+      presentRecords: 0,
+      workedOffRecords: 0,
+      presentWithExcess: 0,
+      presentExcessUnder9hrs: 0,
+      presentExcessOver9hrs: 0
+    };
+
     data.attendance.forEach(att => {
       const normalizedDate = convertDDMMMYYYYtoYYYYMMDD(att.date);
       if (normalizedDate < fromDate || normalizedDate > toDate) return;
@@ -1447,6 +1457,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const isPresent = normalizedStatus === 'P' || normalizedStatus === 'PRESENT' || normalizedStatus === 'CLEAN';
       const isWorkedOff = normalizedStatus === 'WOH' || normalizedStatus === 'WORKED OFF';
 
+      if (isPresent) debugCounters.presentRecords++;
+      if (isWorkedOff) debugCounters.workedOffRecords++;
+
       if (!isPresent && !isWorkedOff) return;
 
       const hasOutTime = att.outTime && att.outTime !== 'NA' && att.outTime !== '-' && att.outTime !== '';
@@ -1461,7 +1474,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         if (outTimeMinutes > shiftEndMinutes) {
           excessMinutes = outTimeMinutes - shiftEndMinutes;
-          if (excessMinutes <= 540) return; // Skip if not more than 9 hours
+          debugCounters.presentWithExcess++;
+
+          if (excessMinutes <= 540) {
+            debugCounters.presentExcessUnder9hrs++;
+            return; // Skip if not more than 9 hours
+          }
+
+          debugCounters.presentExcessOver9hrs++;
           calculationMethod = 'Out Time - Shift End (>9 hrs)';
         } else {
           return;
@@ -1594,6 +1614,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     // Debug: Log organizational units
     console.log('=== EXCESS HOURS PDF DEBUG ===');
+    console.log('Debug Counters:', debugCounters);
     console.log('Total organizational units:', orgUnits.length);
     orgUnits.forEach((unit, idx) => {
       console.log(`Unit ${idx + 1}:`, {
