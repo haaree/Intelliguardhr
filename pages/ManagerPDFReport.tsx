@@ -1164,30 +1164,30 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // Create Excel workbook
     const wb = XLSX.utils.book_new();
 
-    // Overall Summary sheet (aggregated across all organizational units)
-    const summaryData: any[] = [
-      ['Excess Hours Report'],
-      [],
-      ['Manager:', selectedManager],
-      ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
-      ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
-      [],
-      ['Overall Summary (All Units)'],
-      ['Total Records:', excessHoursData.length],
-      ['Present Days (>9 hrs):', excessHoursData.filter(r => r.status === 'P' || r.status === 'Present' || r.status === 'Clean').length],
-      ['Worked Off Days:', excessHoursData.filter(r => r.status === 'WOH' || r.status === 'Worked Off').length],
-      ['Over 16 Hours:', excessHoursData.filter(r => r.isOver16Hours === 'Yes').length],
-      [],
-      ['Note:'],
-      ['- Present days: Excess calculated as Out Time - Shift End Time (only >9 hours included)'],
-      ['- Worked Off days: Calculated as Out Time - Shift Start Time'],
-      ['- Over 16 Hours: Flagged in "Others" category'],
-      [],
-      ['Organizational Units:', orgUnits.length]
-    ];
+    // Overall Summary sheet (aggregated across all organizational units) - DISABLED to save space
+    // const summaryData: any[] = [
+    //   ['Excess Hours Report'],
+    //   [],
+    //   ['Manager:', selectedManager],
+    //   ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
+    //   ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
+    //   [],
+    //   ['Overall Summary (All Units)'],
+    //   ['Total Records:', excessHoursData.length],
+    //   ['Present Days (>9 hrs):', excessHoursData.filter(r => r.status === 'P' || r.status === 'Present' || r.status === 'Clean').length],
+    //   ['Worked Off Days:', excessHoursData.filter(r => r.status === 'WOH' || r.status === 'Worked Off').length],
+    //   ['Over 16 Hours:', excessHoursData.filter(r => r.isOver16Hours === 'Yes').length],
+    //   [],
+    //   ['Note:'],
+    //   ['- Present days: Excess calculated as Out Time - Shift End Time (only >9 hours included)'],
+    //   ['- Worked Off days: Calculated as Out Time - Shift Start Time'],
+    //   ['- Over 16 Hours: Flagged in "Others" category'],
+    //   [],
+    //   ['Organizational Units:', orgUnits.length]
+    // ];
 
-    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWs, 'Overall Summary');
+    // const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    // XLSX.utils.book_append_sheet(wb, summaryWs, 'Overall Summary');
 
     // Create sheets for each organizational unit (like Manager PDF)
     orgUnits.forEach((unit, unitIndex) => {
@@ -1422,18 +1422,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    // Flatten for overall stats
-    const excessHoursData: any[] = [];
-    orgUnits.forEach(unit => {
-      excessHoursData.push(...unit.records);
-    });
+    // Note: Overall summary disabled to save space
+    // Flatten for overall stats (kept for potential future use)
+    // const excessHoursData: any[] = [];
+    // orgUnits.forEach(unit => {
+    //   excessHoursData.push(...unit.records);
+    // });
 
-    const presentRecords = excessHoursData.filter(rec =>
-      rec.status.toUpperCase() === 'P' || rec.status.toUpperCase() === 'PRESENT' || rec.status.toUpperCase() === 'CLEAN'
-    );
-    const workedOffRecords = excessHoursData.filter(rec =>
-      rec.status.toUpperCase() === 'WOH' || rec.status.toUpperCase() === 'WORKED OFF'
-    );
+    // const presentRecords = excessHoursData.filter(rec =>
+    //   rec.status.toUpperCase() === 'P' || rec.status.toUpperCase() === 'PRESENT' || rec.status.toUpperCase() === 'CLEAN'
+    // );
+    // const workedOffRecords = excessHoursData.filter(rec =>
+    //   rec.status.toUpperCase() === 'WOH' || rec.status.toUpperCase() === 'WORKED OFF'
+    // );
 
     // Generate PDF
     const doc = new jsPDF('landscape'); // Use landscape for more columns
@@ -1456,33 +1457,33 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
     yPos += 10;
 
-    // Overall Summary
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Summary', 14, yPos);
-    yPos += 5;
+    // Overall Summary - DISABLED to save space
+    // doc.setFontSize(12);
+    // doc.setFont('helvetica', 'bold');
+    // doc.text('Summary', 14, yPos);
+    // yPos += 5;
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Category', 'Count']],
-      body: [
-        ['Present Days (>9 hrs beyond shift end)', presentRecords.length],
-        ['Worked Off Days', workedOffRecords.length],
-        ['Over 16 Hours', excessHoursData.filter(r => r.isOver16Hours === 'Yes').length],
-        ['Total Records', excessHoursData.length]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' }, // Amber color
-      styles: { fontSize: 9 }
-    });
+    // autoTable(doc, {
+    //   startY: yPos,
+    //   head: [['Category', 'Count']],
+    //   body: [
+    //     ['Present Days (>9 hrs beyond shift end)', presentRecords.length],
+    //     ['Worked Off Days', workedOffRecords.length],
+    //     ['Over 16 Hours', excessHoursData.filter(r => r.isOver16Hours === 'Yes').length],
+    //     ['Total Records', excessHoursData.length]
+    //   ],
+    //   theme: 'grid',
+    //   headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' }, // Amber color
+    //   styles: { fontSize: 9 }
+    // });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    // yPos = (doc as any).lastAutoTable.finalY + 10;
 
     // Process each organizational unit (same structure as Manager PDF)
     orgUnits.forEach((unit, unitIndex) => {
       if (unit.records.length === 0) return;
 
-      // Add page break before each new organizational unit (except first)
+      // Add page break before each new organizational unit (except first - now always add since no overall summary)
       if (unitIndex > 0) {
         doc.addPage('landscape');
         yPos = 20;
