@@ -464,67 +464,67 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
     yPos += 10;
 
-    // Overall Summary Table (aggregated across all entities/locations/depts)
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Overall Summary', 14, yPos);
-    yPos += 5;
+    // Overall Summary Table (aggregated across all entities/locations/depts) - DISABLED to save space
+    // doc.setFontSize(12);
+    // doc.setFont('helvetica', 'bold');
+    // doc.text('Overall Summary', 14, yPos);
+    // yPos += 5;
 
-    // Calculate aggregated totals
-    const aggregated = {
-      present: 0,
-      absent: 0,
-      offDay: 0,
-      workedOff: 0,
-      errors: 0,
-      lateEarly: 0,
-      lessThan4hrs: 0,
-      hours4to7: 0,
-      shiftDeviation: 0,
-      missingPunch: 0,
-      otherViolations: 0
-    };
+    // // Calculate aggregated totals
+    // const aggregated = {
+    //   present: 0,
+    //   absent: 0,
+    //   offDay: 0,
+    //   workedOff: 0,
+    //   errors: 0,
+    //   lateEarly: 0,
+    //   lessThan4hrs: 0,
+    //   hours4to7: 0,
+    //   shiftDeviation: 0,
+    //   missingPunch: 0,
+    //   otherViolations: 0
+    // };
 
-    managerReports.forEach(report => {
-      aggregated.present += report.violations.present;
-      aggregated.absent += report.violations.absent;
-      aggregated.offDay += report.violations.offDay;
-      aggregated.workedOff += report.violations.workedOff;
-      aggregated.errors += report.violations.errors;
-      aggregated.lateEarly += report.violations.lateEarly;
-      aggregated.lessThan4hrs += report.violations.lessThan4hrs;
-      aggregated.hours4to7 += report.violations.hours4to7;
-      aggregated.shiftDeviation += report.violations.shiftDeviation;
-      aggregated.missingPunch += report.violations.missingPunch;
-      aggregated.otherViolations += report.violations.otherViolations;
-    });
+    // managerReports.forEach(report => {
+    //   aggregated.present += report.violations.present;
+    //   aggregated.absent += report.violations.absent;
+    //   aggregated.offDay += report.violations.offDay;
+    //   aggregated.workedOff += report.violations.workedOff;
+    //   aggregated.errors += report.violations.errors;
+    //   aggregated.lateEarly += report.violations.lateEarly;
+    //   aggregated.lessThan4hrs += report.violations.lessThan4hrs;
+    //   aggregated.hours4to7 += report.violations.hours4to7;
+    //   aggregated.shiftDeviation += report.violations.shiftDeviation;
+    //   aggregated.missingPunch += report.violations.missingPunch;
+    //   aggregated.otherViolations += report.violations.otherViolations;
+    // });
 
-    const total = Object.values(aggregated).reduce((sum, v) => sum + v, 0);
+    // const total = Object.values(aggregated).reduce((sum, v) => sum + v, 0);
 
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Violation Type', 'Count']],
-      body: [
-        ['Present', aggregated.present],
-        ['Absent', aggregated.absent],
-        ['Off Day', aggregated.offDay],
-        ['Worked Off', aggregated.workedOff],
-        ['Errors', aggregated.errors],
-        ['Late & Early Occurrence', aggregated.lateEarly],
-        ['Worked < 4 hours', aggregated.lessThan4hrs],
-        ['Worked 4-7 hours', aggregated.hours4to7],
-        ['Shift Deviation', aggregated.shiftDeviation],
-        ['Missing Punch', aggregated.missingPunch],
-        ['Others', aggregated.otherViolations]
-      ],
-      foot: [['Total', total]],
-      theme: 'grid',
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
-      footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
-      styles: { fontSize: 9 }
-    });
+    // autoTable(doc, {
+    //   startY: yPos,
+    //   head: [['Violation Type', 'Count']],
+    //   body: [
+    //     ['Present', aggregated.present],
+    //     ['Absent', aggregated.absent],
+    //     ['Off Day', aggregated.offDay],
+    //     ['Worked Off', aggregated.workedOff],
+    //     ['Errors', aggregated.errors],
+    //     ['Late & Early Occurrence', aggregated.lateEarly],
+    //     ['Worked < 4 hours', aggregated.lessThan4hrs],
+    //     ['Worked 4-7 hours', aggregated.hours4to7],
+    //     ['Shift Deviation', aggregated.shiftDeviation],
+    //     ['Missing Punch', aggregated.missingPunch],
+    //     ['Others', aggregated.otherViolations]
+    //   ],
+    //   foot: [['Total', total]],
+    //   theme: 'grid',
+    //   headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+    //   footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+    //   styles: { fontSize: 9 }
+    // });
 
-    yPos = (doc as any).lastAutoTable.finalY + 10;
+    // yPos = (doc as any).lastAutoTable.finalY + 10;
 
     // Now process each organizational unit (entity/location/dept combination)
     managerReports.forEach((managerData, reportIndex) => {
@@ -578,48 +578,48 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos += 3; // Extra spacing after header
       }
 
-      // Summary for this organizational unit
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Summary', 14, yPos);
-      yPos += 5;
+      // Summary for this organizational unit - DISABLED to save space
+      // doc.setFontSize(12);
+      // doc.setFont('helvetica', 'bold');
+      // doc.text('Summary', 14, yPos);
+      // yPos += 5;
 
-      const unitTotal = managerData.violations.present +
-                        managerData.violations.absent +
-                        managerData.violations.offDay +
-                        managerData.violations.workedOff +
-                        managerData.violations.errors +
-                        managerData.violations.lateEarly +
-                        managerData.violations.lessThan4hrs +
-                        managerData.violations.hours4to7 +
-                        managerData.violations.shiftDeviation +
-                        managerData.violations.missingPunch +
-                        managerData.violations.otherViolations;
+      // const unitTotal = managerData.violations.present +
+      //                   managerData.violations.absent +
+      //                   managerData.violations.offDay +
+      //                   managerData.violations.workedOff +
+      //                   managerData.violations.errors +
+      //                   managerData.violations.lateEarly +
+      //                   managerData.violations.lessThan4hrs +
+      //                   managerData.violations.hours4to7 +
+      //                   managerData.violations.shiftDeviation +
+      //                   managerData.violations.missingPunch +
+      //                   managerData.violations.otherViolations;
 
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Violation Type', 'Count']],
-        body: [
-          ['Present', managerData.violations.present],
-          ['Absent', managerData.violations.absent],
-          ['Off Day', managerData.violations.offDay],
-          ['Worked Off', managerData.violations.workedOff],
-          ['Errors', managerData.violations.errors],
-          ['Late & Early Occurrence', managerData.violations.lateEarly],
-          ['Worked < 4 hours', managerData.violations.lessThan4hrs],
-          ['Worked 4-7 hours', managerData.violations.hours4to7],
-          ['Shift Deviation', managerData.violations.shiftDeviation],
-          ['Missing Punch', managerData.violations.missingPunch],
-          ['Others', managerData.violations.otherViolations]
-        ],
-        foot: [['Total', unitTotal]],
-        theme: 'grid',
-        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
-        footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 9 }
-      });
+      // autoTable(doc, {
+      //   startY: yPos,
+      //   head: [['Violation Type', 'Count']],
+      //   body: [
+      //     ['Present', managerData.violations.present],
+      //     ['Absent', managerData.violations.absent],
+      //     ['Off Day', managerData.violations.offDay],
+      //     ['Worked Off', managerData.violations.workedOff],
+      //     ['Errors', managerData.violations.errors],
+      //     ['Late & Early Occurrence', managerData.violations.lateEarly],
+      //     ['Worked < 4 hours', managerData.violations.lessThan4hrs],
+      //     ['Worked 4-7 hours', managerData.violations.hours4to7],
+      //     ['Shift Deviation', managerData.violations.shiftDeviation],
+      //     ['Missing Punch', managerData.violations.missingPunch],
+      //     ['Others', managerData.violations.otherViolations]
+      //   ],
+      //   foot: [['Total', unitTotal]],
+      //   theme: 'grid',
+      //   headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+      //   footStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: 'bold' },
+      //   styles: { fontSize: 9 }
+      // });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      // yPos = (doc as any).lastAutoTable.finalY + 10;
 
       // Detailed Sections for this organizational unit
       const addDetailSection = (title: string, records: any[], isAudit: boolean = false) => {
@@ -794,63 +794,63 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     const wb = XLSX.utils.book_new();
     const managerName = managerReports[0].managerName;
 
-    // Overall Summary Sheet (aggregated across all entities/locations/depts)
-    const aggregated = {
-      present: 0,
-      absent: 0,
-      offDay: 0,
-      workedOff: 0,
-      errors: 0,
-      lateEarly: 0,
-      lessThan4hrs: 0,
-      hours4to7: 0,
-      shiftDeviation: 0,
-      missingPunch: 0,
-      otherViolations: 0
-    };
+    // Overall Summary Sheet (aggregated across all entities/locations/depts) - DISABLED to save space
+    // const aggregated = {
+    //   present: 0,
+    //   absent: 0,
+    //   offDay: 0,
+    //   workedOff: 0,
+    //   errors: 0,
+    //   lateEarly: 0,
+    //   lessThan4hrs: 0,
+    //   hours4to7: 0,
+    //   shiftDeviation: 0,
+    //   missingPunch: 0,
+    //   otherViolations: 0
+    // };
 
-    managerReports.forEach(report => {
-      aggregated.present += report.violations.present;
-      aggregated.absent += report.violations.absent;
-      aggregated.offDay += report.violations.offDay;
-      aggregated.workedOff += report.violations.workedOff;
-      aggregated.errors += report.violations.errors;
-      aggregated.lateEarly += report.violations.lateEarly;
-      aggregated.lessThan4hrs += report.violations.lessThan4hrs;
-      aggregated.hours4to7 += report.violations.hours4to7;
-      aggregated.shiftDeviation += report.violations.shiftDeviation;
-      aggregated.missingPunch += report.violations.missingPunch;
-      aggregated.otherViolations += report.violations.otherViolations;
-    });
+    // managerReports.forEach(report => {
+    //   aggregated.present += report.violations.present;
+    //   aggregated.absent += report.violations.absent;
+    //   aggregated.offDay += report.violations.offDay;
+    //   aggregated.workedOff += report.violations.workedOff;
+    //   aggregated.errors += report.violations.errors;
+    //   aggregated.lateEarly += report.violations.lateEarly;
+    //   aggregated.lessThan4hrs += report.violations.lessThan4hrs;
+    //   aggregated.hours4to7 += report.violations.hours4to7;
+    //   aggregated.shiftDeviation += report.violations.shiftDeviation;
+    //   aggregated.missingPunch += report.violations.missingPunch;
+    //   aggregated.otherViolations += report.violations.otherViolations;
+    // });
 
-    const total = Object.values(aggregated).reduce((sum, v) => sum + v, 0);
+    // const total = Object.values(aggregated).reduce((sum, v) => sum + v, 0);
 
-    const summaryData: any[] = [
-      ['Attendance Report Summary'],
-      [],
-      ['Manager:', managerName],
-      ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
-      ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
-      [],
-      ['Overall Summary (All Units)'],
-      ['Violation Type', 'Count'],
-      ['Present', aggregated.present],
-      ['Absent', aggregated.absent],
-      ['Off Day', aggregated.offDay],
-      ['Worked Off', aggregated.workedOff],
-      ['Errors', aggregated.errors],
-      ['Late & Early Occurrence', aggregated.lateEarly],
-      ['Worked < 4 hours', aggregated.lessThan4hrs],
-      ['Worked 4-7 hours', aggregated.hours4to7],
-      ['Shift Deviation', aggregated.shiftDeviation],
-      ['Missing Punch', aggregated.missingPunch],
-      ['Others', aggregated.otherViolations],
-      [],
-      ['Total', total]
-    ];
+    // const summaryData: any[] = [
+    //   ['Attendance Report Summary'],
+    //   [],
+    //   ['Manager:', managerName],
+    //   ['Period:', `${formatDate(fromDate)} to ${formatDate(toDate)}`],
+    //   ['Generated:', formatDate(new Date().toISOString().split('T')[0])],
+    //   [],
+    //   ['Overall Summary (All Units)'],
+    //   ['Violation Type', 'Count'],
+    //   ['Present', aggregated.present],
+    //   ['Absent', aggregated.absent],
+    //   ['Off Day', aggregated.offDay],
+    //   ['Worked Off', aggregated.workedOff],
+    //   ['Errors', aggregated.errors],
+    //   ['Late & Early Occurrence', aggregated.lateEarly],
+    //   ['Worked < 4 hours', aggregated.lessThan4hrs],
+    //   ['Worked 4-7 hours', aggregated.hours4to7],
+    //   ['Shift Deviation', aggregated.shiftDeviation],
+    //   ['Missing Punch', aggregated.missingPunch],
+    //   ['Others', aggregated.otherViolations],
+    //   [],
+    //   ['Total', total]
+    // ];
 
-    const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, summaryWs, 'Overall Summary');
+    // const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+    // XLSX.utils.book_append_sheet(wb, summaryWs, 'Overall Summary');
 
     // Now create sheets for each organizational unit
     managerReports.forEach((managerData, unitIndex) => {
@@ -872,41 +872,42 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const unitLabel = contextParts.length > 0 ? contextParts.join('-') : `Unit${unitIndex + 1}`;
       const safeUnitLabel = unitLabel.substring(0, 25); // Excel sheet name limit
 
-      // Unit summary
-      const unitTotal = managerData.violations.present +
-                        managerData.violations.absent +
-                        managerData.violations.offDay +
-                        managerData.violations.workedOff +
-                        managerData.violations.errors +
-                        managerData.violations.lateEarly +
-                        managerData.violations.lessThan4hrs +
-                        managerData.violations.hours4to7 +
-                        managerData.violations.shiftDeviation +
-                        managerData.violations.missingPunch +
-                        managerData.violations.otherViolations;
+      // Unit summary - DISABLED to save space
+      // const unitTotal = managerData.violations.present +
+      //                   managerData.violations.absent +
+      //                   managerData.violations.offDay +
+      //                   managerData.violations.workedOff +
+      //                   managerData.violations.errors +
+      //                   managerData.violations.lateEarly +
+      //                   managerData.violations.lessThan4hrs +
+      //                   managerData.violations.hours4to7 +
+      //                   managerData.violations.shiftDeviation +
+      //                   managerData.violations.missingPunch +
+      //                   managerData.violations.otherViolations;
 
-      const unitSummaryData: any[] = [
-        [contextParts.join(' - ')],
-        [],
-        ['Summary'],
-        ['Violation Type', 'Count'],
-        ['Present', managerData.violations.present],
-        ['Absent', managerData.violations.absent],
-        ['Off Day', managerData.violations.offDay],
-        ['Worked Off', managerData.violations.workedOff],
-        ['Errors', managerData.violations.errors],
-        ['Late & Early Occurrence', managerData.violations.lateEarly],
-        ['Worked < 4 hours', managerData.violations.lessThan4hrs],
-        ['Worked 4-7 hours', managerData.violations.hours4to7],
-        ['Shift Deviation', managerData.violations.shiftDeviation],
-        ['Missing Punch', managerData.violations.missingPunch],
-        ['Others', managerData.violations.otherViolations],
-        [],
-        ['Total', unitTotal]
-      ];
+      // Unit summary sheet - DISABLED to save space
+      // const unitSummaryData: any[] = [
+      //   [contextParts.join(' - ')],
+      //   [],
+      //   ['Summary'],
+      //   ['Violation Type', 'Count'],
+      //   ['Present', managerData.violations.present],
+      //   ['Absent', managerData.violations.absent],
+      //   ['Off Day', managerData.violations.offDay],
+      //   ['Worked Off', managerData.violations.workedOff],
+      //   ['Errors', managerData.violations.errors],
+      //   ['Late & Early Occurrence', managerData.violations.lateEarly],
+      //   ['Worked < 4 hours', managerData.violations.lessThan4hrs],
+      //   ['Worked 4-7 hours', managerData.violations.hours4to7],
+      //   ['Shift Deviation', managerData.violations.shiftDeviation],
+      //   ['Missing Punch', managerData.violations.missingPunch],
+      //   ['Others', managerData.violations.otherViolations],
+      //   [],
+      //   ['Total', unitTotal]
+      // ];
 
-      const unitSummaryWs = XLSX.utils.aoa_to_sheet(unitSummaryData);
-      XLSX.utils.book_append_sheet(wb, unitSummaryWs, `${safeUnitLabel}-Summary`);
+      // const unitSummaryWs = XLSX.utils.aoa_to_sheet(unitSummaryData);
+      // XLSX.utils.book_append_sheet(wb, unitSummaryWs, `${safeUnitLabel}-Summary`);
 
       // Helper function to add detail sheet for this unit
       const addDetailSheet = (sheetName: string, records: any[], isAudit: boolean = false) => {
