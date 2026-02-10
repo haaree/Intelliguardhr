@@ -1153,8 +1153,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Process excess hours calculation
       const attStatus = att.status || '';
-      const isPresent = attStatus === 'P' || attStatus === 'Present' || attStatus === 'Clean';
-      const isWorkedOff = attStatus === 'WOH' || attStatus === 'Worked Off';
+      const normalizedStatus = attStatus.toUpperCase();
+
+      const isPresent = normalizedStatus === 'P' || normalizedStatus === 'PRESENT' || normalizedStatus === 'CLEAN';
+      const isWorkedOff = normalizedStatus === 'WOH' || normalizedStatus === 'WORKED OFF';
 
       // Skip if not Present or Worked Off
       if (!isPresent && !isWorkedOff) return;
