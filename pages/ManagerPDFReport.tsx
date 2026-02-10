@@ -534,26 +534,48 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos = 20;
       }
 
-      // Section header showing the organizational context
-      doc.setFontSize(14);
+      // Section header showing the organizational context with wrapping
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      const contextParts: string[] = [];
+
+      // Build header text with Department and Sub Department
+      const headerLines: string[] = [];
+
+      // First line: Legal Entity and Location
+      const line1Parts: string[] = [];
       if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
-        contextParts.push(managerData.legalEntity);
+        line1Parts.push(`Legal Entity: ${managerData.legalEntity}`);
       }
       if (managerData.location && managerData.location !== 'Unknown') {
-        contextParts.push(managerData.location);
+        line1Parts.push(`Location: ${managerData.location}`);
       }
-      if (managerData.department && managerData.department !== 'Unknown') {
-        contextParts.push(managerData.department);
-      }
-      if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
-        contextParts.push(managerData.subDepartment);
+      if (line1Parts.length > 0) {
+        headerLines.push(line1Parts.join(' | '));
       }
 
-      if (contextParts.length > 0) {
-        doc.text(contextParts.join(' - '), 14, yPos);
-        yPos += 8;
+      // Second line: Department and Sub Department
+      const line2Parts: string[] = [];
+      if (managerData.department && managerData.department !== 'Unknown') {
+        line2Parts.push(`Department: ${managerData.department}`);
+      }
+      if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
+        line2Parts.push(`Sub Department: ${managerData.subDepartment}`);
+      }
+      if (line2Parts.length > 0) {
+        headerLines.push(line2Parts.join(' | '));
+      }
+
+      // Render header lines with wrapping
+      if (headerLines.length > 0) {
+        const maxWidth = pageWidth - 28; // Account for margins
+        headerLines.forEach(line => {
+          const wrappedLines = doc.splitTextToSize(line, maxWidth);
+          wrappedLines.forEach((wrappedLine: string) => {
+            doc.text(wrappedLine, 14, yPos);
+            yPos += 5;
+          });
+        });
+        yPos += 3; // Extra spacing after header
       }
 
       // Summary for this organizational unit
@@ -615,16 +637,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos += 5;
 
         if (isAudit) {
-          // Audit records should show shift details, deviation, late/early info
+          // Audit records should show shift details, deviation, late/early info (Dept/SubDept moved to header)
           autoTable(doc, {
             startY: yPos,
-            head: [['Employee ID', 'Employee Name', 'Date', 'Dept', 'Sub Dept', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Deviation', 'Late By', 'Early By', 'Keka Status']],
-            body: records.map((rec: any) => [
+            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Deviation', 'Late By', 'Early By', 'Keka Status']],
+            body: records.map((rec: any, index: number) => [
+              index + 1, // Serial number
               rec.employeeNumber,
               rec.employeeName,
               rec.date,
-              rec.department || '-',
-              rec.subDepartment || '-',
+              // rec.department || '-',  // Moved to header
+              // rec.subDepartment || '-',  // Moved to header
               rec.shift || '-',
               rec.shiftStart || '-',
               rec.inTime || '-',
@@ -636,20 +659,36 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               rec.excelStatus || '-'
             ]),
             theme: 'striped',
-            headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-            styles: { fontSize: 5.5 },
+            headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 6, cellPadding: 1.5 },
+            columnStyles: {
+              0: { cellWidth: 8 },  // S.No
+              1: { cellWidth: 12 }, // Emp ID
+              2: { cellWidth: 25 }, // Name
+              3: { cellWidth: 15 }, // Date
+              4: { cellWidth: 10 }, // Shift
+              5: { cellWidth: 12 }, // Shift Start
+              6: { cellWidth: 10 }, // In Time
+              7: { cellWidth: 10 }, // Out Time
+              8: { cellWidth: 12 }, // Work Hrs
+              9: { cellWidth: 30 }, // Deviation
+              10: { cellWidth: 10 }, // Late By
+              11: { cellWidth: 10 }, // Early By
+              12: { cellWidth: 15 }  // Keka Status
+            },
             margin: { left: 14, right: 14 }
           });
         } else {
           autoTable(doc, {
             startY: yPos,
-            head: [['Employee ID', 'Employee Name', 'Date', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status']],
-            body: records.map((rec: any) => [
+            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status']],
+            body: records.map((rec: any, index: number) => [
+              index + 1, // Serial number
               rec.employeeNumber,
               rec.employeeName,
               rec.date,
-              rec.department || '-',
-              rec.subDepartment || '-',
+              // rec.department || '-',  // Moved to header
+              // rec.subDepartment || '-',  // Moved to header
               rec.shift || '-',
               rec.shiftStart || '-',
               rec.inTime || '-',
@@ -658,8 +697,20 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               rec.excelStatus || '-'
             ]),
             theme: 'striped',
-            headStyles: { fillColor: [59, 130, 246], textColor: 255 },
-            styles: { fontSize: 6 },
+            headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+            styles: { fontSize: 6, cellPadding: 1.5 },
+            columnStyles: {
+              0: { cellWidth: 8 },  // S.No
+              1: { cellWidth: 15 }, // Emp ID
+              2: { cellWidth: 30 }, // Name
+              3: { cellWidth: 18 }, // Date
+              4: { cellWidth: 12 }, // Shift
+              5: { cellWidth: 15 }, // Shift Start
+              6: { cellWidth: 12 }, // In Time
+              7: { cellWidth: 12 }, // Out Time
+              8: { cellWidth: 15 }, // Work Hours
+              9: { cellWidth: 18 }  // Keka Status
+            },
             margin: { left: 14, right: 14 }
           });
         }
@@ -866,24 +917,34 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         // Create sheet name with unit prefix
         const finalSheetName = `${safeUnitLabel}-${sheetName}`.substring(0, 31); // Excel sheet name limit
 
-        // Add context as first rows in the sheet
+        // Add context as first rows in the sheet with Department and Sub Department
         const headerRows: any[][] = [
           ['Context:', contextParts.join(' - ')],
           []
         ];
 
+        // Add Department and Sub Department as separate rows
+        if (managerData.department && managerData.department !== 'Unknown') {
+          headerRows.push([`Department: ${managerData.department}`]);
+        }
+        if (managerData.subDepartment && managerData.subDepartment !== 'Unknown') {
+          headerRows.push([`Sub Department: ${managerData.subDepartment}`]);
+        }
+        headerRows.push([]); // Blank row before table
+
         if (isAudit) {
-          // Audit records should include shift details and deviation info
+          // Audit records should include shift details and deviation info (Dept/SubDept moved to header, added S.No)
           data = [
             ...headerRows,
-            ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Deviation', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
-            ...records.map((rec: any) => [
+            ['S.No', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Deviation', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
+            ...records.map((rec: any, index: number) => [
+              index + 1, // Serial number
               rec.employeeNumber,
               rec.employeeName,
               rec.date,
               rec.jobTitle || '-',
-              rec.department || '-',
-              rec.subDepartment || '-',
+              // rec.department || '-',  // Moved to header
+              // rec.subDepartment || '-',  // Moved to header
               rec.shift || '-',
               rec.shiftStart || '-',
               rec.inTime || '-',
@@ -899,14 +960,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         } else {
           data = [
             ...headerRows,
-            ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Absent Status', 'Keka Status', 'Final Status', 'Comments'],
-            ...records.map((rec: any) => [
+            ['S.No', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Absent Status', 'Keka Status', 'Final Status', 'Comments'],
+            ...records.map((rec: any, index: number) => [
+              index + 1, // Serial number
               rec.employeeNumber,
               rec.employeeName,
               rec.date,
               rec.jobTitle,
-              rec.department || '-',
-              rec.subDepartment || '-',
+              // rec.department || '-',  // Moved to header
+              // rec.subDepartment || '-',  // Moved to header
               rec.shift || '-',
               rec.shiftStart || '-',
               rec.inTime || '-',
@@ -922,10 +984,45 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         const ws = XLSX.utils.aoa_to_sheet(data);
 
-        // Set column widths
+        // Set column widths (updated after adding S.No and removing Dept/SubDept)
         const colWidths = isAudit
-          ? [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 30 }, { wch: 10 }, { wch: 10 }, { wch: 15 }, { wch: 15 }]
-          : [{ wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
+          ? [
+              { wch: 6 },  // S.No
+              { wch: 12 }, // Employee ID
+              { wch: 25 }, // Employee Name
+              { wch: 12 }, // Date
+              { wch: 20 }, // Job Title
+              // { wch: 20 }, // Department - Moved to header
+              // { wch: 20 }, // Sub Department - Moved to header
+              { wch: 10 }, // Shift
+              { wch: 12 }, // Shift Start
+              { wch: 10 }, // In Time
+              { wch: 10 }, // Out Time
+              { wch: 12 }, // Work Hours
+              { wch: 30 }, // Deviation
+              { wch: 10 }, // Late By
+              { wch: 10 }, // Early By
+              { wch: 15 }, // Keka Status
+              { wch: 15 }  // Final Status
+            ]
+          : [
+              { wch: 6 },  // S.No
+              { wch: 12 }, // Employee ID
+              { wch: 25 }, // Employee Name
+              { wch: 12 }, // Date
+              { wch: 20 }, // Job Title
+              // { wch: 20 }, // Department - Moved to header
+              // { wch: 20 }, // Sub Department - Moved to header
+              { wch: 10 }, // Shift
+              { wch: 12 }, // Shift Start
+              { wch: 10 }, // In Time
+              { wch: 10 }, // Out Time
+              { wch: 12 }, // Work Hours
+              { wch: 15 }, // Absent Status
+              { wch: 15 }, // Keka Status
+              { wch: 15 }, // Final Status
+              { wch: 30 }  // Comments
+            ];
         ws['!cols'] = colWidths;
 
         XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
