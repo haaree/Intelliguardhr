@@ -1216,25 +1216,36 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       // const workedOffRecords = unit.records.filter(r => r.status === 'WOH' || r.status === 'Worked Off');
       // const over16Records = unit.records.filter(r => r.isOver16Hours === 'Yes');
 
-      // Unit summary data - just context header and details
+      // Unit summary data - context header with Department/Sub Department + details with S.No
       const unitSummaryData: any[] = [
         [contextParts.join(' - ')],
-        [],
-        // ['Unit Summary'],
-        // ['Total Records:', unit.records.length],
-        // ['Present Days (>9 hrs):', presentRecords.length],
-        // ['Worked Off Days:', workedOffRecords.length],
-        // ['Over 16 Hours:', over16Records.length],
-        // [],
-        // ['Details'],
-        ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hours', 'Excess Hours', 'Calculation Method', 'Over 16 Hrs', 'Employee OT Form', 'Final Payable OT Hours'],
-        ...unit.records.map(rec => [
+        []
+      ];
+
+      // Add Department and Sub Department as separate header rows
+      if (unit.department && unit.department !== 'Unknown') {
+        unitSummaryData.push([`Department: ${unit.department}`]);
+      }
+      if (unit.subDepartment && unit.subDepartment !== 'Unknown') {
+        unitSummaryData.push([`Sub Department: ${unit.subDepartment}`]);
+      }
+
+      // Add blank row before table
+      unitSummaryData.push([]);
+
+      // Table header (removed Department, Sub Department, Calculation Method)
+      unitSummaryData.push(['S.No', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hours', 'Excess Hours', 'Over 16 Hrs', 'Employee OT Form', 'Final Payable OT Hours']);
+
+      // Table data with serial numbers
+      unit.records.forEach((rec, index) => {
+        unitSummaryData.push([
+          index + 1, // Serial number
           rec.employeeNumber,
           rec.employeeName,
           rec.date,
           rec.jobTitle || '-',
-          rec.department || '-',
-          rec.subDepartment || '-',
+          // rec.department || '-',  // Moved to header
+          // rec.subDepartment || '-',  // Moved to header
           rec.location || '-',
           rec.status,
           rec.shift || '-',
@@ -1244,23 +1255,24 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           rec.outTime || '-',
           rec.totalHours || '-',
           rec.excessHours,
-          rec.calculationMethod,
+          // rec.calculationMethod,  // Removed to save space
           rec.isOver16Hours,
           rec.employeeOTForm || '',
           rec.finalPayableOTHours || ''
-        ])
-      ];
+        ]);
+      });
 
       const unitWs = XLSX.utils.aoa_to_sheet(unitSummaryData);
 
-      // Set column widths
+      // Set column widths (updated after removing Dept, SubDept, Calculation Method)
       unitWs['!cols'] = [
+        { wch: 6 },  // S.No
         { wch: 12 }, // Employee ID
         { wch: 25 }, // Employee Name
         { wch: 12 }, // Date
         { wch: 20 }, // Job Title
-        { wch: 20 }, // Department
-        { wch: 20 }, // Sub Department
+        // { wch: 20 }, // Department - Moved to header
+        // { wch: 20 }, // Sub Department - Moved to header
         { wch: 15 }, // Location
         { wch: 10 }, // Status
         { wch: 10 }, // Shift
@@ -1270,7 +1282,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         { wch: 10 }, // Out Time
         { wch: 12 }, // Total Hours
         { wch: 12 }, // Excess Hours
-        { wch: 35 }, // Calculation Method
+        // { wch: 35 }, // Calculation Method - Removed
         { wch: 12 }, // Over 16 Hrs
         { wch: 18 }, // Employee OT Form
         { wch: 22 }  // Final Payable OT Hours
@@ -1489,26 +1501,48 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos = 20;
       }
 
-      // Section header showing the organizational context
-      doc.setFontSize(14);
+      // Section header showing the organizational context with wrapping
+      doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      const contextParts: string[] = [];
+
+      // Build header text with Department and Sub Department
+      const headerLines: string[] = [];
+
+      // First line: Legal Entity and Location
+      const line1Parts: string[] = [];
       if (unit.legalEntity && unit.legalEntity !== 'Unknown') {
-        contextParts.push(unit.legalEntity);
+        line1Parts.push(`Legal Entity: ${unit.legalEntity}`);
       }
       if (unit.location && unit.location !== 'Unknown') {
-        contextParts.push(unit.location);
+        line1Parts.push(`Location: ${unit.location}`);
       }
-      if (unit.department && unit.department !== 'Unknown') {
-        contextParts.push(unit.department);
-      }
-      if (unit.subDepartment && unit.subDepartment !== 'Unknown') {
-        contextParts.push(unit.subDepartment);
+      if (line1Parts.length > 0) {
+        headerLines.push(line1Parts.join(' | '));
       }
 
-      if (contextParts.length > 0) {
-        doc.text(contextParts.join(' - '), 14, yPos);
-        yPos += 8;
+      // Second line: Department and Sub Department
+      const line2Parts: string[] = [];
+      if (unit.department && unit.department !== 'Unknown') {
+        line2Parts.push(`Department: ${unit.department}`);
+      }
+      if (unit.subDepartment && unit.subDepartment !== 'Unknown') {
+        line2Parts.push(`Sub Department: ${unit.subDepartment}`);
+      }
+      if (line2Parts.length > 0) {
+        headerLines.push(line2Parts.join(' | '));
+      }
+
+      // Render header lines with wrapping
+      if (headerLines.length > 0) {
+        const maxWidth = pageWidth - 28; // Account for margins
+        headerLines.forEach(line => {
+          const wrappedLines = doc.splitTextToSize(line, maxWidth);
+          wrappedLines.forEach((wrappedLine: string) => {
+            doc.text(wrappedLine, 14, yPos);
+            yPos += 5;
+          });
+        });
+        yPos += 3; // Extra spacing after header
       }
 
       // Unit summary - DISABLED to save space
@@ -1550,21 +1584,22 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           yPos = 20;
         }
 
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(title, 14, yPos);
         yPos += 5;
 
         autoTable(doc, {
           startY: yPos,
-          head: [['Emp ID', 'Name', 'Date', 'Job Title', 'Dept', 'Sub Dept', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hrs', 'Excess Hrs', 'Calculation', 'Over 16', 'OT Form', 'Final OT Hrs']],
-          body: records.map((rec: any) => [
+          head: [['S.No', 'Emp ID', 'Name', 'Date', 'Job Title', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hrs', 'Excess Hrs', 'Over 16', 'OT Form', 'Final OT Hrs']],
+          body: records.map((rec: any, index: number) => [
+            index + 1, // Serial number
             rec.employeeNumber,
             rec.employeeName,
             rec.date,
             rec.jobTitle || '-',
-            rec.department || '-',
-            rec.subDepartment || '-',
+            // rec.department || '-',  // Moved to header
+            // rec.subDepartment || '-',  // Moved to header
             rec.location || '-',
             rec.status,
             rec.shift || '-',
@@ -1574,14 +1609,33 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             rec.outTime || '-',
             rec.totalHours || '-',
             rec.excessHours,
-            rec.calculationMethod,
+            // rec.calculationMethod,  // Removed to save space (implicit from section title)
             rec.isOver16Hours,
             rec.employeeOTForm || '',
             rec.finalPayableOTHours || ''
           ]),
           theme: 'striped',
           headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
-          styles: { fontSize: 5 },
+          styles: { fontSize: 6, cellPadding: 1.5 },
+          columnStyles: {
+            0: { cellWidth: 8 },  // S.No
+            1: { cellWidth: 12 }, // Emp ID
+            2: { cellWidth: 25 }, // Name
+            3: { cellWidth: 15 }, // Date
+            4: { cellWidth: 20 }, // Job Title
+            5: { cellWidth: 15 }, // Location
+            6: { cellWidth: 10 }, // Status
+            7: { cellWidth: 10 }, // Shift
+            8: { cellWidth: 12 }, // Shift Start
+            9: { cellWidth: 12 }, // Shift End
+            10: { cellWidth: 10 }, // In Time
+            11: { cellWidth: 10 }, // Out Time
+            12: { cellWidth: 12 }, // Total Hrs
+            13: { cellWidth: 12 }, // Excess Hrs
+            14: { cellWidth: 10 }, // Over 16
+            15: { cellWidth: 12 }, // OT Form
+            16: { cellWidth: 15 }  // Final OT Hrs
+          },
           margin: { left: 14, right: 14 }
         });
 
