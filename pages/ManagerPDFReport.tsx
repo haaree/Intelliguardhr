@@ -441,6 +441,142 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     );
   }, [detailedManagerReportData]);
 
+  // Generate consolidated PDF for ALL reporting incharges (landscape, grouped by Legal Entity > Location)
+  const generateAllInchargesConsolidatedPDF = () => {
+    if (detailedManagerReportData.length === 0) {
+      alert('No data found for the selected date range');
+      return;
+    }
+
+    const doc = new jsPDF('landscape'); // Landscape orientation
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // Title
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Daily Attendance Report - All Reporting Incharges', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+
+    // Report Details
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Period: ${formatDate(fromDate)} to ${formatDate(toDate)}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
+    yPos += 10;
+
+    // Group data by Legal Entity > Location
+    const groupedData = new Map<string, Map<string, EnrichedRecord[]>>();
+
+    detailedManagerReportData.forEach(report => {
+      // Combine all violation types into a single array
+      const allRecords = [
+        ...report.details.present,
+        ...report.details.absent,
+        ...report.details.offDay,
+        ...report.details.workedOff,
+        ...report.details.errors,
+        ...report.details.lateEarly,
+        ...report.details.lessThan4hrs,
+        ...report.details.hours4to7,
+        ...report.details.shiftDeviation,
+        ...report.details.missingPunch,
+        ...report.details.otherViolations
+      ];
+
+      allRecords.forEach(record => {
+        const legalEntity = report.legalEntity || 'Unknown';
+        const location = report.location || 'Unknown';
+
+        if (!groupedData.has(legalEntity)) {
+          groupedData.set(legalEntity, new Map());
+        }
+
+        const locationMap = groupedData.get(legalEntity)!;
+        if (!locationMap.has(location)) {
+          locationMap.set(location, []);
+        }
+
+        locationMap.get(location)!.push(record);
+      });
+    });
+
+    // Process each Legal Entity > Location group
+    let isFirstPage = true;
+    groupedData.forEach((locationMap, legalEntity) => {
+      locationMap.forEach((records, location) => {
+        if (records.length === 0) return;
+
+        // Add new page if not first
+        if (!isFirstPage) {
+          doc.addPage('landscape');
+          yPos = 20;
+        }
+        isFirstPage = false;
+
+        // Section header
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Legal Entity: ${legalEntity} | Location: ${location}`, 14, yPos);
+        yPos += 8;
+
+        // Table with Reporting Incharge, Department, Sub Department columns
+        autoTable(doc, {
+          startY: yPos,
+          head: [['S.No', 'Reporting Incharge', 'Dept', 'Sub Dept', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status', 'Comments']],
+          body: records.map((rec: any, index: number) => [
+            index + 1,
+            rec.reportingManager || '-',
+            rec.department || '-',
+            rec.subDepartment || '-',
+            rec.employeeNumber,
+            rec.employeeName,
+            rec.date,
+            rec.shift || '-',
+            rec.shiftStart || '-',
+            rec.inTime || '-',
+            rec.outTime || '-',
+            rec.totalHours || '-',
+            rec.lateBy || '-',
+            rec.earlyBy || '-',
+            rec.excelStatus || '-',
+            rec.comments || '-'
+          ]),
+          theme: 'striped',
+          headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+          styles: { fontSize: 6, cellPadding: 1.5, overflow: 'linebreak' },
+          tableWidth: 'auto',
+          columnStyles: {
+            0: { cellWidth: 'auto', minCellWidth: 7 },   // S.No
+            1: { cellWidth: 'auto', minCellWidth: 25 },  // Reporting Incharge
+            2: { cellWidth: 'auto', minCellWidth: 20 },  // Dept
+            3: { cellWidth: 'auto', minCellWidth: 20 },  // Sub Dept
+            4: { cellWidth: 'auto', minCellWidth: 12 },  // Emp ID
+            5: { cellWidth: 'auto', minCellWidth: 25 },  // Name
+            6: { cellWidth: 'auto', minCellWidth: 15 },  // Date
+            7: { cellWidth: 'auto', minCellWidth: 10 },  // Shift
+            8: { cellWidth: 'auto', minCellWidth: 12 },  // Shift Start
+            9: { cellWidth: 'auto', minCellWidth: 10 },  // In Time
+            10: { cellWidth: 'auto', minCellWidth: 10 }, // Out Time
+            11: { cellWidth: 'auto', minCellWidth: 10 }, // Work Hrs
+            12: { cellWidth: 'auto', minCellWidth: 10 }, // Late By
+            13: { cellWidth: 'auto', minCellWidth: 10 }, // Early By
+            14: { cellWidth: 'auto', minCellWidth: 15 }, // Keka Status
+            15: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
+          },
+          margin: { left: 7, right: 7 }
+        });
+
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+      });
+    });
+
+    // Save PDF
+    const fileName = `Daily_Report_All_Incharges_${fromDate}_to_${toDate}.pdf`;
+    doc.save(fileName);
+  };
+
   // Generate consolidated PDF for a manager (includes all entity/location/dept combinations)
   const generateConsolidatedPDF = (managerReports: ManagerData[]) => {
     const doc = new jsPDF();
@@ -748,7 +884,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     }
 
     if (selectedManager === 'All') {
-      alert('Please select a specific manager for individual PDF');
+      // Generate consolidated report for all reporting incharges
+      generateAllInchargesConsolidatedPDF();
       return;
     }
 
@@ -795,6 +932,118 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   };
 
   // Generate consolidated Excel for a manager (includes all entity/location/dept combinations)
+  // Generate consolidated Excel for ALL reporting incharges (grouped by Legal Entity > Location)
+  const generateAllInchargesConsolidatedExcel = () => {
+    if (detailedManagerReportData.length === 0) {
+      alert('No data found for the selected date range');
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    // Group data by Legal Entity > Location
+    const groupedData = new Map<string, Map<string, EnrichedRecord[]>>();
+
+    detailedManagerReportData.forEach(report => {
+      // Combine all violation types into a single array
+      const allRecords = [
+        ...report.details.present,
+        ...report.details.absent,
+        ...report.details.offDay,
+        ...report.details.workedOff,
+        ...report.details.errors,
+        ...report.details.lateEarly,
+        ...report.details.lessThan4hrs,
+        ...report.details.hours4to7,
+        ...report.details.shiftDeviation,
+        ...report.details.missingPunch,
+        ...report.details.otherViolations
+      ];
+
+      allRecords.forEach(record => {
+        const legalEntity = report.legalEntity || 'Unknown';
+        const location = report.location || 'Unknown';
+
+        if (!groupedData.has(legalEntity)) {
+          groupedData.set(legalEntity, new Map());
+        }
+
+        const locationMap = groupedData.get(legalEntity)!;
+        if (!locationMap.has(location)) {
+          locationMap.set(location, []);
+        }
+
+        locationMap.get(location)!.push(record);
+      });
+    });
+
+    // Create a sheet for each Legal Entity > Location group
+    groupedData.forEach((locationMap, legalEntity) => {
+      locationMap.forEach((records, location) => {
+        if (records.length === 0) return;
+
+        const sheetName = `${legalEntity}-${location}`.substring(0, 31); // Excel sheet name limit
+
+        const sheetData: any[] = [
+          ['S.No', 'Reporting Incharge', 'Department', 'Sub Department', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Late By', 'Early By', 'Keka Status', 'Final Status', 'Comments']
+        ];
+
+        records.forEach((rec: any, index: number) => {
+          sheetData.push([
+            index + 1,
+            rec.reportingManager || '-',
+            rec.department || '-',
+            rec.subDepartment || '-',
+            rec.employeeNumber,
+            rec.employeeName,
+            rec.date,
+            rec.jobTitle || '-',
+            rec.shift || '-',
+            rec.shiftStart || '-',
+            rec.inTime || '-',
+            rec.outTime || '-',
+            rec.totalHours || '-',
+            rec.lateBy || '-',
+            rec.earlyBy || '-',
+            rec.excelStatus,
+            rec.finalStatus,
+            rec.comments || '-'
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+        // Set column widths
+        ws['!cols'] = [
+          { wch: 6 },  // S.No
+          { wch: 25 }, // Reporting Incharge
+          { wch: 20 }, // Department
+          { wch: 20 }, // Sub Department
+          { wch: 12 }, // Employee ID
+          { wch: 25 }, // Employee Name
+          { wch: 12 }, // Date
+          { wch: 20 }, // Job Title
+          { wch: 10 }, // Shift
+          { wch: 12 }, // Shift Start
+          { wch: 10 }, // In Time
+          { wch: 10 }, // Out Time
+          { wch: 12 }, // Work Hours
+          { wch: 10 }, // Late By
+          { wch: 10 }, // Early By
+          { wch: 15 }, // Keka Status
+          { wch: 15 }, // Final Status
+          { wch: 30 }  // Comments
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      });
+    });
+
+    // Generate file
+    const fileName = `Daily_Report_All_Incharges_${fromDate}_to_${toDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
+
   const generateConsolidatedExcel = (managerReports: ManagerData[]) => {
     const wb = XLSX.utils.book_new();
     const managerName = managerReports[0].managerName;
@@ -1059,7 +1308,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     }
 
     if (selectedManager === 'All') {
-      alert('Please select a specific manager for individual Excel');
+      // Generate consolidated Excel for all reporting incharges
+      generateAllInchargesConsolidatedExcel();
       return;
     }
 
@@ -1991,15 +2241,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <div className="flex gap-3">
                 <button
                   onClick={handleIndividualPDF}
-                  disabled={selectedManager === 'All'}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                    selectedManager === 'All'
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
-                  }`}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg"
                 >
                   <Download size={18} />
-                  Download Individual PDF
+                  {selectedManager === 'All' ? 'Download Consolidated PDF' : 'Download Individual PDF'}
                 </button>
 
                 <button
@@ -2018,15 +2263,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <div className="flex gap-3">
                 <button
                   onClick={handleIndividualExcel}
-                  disabled={selectedManager === 'All'}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                    selectedManager === 'All'
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg'
-                  }`}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg"
                 >
                   <Download size={18} />
-                  Download Individual Excel
+                  {selectedManager === 'All' ? 'Download Consolidated Excel' : 'Download Individual Excel'}
                 </button>
 
                 <button
