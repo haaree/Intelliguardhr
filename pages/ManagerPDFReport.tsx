@@ -1165,12 +1165,19 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const hasOutTime = att.outTime && att.outTime !== 'NA' && att.outTime !== '-' && att.outTime !== '';
       if (!hasOutTime) return;
 
+      // Calculate total work hours first
+      const totalHours = att.totalHours || '00:00';
+      const [hoursStr, minutesStr] = totalHours.split(':');
+      const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
+
       let excessMinutes = 0;
       let calculationMethod = '';
 
       if (isPresent) {
-        // Present days: Calculate excess based on Shift End time to Out time
-        // Now includes all excess hours (9-hour threshold removed)
+        // Present days: Only show if total work hours > 9
+        if (totalWorkHours <= 9) return;
+
+        // Calculate excess based on Shift End time to Out time
         const shiftEndMinutes = timeToMinutes(att.shiftEnd);
         const outTimeMinutes = timeToMinutes(att.outTime);
 
@@ -1181,7 +1188,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           return; // No excess
         }
       } else if (isWorkedOff) {
-        // Worked Off days: Calculate from Shift Start time to Out time
+        // Worked Off days: Show all records with any excess hours
         const shiftStartMinutes = timeToMinutes(att.shiftStart);
         const outTimeMinutes = timeToMinutes(att.outTime);
 
@@ -1192,11 +1199,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           return; // No excess
         }
       }
-
-      // Also check "Others" category (>16 hours)
-      const totalHours = att.totalHours || '00:00';
-      const [hoursStr, minutesStr] = totalHours.split(':');
-      const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
 
       const excessHours = (excessMinutes / 60).toFixed(2);
 
@@ -1465,7 +1467,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       let excessMinutes = 0;
       let calculationMethod = '';
 
+      // Calculate total work hours first
+      const totalHours = att.totalHours || '00:00';
+      const [hoursStr, minutesStr] = totalHours.split(':');
+      const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
+
       if (isPresent) {
+        // Present Days: Only show if total work hours > 9
+        if (totalWorkHours <= 9) return;
+
         const shiftEndMinutes = timeToMinutes(att.shiftEnd);
         const outTimeMinutes = timeToMinutes(att.outTime);
 
@@ -1474,18 +1484,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           debugCounters.presentWithExcess++;
 
           // Track for debugging purposes
-          if (excessMinutes <= 540) {
+          if (totalWorkHours <= 9) {
             debugCounters.presentExcessUnder9hrs++;
           } else {
             debugCounters.presentExcessOver9hrs++;
           }
 
-          // Removed 9-hour threshold - now shows all Present Days with excess hours
           calculationMethod = 'Out Time - Shift End';
         } else {
           return;
         }
       } else if (isWorkedOff) {
+        // Worked Off Days: Show all records with any excess hours
         const shiftStartMinutes = timeToMinutes(att.shiftStart);
         const outTimeMinutes = timeToMinutes(att.outTime);
 
@@ -1497,9 +1507,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         }
       }
 
-      const totalHours = att.totalHours || '00:00';
-      const [hoursStr, minutesStr] = totalHours.split(':');
-      const totalWorkHours = parseFloat(hoursStr) + parseFloat(minutesStr || '0') / 60;
       const excessHours = (excessMinutes / 60).toFixed(2);
 
       const excessRecord = {
@@ -1798,7 +1805,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       };
 
       // Add category sections for this organizational unit
-      addUnitSection('Present Days - Excess Hours (beyond shift end)', unitPresentRecords);
+      addUnitSection('Present Days - Excess Hours (Total Work Hours > 9)', unitPresentRecords);
       addUnitSection('Worked Off Days - Excess Hours', unitWorkedOffRecords);
     });
 
