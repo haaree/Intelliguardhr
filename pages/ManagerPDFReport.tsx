@@ -640,7 +640,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           // Audit records should show shift details, late/early info (Dept/SubDept/Deviation removed)
           autoTable(doc, {
             startY: yPos,
-            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status']],
+            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status', 'Comments']],
             body: records.map((rec: any, index: number) => [
               index + 1, // Serial number
               rec.employeeNumber,
@@ -656,7 +656,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               // rec.deviation || '-',  // Removed to save space
               rec.lateBy || '-',
               rec.earlyBy || '-',
-              rec.excelStatus || '-'
+              rec.excelStatus || '-',
+              rec.comments || '-'
             ]),
             theme: 'striped',
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
@@ -674,14 +675,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               8: { cellWidth: 'auto', minCellWidth: 10 },  // Work Hrs
               9: { cellWidth: 'auto', minCellWidth: 10 },  // Late By
               10: { cellWidth: 'auto', minCellWidth: 10 }, // Early By
-              11: { cellWidth: 'auto', minCellWidth: 15 }  // Keka Status
+              11: { cellWidth: 'auto', minCellWidth: 15 }, // Keka Status
+              12: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
             },
             margin: { left: 7, right: 7 }
           });
         } else {
           autoTable(doc, {
             startY: yPos,
-            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status']],
+            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Keka Status', 'Comments']],
             body: records.map((rec: any, index: number) => [
               index + 1, // Serial number
               rec.employeeNumber,
@@ -694,7 +696,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               rec.inTime || '-',
               rec.outTime || '-',
               rec.totalHours || '-',
-              rec.excelStatus || '-'
+              rec.excelStatus || '-',
+              rec.comments || '-'
             ]),
             theme: 'striped',
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
@@ -710,7 +713,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               6: { cellWidth: 'auto', minCellWidth: 12 },  // In Time
               7: { cellWidth: 'auto', minCellWidth: 12 },  // Out Time
               8: { cellWidth: 'auto', minCellWidth: 15 },  // Work Hours
-              9: { cellWidth: 'auto', minCellWidth: 18 }   // Keka Status
+              9: { cellWidth: 'auto', minCellWidth: 18 },  // Keka Status
+              10: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
             },
             margin: { left: 7, right: 7 }
           });
@@ -1811,8 +1815,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <FileText size={24} className="text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-slate-900">Reporting Incharge Reports</h1>
-              <p className="text-sm text-slate-500 font-medium">Generate comprehensive reports by reporting incharge</p>
+              <h1 className="text-3xl font-black text-slate-900">Daily Reports</h1>
+              <p className="text-sm text-slate-500 font-medium">Generate comprehensive daily attendance reports</p>
             </div>
           </div>
         </div>
@@ -1851,7 +1855,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
             <div>
               <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
-                Manager
+                Reporting Incharge
               </label>
               <select
                 value={selectedManager}
