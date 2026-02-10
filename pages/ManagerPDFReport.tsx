@@ -1211,22 +1211,22 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const unitLabel = contextParts.length > 0 ? contextParts.join('-') : `Unit${unitIndex + 1}`;
       const safeUnitLabel = unitLabel.substring(0, 25); // Excel sheet name limit
 
-      // Unit summary stats
-      const presentRecords = unit.records.filter(r => r.status === 'P' || r.status === 'Present' || r.status === 'Clean');
-      const workedOffRecords = unit.records.filter(r => r.status === 'WOH' || r.status === 'Worked Off');
-      const over16Records = unit.records.filter(r => r.isOver16Hours === 'Yes');
+      // Unit summary stats - DISABLED to save space
+      // const presentRecords = unit.records.filter(r => r.status === 'P' || r.status === 'Present' || r.status === 'Clean');
+      // const workedOffRecords = unit.records.filter(r => r.status === 'WOH' || r.status === 'Worked Off');
+      // const over16Records = unit.records.filter(r => r.isOver16Hours === 'Yes');
 
-      // Unit summary data
+      // Unit summary data - just context header and details
       const unitSummaryData: any[] = [
         [contextParts.join(' - ')],
         [],
-        ['Unit Summary'],
-        ['Total Records:', unit.records.length],
-        ['Present Days (>9 hrs):', presentRecords.length],
-        ['Worked Off Days:', workedOffRecords.length],
-        ['Over 16 Hours:', over16Records.length],
-        [],
-        ['Details'],
+        // ['Unit Summary'],
+        // ['Total Records:', unit.records.length],
+        // ['Present Days (>9 hrs):', presentRecords.length],
+        // ['Worked Off Days:', workedOffRecords.length],
+        // ['Over 16 Hours:', over16Records.length],
+        // [],
+        // ['Details'],
         ['Employee ID', 'Employee Name', 'Date', 'Job Title', 'Department', 'Sub Department', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hours', 'Excess Hours', 'Calculation Method', 'Over 16 Hrs', 'Employee OT Form', 'Final Payable OT Hours'],
         ...unit.records.map(rec => [
           rec.employeeNumber,
@@ -1511,7 +1511,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos += 8;
       }
 
-      // Unit summary
+      // Unit summary - DISABLED to save space
       const unitPresentRecords = unit.records.filter(r =>
         r.status.toUpperCase() === 'P' || r.status.toUpperCase() === 'PRESENT' || r.status.toUpperCase() === 'CLEAN'
       );
@@ -1519,26 +1519,26 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         r.status.toUpperCase() === 'WOH' || r.status.toUpperCase() === 'WORKED OFF'
       );
 
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Unit Summary', 14, yPos);
-      yPos += 5;
+      // doc.setFontSize(12);
+      // doc.setFont('helvetica', 'bold');
+      // doc.text('Unit Summary', 14, yPos);
+      // yPos += 5;
 
-      autoTable(doc, {
-        startY: yPos,
-        head: [['Category', 'Count']],
-        body: [
-          ['Present Days (>9 hrs)', unitPresentRecords.length],
-          ['Worked Off Days', unitWorkedOffRecords.length],
-          ['Over 16 Hours', unit.records.filter(r => r.isOver16Hours === 'Yes').length],
-          ['Total', unit.records.length]
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 9 }
-      });
+      // autoTable(doc, {
+      //   startY: yPos,
+      //   head: [['Category', 'Count']],
+      //   body: [
+      //     ['Present Days (>9 hrs)', unitPresentRecords.length],
+      //     ['Worked Off Days', unitWorkedOffRecords.length],
+      //     ['Over 16 Hours', unit.records.filter(r => r.isOver16Hours === 'Yes').length],
+      //     ['Total', unit.records.length]
+      //   ],
+      //   theme: 'grid',
+      //   headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold' },
+      //   styles: { fontSize: 9 }
+      // });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      // yPos = (doc as any).lastAutoTable.finalY + 10;
 
       // Detail sections for this unit
       const addUnitSection = (title: string, records: any[]) => {
