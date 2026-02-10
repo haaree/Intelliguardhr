@@ -1491,9 +1491,24 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     // yPos = (doc as any).lastAutoTable.finalY + 10;
 
+    // Debug: Log organizational units
+    console.log('=== EXCESS HOURS PDF DEBUG ===');
+    console.log('Total organizational units:', orgUnits.length);
+    orgUnits.forEach((unit, idx) => {
+      console.log(`Unit ${idx + 1}:`, {
+        legalEntity: unit.legalEntity,
+        location: unit.location,
+        department: unit.department,
+        subDepartment: unit.subDepartment,
+        recordCount: unit.records.length
+      });
+    });
+
     // Process each organizational unit (same structure as Manager PDF)
     orgUnits.forEach((unit, unitIndex) => {
       if (unit.records.length === 0) return;
+
+      console.log(`Processing unit ${unitIndex + 1}/${orgUnits.length}:`, unit.department);
 
       // Add page break before each new organizational unit (except first - now always add since no overall summary)
       if (unitIndex > 0) {
@@ -1578,6 +1593,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const addUnitSection = (title: string, records: any[]) => {
         if (records.length === 0) return;
 
+        console.log(`  Adding section: ${title}, Records: ${records.length}`);
+
         // Check if we need a new page
         if (yPos > 170) {
           doc.addPage('landscape');
@@ -1589,9 +1606,24 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         doc.text(title, 14, yPos);
         yPos += 5;
 
+        // Debug: Log first record to verify columns
+        if (records.length > 0) {
+          console.log('    First record sample:', {
+            employeeNumber: records[0].employeeNumber,
+            employeeName: records[0].employeeName,
+            date: records[0].date,
+            department: records[0].department,
+            subDepartment: records[0].subDepartment,
+            excessHours: records[0].excessHours
+          });
+        }
+
+        const tableHeaders = ['S.No', 'Emp ID', 'Name', 'Date', 'Job Title', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hrs', 'Excess Hrs', 'Over 16', 'OT Form', 'Final OT Hrs'];
+        console.log('    Table headers (17 columns):', tableHeaders.join(', '));
+
         autoTable(doc, {
           startY: yPos,
-          head: [['S.No', 'Emp ID', 'Name', 'Date', 'Job Title', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hrs', 'Excess Hrs', 'Over 16', 'OT Form', 'Final OT Hrs']],
+          head: [tableHeaders],
           body: records.map((rec: any, index: number) => [
             index + 1, // Serial number
             rec.employeeNumber,
@@ -1639,6 +1671,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           margin: { left: 14, right: 14 }
         });
 
+        console.log(`    Table created with ${records.length} rows`);
         yPos = (doc as any).lastAutoTable.finalY + 10;
       };
 
