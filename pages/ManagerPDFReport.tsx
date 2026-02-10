@@ -1170,16 +1170,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       if (isPresent) {
         // Present days: Calculate excess based on Shift End time to Out time
-        // Only include if excess > 9 hours (540 minutes)
+        // Now includes all excess hours (9-hour threshold removed)
         const shiftEndMinutes = timeToMinutes(att.shiftEnd);
         const outTimeMinutes = timeToMinutes(att.outTime);
 
         if (outTimeMinutes > shiftEndMinutes) {
           excessMinutes = outTimeMinutes - shiftEndMinutes;
-
-          // Only include if excess > 9 hours
-          if (excessMinutes <= 540) return; // Skip if not more than 9 hours
-          calculationMethod = 'Out Time - Shift End (>9 hrs)';
+          calculationMethod = 'Out Time - Shift End';
         } else {
           return; // No excess
         }
@@ -1476,13 +1473,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           excessMinutes = outTimeMinutes - shiftEndMinutes;
           debugCounters.presentWithExcess++;
 
+          // Track for debugging purposes
           if (excessMinutes <= 540) {
             debugCounters.presentExcessUnder9hrs++;
-            return; // Skip if not more than 9 hours
+          } else {
+            debugCounters.presentExcessOver9hrs++;
           }
 
-          debugCounters.presentExcessOver9hrs++;
-          calculationMethod = 'Out Time - Shift End (>9 hrs)';
+          // Removed 9-hour threshold - now shows all Present Days with excess hours
+          calculationMethod = 'Out Time - Shift End';
         } else {
           return;
         }
@@ -1799,7 +1798,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       };
 
       // Add category sections for this organizational unit
-      addUnitSection('Present Days - Excess Hours (>9 hrs beyond shift end)', unitPresentRecords);
+      addUnitSection('Present Days - Excess Hours (beyond shift end)', unitPresentRecords);
       addUnitSection('Worked Off Days - Excess Hours', unitWorkedOffRecords);
     });
 
