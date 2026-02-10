@@ -1177,16 +1177,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         // Present days: Only show if total work hours > 9
         if (totalWorkHours <= 9) return;
 
-        // Calculate excess based on Shift End time to Out time
-        const shiftEndMinutes = timeToMinutes(att.shiftEnd);
-        const outTimeMinutes = timeToMinutes(att.outTime);
-
-        if (outTimeMinutes > shiftEndMinutes) {
-          excessMinutes = outTimeMinutes - shiftEndMinutes;
-          calculationMethod = 'Out Time - Shift End';
-        } else {
-          return; // No excess
-        }
+        // Calculate excess as Total Work Hours - 9
+        excessMinutes = (totalWorkHours - 9) * 60;
+        calculationMethod = 'Total Hours - 9';
       } else if (isWorkedOff) {
         // Worked Off days: Show all records with any excess hours
         const shiftStartMinutes = timeToMinutes(att.shiftStart);
@@ -1476,24 +1469,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         // Present Days: Only show if total work hours > 9
         if (totalWorkHours <= 9) return;
 
-        const shiftEndMinutes = timeToMinutes(att.shiftEnd);
-        const outTimeMinutes = timeToMinutes(att.outTime);
+        // Calculate excess as Total Work Hours - 9
+        excessMinutes = (totalWorkHours - 9) * 60;
+        debugCounters.presentWithExcess++;
 
-        if (outTimeMinutes > shiftEndMinutes) {
-          excessMinutes = outTimeMinutes - shiftEndMinutes;
-          debugCounters.presentWithExcess++;
-
-          // Track for debugging purposes
-          if (totalWorkHours <= 9) {
-            debugCounters.presentExcessUnder9hrs++;
-          } else {
-            debugCounters.presentExcessOver9hrs++;
-          }
-
-          calculationMethod = 'Out Time - Shift End';
+        // Track for debugging purposes
+        if (totalWorkHours <= 9) {
+          debugCounters.presentExcessUnder9hrs++;
         } else {
-          return;
+          debugCounters.presentExcessOver9hrs++;
         }
+
+        calculationMethod = 'Total Hours - 9';
       } else if (isWorkedOff) {
         // Worked Off Days: Show all records with any excess hours
         const shiftStartMinutes = timeToMinutes(att.shiftStart);
