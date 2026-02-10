@@ -300,7 +300,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         absentStatus: att.status,
         excelStatus: reconRecord?.excelStatus || '-',
         finalStatus: reconRecord?.finalStatus || att.status,
-        comments: reconRecord?.comments || att.deviation || '',
+        comments: reconRecord?.comments || '',
         deviation: att.deviation || '',
         lateBy: att.lateBy,
         earlyBy: att.earlyBy
