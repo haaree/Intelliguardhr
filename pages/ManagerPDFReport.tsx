@@ -1981,18 +1981,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               Download Reports
             </h2>
 
-            {/* PDF Downloads */}
+            {/* PDF Downloads - DISABLED */}
             <div className="mb-4">
-              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">PDF Reports</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">PDF Reports (Temporarily Disabled)</p>
               <div className="flex gap-3">
                 <button
                   onClick={handleIndividualPDF}
-                  disabled={selectedManager === 'All'}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                    selectedManager === 'All'
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-lg'
-                  }`}
+                  disabled={true}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
                 >
                   <Download size={18} />
                   Download Individual PDF
@@ -2000,7 +1996,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
                 <button
                   onClick={handleBulkPDF}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
+                  disabled={true}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
                 >
                   <Download size={18} />
                   Download Bulk PDFs
@@ -2008,18 +2005,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               </div>
             </div>
 
-            {/* Excel Downloads */}
+            {/* Excel Downloads - DISABLED */}
             <div>
-              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excel Reports</p>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Excel Reports (Temporarily Disabled)</p>
               <div className="flex gap-3">
                 <button
                   onClick={handleIndividualExcel}
-                  disabled={selectedManager === 'All'}
-                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${
-                    selectedManager === 'All'
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 shadow-lg'
-                  }`}
+                  disabled={true}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
                 >
                   <Download size={18} />
                   Download Individual Excel
@@ -2027,7 +2020,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
                 <button
                   onClick={handleBulkExcel}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-600 to-cyan-600 text-white rounded-xl hover:from-teal-700 hover:to-cyan-700 transition-all font-black text-sm uppercase tracking-widest shadow-lg"
+                  disabled={true}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all bg-slate-200 text-slate-400 cursor-not-allowed"
                 >
                   <Download size={18} />
                   Download Bulk Excel
