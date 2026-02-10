@@ -637,10 +637,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos += 5;
 
         if (isAudit) {
-          // Audit records should show shift details, deviation, late/early info (Dept/SubDept moved to header)
+          // Audit records should show shift details, late/early info (Dept/SubDept/Deviation removed)
           autoTable(doc, {
             startY: yPos,
-            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Deviation', 'Late By', 'Early By', 'Keka Status']],
+            head: [['S.No', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status']],
             body: records.map((rec: any, index: number) => [
               index + 1, // Serial number
               rec.employeeNumber,
@@ -653,30 +653,29 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               rec.inTime || '-',
               rec.outTime || '-',
               rec.totalHours || '-',
-              rec.deviation || '-',
+              // rec.deviation || '-',  // Removed to save space
               rec.lateBy || '-',
               rec.earlyBy || '-',
               rec.excelStatus || '-'
             ]),
             theme: 'striped',
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 6, cellPadding: 1.5 },
+            styles: { fontSize: 7, cellPadding: 2 },
             columnStyles: {
-              0: { cellWidth: 8 },  // S.No
-              1: { cellWidth: 12 }, // Emp ID
-              2: { cellWidth: 25 }, // Name
-              3: { cellWidth: 15 }, // Date
-              4: { cellWidth: 10 }, // Shift
-              5: { cellWidth: 12 }, // Shift Start
-              6: { cellWidth: 10 }, // In Time
-              7: { cellWidth: 10 }, // Out Time
-              8: { cellWidth: 12 }, // Work Hrs
-              9: { cellWidth: 30 }, // Deviation
-              10: { cellWidth: 10 }, // Late By
-              11: { cellWidth: 10 }, // Early By
-              12: { cellWidth: 15 }  // Keka Status
+              0: { cellWidth: 10 },  // S.No
+              1: { cellWidth: 15 }, // Emp ID
+              2: { cellWidth: 38 }, // Name
+              3: { cellWidth: 20 }, // Date
+              4: { cellWidth: 13 }, // Shift
+              5: { cellWidth: 18 }, // Shift Start
+              6: { cellWidth: 15 }, // In Time
+              7: { cellWidth: 15 }, // Out Time
+              8: { cellWidth: 15 }, // Work Hrs
+              9: { cellWidth: 15 }, // Late By
+              10: { cellWidth: 15 }, // Early By
+              11: { cellWidth: 20 }  // Keka Status
             },
-            margin: { left: 14, right: 14 }
+            margin: { left: 7, right: 7 }
           });
         } else {
           autoTable(doc, {
@@ -698,20 +697,20 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             ]),
             theme: 'striped',
             headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-            styles: { fontSize: 6, cellPadding: 1.5 },
+            styles: { fontSize: 7, cellPadding: 2 },
             columnStyles: {
-              0: { cellWidth: 8 },  // S.No
-              1: { cellWidth: 15 }, // Emp ID
-              2: { cellWidth: 30 }, // Name
-              3: { cellWidth: 18 }, // Date
-              4: { cellWidth: 12 }, // Shift
-              5: { cellWidth: 15 }, // Shift Start
-              6: { cellWidth: 12 }, // In Time
-              7: { cellWidth: 12 }, // Out Time
-              8: { cellWidth: 15 }, // Work Hours
-              9: { cellWidth: 18 }  // Keka Status
+              0: { cellWidth: 10 },  // S.No
+              1: { cellWidth: 18 }, // Emp ID
+              2: { cellWidth: 45 }, // Name
+              3: { cellWidth: 22 }, // Date
+              4: { cellWidth: 15 }, // Shift
+              5: { cellWidth: 18 }, // Shift Start
+              6: { cellWidth: 15 }, // In Time
+              7: { cellWidth: 15 }, // Out Time
+              8: { cellWidth: 18 }, // Work Hours
+              9: { cellWidth: 22 }  // Keka Status
             },
-            margin: { left: 14, right: 14 }
+            margin: { left: 7, right: 7 }
           });
         }
 
@@ -934,10 +933,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         headerRows.push([]); // Blank row before table
 
         if (isAudit) {
-          // Audit records should include shift details and deviation info (Dept/SubDept moved to header, added S.No)
+          // Audit records should include shift details (Dept/SubDept/Deviation removed, added S.No)
           data = [
             ...headerRows,
-            ['S.No', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Deviation', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
+            ['S.No', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Late By', 'Early By', 'Keka Status', 'Final Status'],
             ...records.map((rec: any, index: number) => [
               index + 1, // Serial number
               rec.employeeNumber,
@@ -951,7 +950,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               rec.inTime || '-',
               rec.outTime || '-',
               rec.totalHours || '-',
-              rec.deviation || '-',
+              // rec.deviation || '-',  // Removed to save space
               rec.lateBy || '-',
               rec.earlyBy || '-',
               rec.excelStatus || '-',
@@ -985,7 +984,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         const ws = XLSX.utils.aoa_to_sheet(data);
 
-        // Set column widths (updated after adding S.No and removing Dept/SubDept)
+        // Set column widths (updated after adding S.No and removing Dept/SubDept/Deviation)
         const colWidths = isAudit
           ? [
               { wch: 6 },  // S.No
@@ -1000,7 +999,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               { wch: 10 }, // In Time
               { wch: 10 }, // Out Time
               { wch: 12 }, // Work Hours
-              { wch: 30 }, // Deviation
+              // { wch: 30 }, // Deviation - Removed
               { wch: 10 }, // Late By
               { wch: 10 }, // Early By
               { wch: 15 }, // Keka Status
