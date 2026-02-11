@@ -28,12 +28,19 @@ interface LocationData {
 
 const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
   // Default to previous day and today
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const today = new Date();
+  const getYesterday = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 1);
+    return date.toISOString().split('T')[0];
+  };
 
-  const [startDate, setStartDate] = useState(yesterday.toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+  const getToday = () => {
+    const date = new Date();
+    return date.toISOString().split('T')[0];
+  };
+
+  const [startDate, setStartDate] = useState(getYesterday());
+  const [endDate, setEndDate] = useState(getToday());
   const [selectedLocation, setSelectedLocation] = useState<string>('All');
 
   // Get unique shifts
@@ -114,6 +121,8 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
         return true;
       });
 
+      console.log(`MIS Report: Found ${filteredReconciliation.length} reconciled records for date range ${startDate} to ${endDate}`);
+
       filteredReconciliation.forEach(rec => {
         const employee = activeEmployees.find(emp => emp.employeeNumber === rec.employeeNumber);
         if (!employee) return;
@@ -130,11 +139,15 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
         }
 
         // Determine if present or absent using finalStatus (reconciled status)
-        const status = rec.finalStatus?.toUpperCase() || '';
-        if (status === 'PRESENT' || status === 'P') {
+        const status = rec.finalStatus?.toUpperCase()?.trim() || '';
+
+        // Check for Present status (more flexible matching)
+        if (status === 'PRESENT' || status === 'P' || status.includes('PRESENT')) {
           locData.shifts[empShift].present += 1;
           locData.totalPresent += 1;
-        } else if (status === 'ABSENT' || status === 'A') {
+        }
+        // Check for Absent status
+        else if (status === 'ABSENT' || status === 'A' || status.includes('ABSENT')) {
           locData.shifts[empShift].absent += 1;
           locData.totalAbsent += 1;
         }
@@ -457,25 +470,13 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
               <table className="w-full">
                 <thead className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
                   <tr>
-                    <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Location</th>
-                    <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Legal Entity</th>
-                    <th rowSpan={2} className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">Approved HC</th>
-                    <th rowSpan={2} className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">Actual HC</th>
-                    {shifts.map(shift => (
-                      <th key={shift} colSpan={2} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">{shift}</th>
-                    ))}
-                    <th colSpan={2} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest bg-blue-900 border-r border-slate-700">Total</th>
-                    <th rowSpan={2} className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Absenteeism %</th>
-                  </tr>
-                  <tr>
-                    {shifts.map(shift => (
-                      <React.Fragment key={shift}>
-                        <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-800 border-r border-slate-700">Present</th>
-                        <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-red-800 border-r border-slate-700">Absent</th>
-                      </React.Fragment>
-                    ))}
-                    <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-900 border-r border-slate-700">Present</th>
-                    <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-red-900 border-r border-slate-700">Absent</th>
+                    <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Location</th>
+                    <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Legal Entity</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">Approved HC</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">Actual HC</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest bg-green-800 border-r border-slate-700">Present</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest bg-red-800 border-r border-slate-700">Absent</th>
+                    <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Absenteeism %</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -485,18 +486,8 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
                       <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">{loc.legalEntity}</td>
                       <td className="px-4 py-3 text-center text-sm font-bold text-blue-700 border-r border-slate-200">{loc.approvedHeadcount}</td>
                       <td className="px-4 py-3 text-center text-sm font-bold text-green-700 border-r border-slate-200">{loc.actualHeadcount}</td>
-                      {shifts.map(shift => (
-                        <React.Fragment key={shift}>
-                          <td className="px-2 py-3 text-center text-sm font-bold text-green-700 bg-green-50 border-r border-slate-200">
-                            {loc.shifts[shift]?.present || 0}
-                          </td>
-                          <td className="px-2 py-3 text-center text-sm font-bold text-red-700 bg-red-50 border-r border-slate-200">
-                            {loc.shifts[shift]?.absent || 0}
-                          </td>
-                        </React.Fragment>
-                      ))}
-                      <td className="px-2 py-3 text-center text-sm font-black text-green-700 bg-green-100 border-r border-slate-200">{loc.totalPresent}</td>
-                      <td className="px-2 py-3 text-center text-sm font-black text-red-700 bg-red-100 border-r border-slate-200">{loc.totalAbsent}</td>
+                      <td className="px-4 py-3 text-center text-sm font-black text-green-700 bg-green-50 border-r border-slate-200">{loc.totalPresent}</td>
+                      <td className="px-4 py-3 text-center text-sm font-black text-red-700 bg-red-50 border-r border-slate-200">{loc.totalAbsent}</td>
                       <td className="px-4 py-3 text-center text-sm font-black text-red-600">{loc.absenteeismPercent.toFixed(2)}%</td>
                     </tr>
                   ))}
@@ -505,14 +496,8 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
                     <td colSpan={2} className="px-4 py-3 text-sm uppercase tracking-widest border-r border-slate-700">TOTAL</td>
                     <td className="px-4 py-3 text-center text-sm border-r border-slate-700">{grandTotals.approvedHeadcount}</td>
                     <td className="px-4 py-3 text-center text-sm border-r border-slate-700">{grandTotals.actualHeadcount}</td>
-                    {shifts.map(shift => (
-                      <React.Fragment key={shift}>
-                        <td className="px-2 py-3 text-center text-sm bg-green-900 border-r border-slate-700">{grandTotals.shifts[shift]?.present || 0}</td>
-                        <td className="px-2 py-3 text-center text-sm bg-red-900 border-r border-slate-700">{grandTotals.shifts[shift]?.absent || 0}</td>
-                      </React.Fragment>
-                    ))}
-                    <td className="px-2 py-3 text-center text-sm bg-green-950 border-r border-slate-700">{grandTotals.totalPresent}</td>
-                    <td className="px-2 py-3 text-center text-sm bg-red-950 border-r border-slate-700">{grandTotals.totalAbsent}</td>
+                    <td className="px-4 py-3 text-center text-sm bg-green-900 border-r border-slate-700">{grandTotals.totalPresent}</td>
+                    <td className="px-4 py-3 text-center text-sm bg-red-900 border-r border-slate-700">{grandTotals.totalAbsent}</td>
                     <td className="px-4 py-3 text-center text-sm">{grandTotals.absenteeismPercent.toFixed(2)}%</td>
                   </tr>
                 </tbody>
