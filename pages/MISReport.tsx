@@ -92,15 +92,15 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
       });
     }
 
-    // Process attendance data for the date range
-    if (data.attendance) {
-      const filteredAttendance = data.attendance.filter(att => {
-        const attDate = att.date;
-        return attDate >= startDate && attDate <= endDate;
+    // Process reconciliation data for the date range
+    if (data.reconciliationRecords) {
+      const filteredReconciliation = data.reconciliationRecords.filter(rec => {
+        const recDate = rec.date;
+        return recDate >= startDate && recDate <= endDate;
       });
 
-      filteredAttendance.forEach(att => {
-        const employee = activeEmployees.find(emp => emp.employeeNumber === att.employeeNumber);
+      filteredReconciliation.forEach(rec => {
+        const employee = activeEmployees.find(emp => emp.employeeNumber === rec.employeeNumber);
         if (!employee) return;
 
         const key = `${employee.location}|${employee.legalEntity}`;
@@ -114,8 +114,8 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
           locData.shifts[empShift] = { present: 0, absent: 0 };
         }
 
-        // Determine if present or absent
-        const status = att.status?.toUpperCase() || '';
+        // Determine if present or absent using reconciled status
+        const status = rec.status?.toUpperCase() || '';
         if (status === 'PRESENT' || status === 'P') {
           locData.shifts[empShift].present += 1;
           locData.totalPresent += 1;
@@ -138,7 +138,7 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
     return Array.from(locationMap.values()).sort((a, b) =>
       b.absenteeismPercent - a.absenteeismPercent
     );
-  }, [data.employees, data.headcountData, data.attendance, data.shifts, startDate, endDate, shifts]);
+  }, [data.employees, data.headcountData, data.reconciliationRecords, data.shifts, startDate, endDate, shifts]);
 
   // Calculate grand totals
   const grandTotals = useMemo(() => {
