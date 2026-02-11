@@ -20,6 +20,7 @@ const ReportsHub = lazy(() => import('./pages/ReportsHub.tsx'));
 const ExcessHoursHub = lazy(() => import('./pages/ExcessHoursHub.tsx'));
 const ManagerPDFReport = lazy(() => import('./pages/ManagerPDFReport.tsx'));
 const HeadcountManagement = lazy(() => import('./pages/HeadcountManagement.tsx'));
+const MISReport = lazy(() => import('./pages/MISReport.tsx'));
 // Legacy components temporarily disabled
 // const LeaveManagement = lazy(() => import('./pages/LeaveReconciliationOptimized.tsx'));
 // const AuditQueue = lazy(() => import('./pages/AuditQueue.tsx'));
@@ -460,6 +461,12 @@ const App: React.FC = () => {
               <HeadcountManagement
                 data={appData}
                 onUpdate={(headcountData) => setAppData({ ...appData, headcountData })}
+                role={session.user.role}
+              />
+            )}
+            {currentPage === 'mis-report' && (
+              <MISReport
+                data={appData}
                 role={session.user.role}
               />
             )}

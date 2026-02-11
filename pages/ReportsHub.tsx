@@ -62,13 +62,23 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
     },
     {
       id: 'manager-pdf',
-      title: 'Manager PDF Reports',
-      description: 'Generate comprehensive reports by manager with absent, worked off, errors, and more',
+      title: 'Daily Reports',
+      description: 'Generate comprehensive daily reports by reporting incharge with categorized violations',
       icon: Download,
       color: 'text-purple-600',
       bgColor: 'bg-purple-50',
       hoverColor: 'hover:bg-purple-100',
       roles: ['SaaS_Admin', 'Admin']
+    },
+    {
+      id: 'mis-report',
+      title: 'MIS Report',
+      description: 'Management Information System report with location-wise attendance, shift breakdown, and absenteeism analysis',
+      icon: FileBarChart,
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-50',
+      hoverColor: 'hover:bg-teal-100',
+      roles: ['SaaS_Admin', 'Admin', 'Manager']
     },
     {
       id: 'dashboard',
@@ -97,7 +107,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
 
   const handleReportClick = (reportId: Page) => {
     // For implemented reports, navigate to them
-    if (reportId === 'monthly' || reportId === 'shift-deviation' || reportId === 'leave' || reportId === 'excess-hours' || reportId === 'manager-pdf') {
+    if (reportId === 'monthly' || reportId === 'shift-deviation' || reportId === 'leave' || reportId === 'excess-hours' || reportId === 'manager-pdf' || reportId === 'mis-report') {
       onNavigate(reportId);
     } else {
       // For placeholder reports, show coming soon message

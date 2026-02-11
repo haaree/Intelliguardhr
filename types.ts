@@ -196,7 +196,7 @@ export interface AppData {
   headcountData: HeadcountData[];
 }
 
-export type Page = 'landing' | 'login' | 'dashboard' | 'employees' | 'biometric' | 'attendance' | 'monthly' | 'shifts' | 'leave' | 'audit-queue' | 'reports' | 'shift-deviation' | 'excess-hours' | 'manager-pdf' | 'headcount';
+export type Page = 'landing' | 'login' | 'dashboard' | 'employees' | 'biometric' | 'attendance' | 'monthly' | 'shifts' | 'leave' | 'audit-queue' | 'reports' | 'shift-deviation' | 'excess-hours' | 'manager-pdf' | 'headcount' | 'mis-report';
 
 declare global {
   interface AIStudio {
