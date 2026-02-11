@@ -316,8 +316,24 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
 
         {/* Matrix Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {filteredData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-8">
+              <Users size={64} className="text-slate-300 mb-4" />
+              <p className="text-xl font-bold text-slate-700 mb-2">No Headcount Data</p>
+              <p className="text-sm text-slate-500 mb-6 text-center">
+                Get started by adding a new headcount entry or uploading data via Excel template
+              </p>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-bold text-sm uppercase tracking-widest"
+              >
+                <Plus size={18} />
+                Add Your First Entry
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest sticky left-0 bg-slate-900">Legal Entity</th>
@@ -377,6 +393,7 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
               </tbody>
             </table>
           </div>
+          )}
         </div>
 
         {/* Add Modal */}

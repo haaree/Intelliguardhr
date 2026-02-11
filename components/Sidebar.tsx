@@ -27,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, onLogout, onO
     { id: 'biometric', label: 'Biometric', icon: Fingerprint, roles: ['SaaS_Admin', 'Admin'] },
     { id: 'attendance', label: 'Logs Audit', icon: Clock, roles: ['SaaS_Admin', 'Admin', 'Employee'] },
     { id: 'reports', label: 'Reports', icon: FileBarChart, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
-    { id: 'headcount', label: 'Headcount Management', icon: Users, roles: ['SaaS_Admin', 'Admin'] },
+    { id: 'headcount', label: 'Headcount', icon: Users, roles: ['SaaS_Admin', 'Admin'] },
     { id: 'shifts', label: 'Settings', icon: Settings, roles: ['SaaS_Admin', 'Admin', 'Manager'] },
   ];
 
