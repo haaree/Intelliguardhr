@@ -113,6 +113,19 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
 
     // Process reconciliation data for the date range
     if (data.reconciliationRecords) {
+      console.log(`MIS Report: Total reconciliation records: ${data.reconciliationRecords.length}`);
+
+      // Sample first record to see the structure
+      if (data.reconciliationRecords.length > 0) {
+        const sample = data.reconciliationRecords[0];
+        console.log('Sample record:', {
+          date: sample.date,
+          isReconciled: sample.isReconciled,
+          finalStatus: sample.finalStatus,
+          employeeNumber: sample.employeeNumber
+        });
+      }
+
       const filteredReconciliation = data.reconciliationRecords.filter(rec => {
         const recDate = rec.date;
         if (recDate < startDate || recDate > endDate) return false;
