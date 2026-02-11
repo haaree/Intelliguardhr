@@ -135,7 +135,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {availableReports.map((report) => {
             const Icon = report.icon;
-            const isImplemented = report.id === 'monthly' || report.id === 'shift-deviation' || report.id === 'leave' || report.id === 'excess-hours' || report.id === 'manager-pdf';
+            const isImplemented = report.id === 'monthly' || report.id === 'shift-deviation' || report.id === 'leave' || report.id === 'excess-hours' || report.id === 'manager-pdf' || report.id === 'mis-report';
 
             return (
               <button
@@ -185,7 +185,7 @@ const ReportsHub: React.FC<ReportsHubProps> = ({ onNavigate, role }) => {
               </div>
               <div>
                 <p className="text-xs text-slate-500 font-medium">Available Reports</p>
-                <p className="text-lg font-black text-slate-900">{availableReports.filter(r => r.id === 'monthly' || r.id === 'shift-deviation' || r.id === 'leave' || r.id === 'excess-hours' || r.id === 'manager-pdf').length}</p>
+                <p className="text-lg font-black text-slate-900">{availableReports.filter(r => r.id === 'monthly' || r.id === 'shift-deviation' || r.id === 'leave' || r.id === 'excess-hours' || r.id === 'manager-pdf' || r.id === 'mis-report').length}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
