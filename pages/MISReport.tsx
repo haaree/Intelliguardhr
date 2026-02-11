@@ -34,6 +34,7 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
 
   const [startDate, setStartDate] = useState(yesterday.toISOString().split('T')[0]);
   const [endDate, setEndDate] = useState(today.toISOString().split('T')[0]);
+  const [selectedLocation, setSelectedLocation] = useState<string>('All');
 
   // Get unique shifts
   const shifts = useMemo(() => {
@@ -44,14 +45,25 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
     return Array.from(shiftSet).sort();
   }, [data.shifts]);
 
+  // Get unique locations for filter
+  const locations = useMemo(() => {
+    const locSet = new Set<string>();
+    if (data.employees) {
+      data.employees.forEach(emp => locSet.add(emp.location));
+    }
+    return ['All', ...Array.from(locSet).sort()];
+  }, [data.employees]);
+
   // Process MIS data
   const misData = useMemo((): LocationData[] => {
     const locationMap = new Map<string, LocationData>();
 
     // Get active employees grouped by location and legal entity
-    const activeEmployees = (data.employees || []).filter(emp =>
-      emp.activeStatus === 'Active' || emp.activeStatus === 'active'
-    );
+    const activeEmployees = (data.employees || []).filter(emp => {
+      if (emp.activeStatus !== 'Active' && emp.activeStatus !== 'active') return false;
+      if (selectedLocation !== 'All' && emp.location !== selectedLocation) return false;
+      return true;
+    });
 
     // Initialize location data with actual headcount
     activeEmployees.forEach(emp => {
@@ -96,7 +108,10 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
     if (data.reconciliationRecords) {
       const filteredReconciliation = data.reconciliationRecords.filter(rec => {
         const recDate = rec.date;
-        return recDate >= startDate && recDate <= endDate;
+        if (recDate < startDate || recDate > endDate) return false;
+        // Only include finalized/reconciled records
+        if (!rec.isReconciled) return false;
+        return true;
       });
 
       filteredReconciliation.forEach(rec => {
@@ -114,8 +129,8 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
           locData.shifts[empShift] = { present: 0, absent: 0 };
         }
 
-        // Determine if present or absent using reconciled status
-        const status = rec.status?.toUpperCase() || '';
+        // Determine if present or absent using finalStatus (reconciled status)
+        const status = rec.finalStatus?.toUpperCase() || '';
         if (status === 'PRESENT' || status === 'P') {
           locData.shifts[empShift].present += 1;
           locData.totalPresent += 1;
@@ -138,7 +153,7 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
     return Array.from(locationMap.values()).sort((a, b) =>
       b.absenteeismPercent - a.absenteeismPercent
     );
-  }, [data.employees, data.headcountData, data.reconciliationRecords, data.shifts, startDate, endDate, shifts]);
+  }, [data.employees, data.headcountData, data.reconciliationRecords, data.shifts, startDate, endDate, shifts, selectedLocation]);
 
   // Calculate grand totals
   const grandTotals = useMemo(() => {
@@ -346,7 +361,7 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
           </div>
         </div>
 
-        {/* Date Range Selection */}
+        {/* Date Range Selection and Filters */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6 mb-6">
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
@@ -371,6 +386,21 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
                 onChange={(e) => setEndDate(e.target.value)}
                 className="px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
               />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                Location:
+              </label>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {locations.map(loc => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
             </div>
 
             <div className="ml-auto flex gap-3">
