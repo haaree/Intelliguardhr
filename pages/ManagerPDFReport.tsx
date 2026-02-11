@@ -603,10 +603,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         doc.text(`Legal Entity: ${legalEntity} | Location: ${location}`, 14, yPos);
         yPos += 10;
 
-        // Add each category section
-        addCategorySection('Present', locationData.present);
+        // Add each category section (excluding Present and Off Day to save pages)
         addCategorySection('Absent', locationData.absent);
-        addCategorySection('Off Day', locationData.offDay);
         addCategorySection('Worked Off', locationData.workedOff);
         addCategorySection('Errors', locationData.errors);
         addCategorySection('Late & Early Occurrence', locationData.lateEarly);
@@ -1084,10 +1082,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           sheetData.push([]);
         };
 
-        // Add all categories
-        addCategory('Present', locationData.present);
+        // Add all categories (excluding Present and Off Day to save space)
         addCategory('Absent', locationData.absent);
-        addCategory('Off Day', locationData.offDay);
         addCategory('Worked Off', locationData.workedOff);
         addCategory('Errors', locationData.errors);
         addCategory('Late & Early Occurrence', locationData.lateEarly);
