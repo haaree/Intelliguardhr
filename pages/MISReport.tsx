@@ -186,11 +186,10 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
       });
     }
 
-    // Calculate absenteeism percentage
+    // Calculate absenteeism percentage based on Actual HC
     locationMap.forEach(locData => {
-      const total = locData.totalPresent + locData.totalAbsent;
-      if (total > 0) {
-        locData.absenteeismPercent = (locData.totalAbsent / total) * 100;
+      if (locData.actualHeadcount > 0) {
+        locData.absenteeismPercent = (locData.totalAbsent / locData.actualHeadcount) * 100;
       }
     });
 
@@ -229,9 +228,8 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
       });
     });
 
-    const total = totals.totalPresent + totals.totalAbsent;
-    if (total > 0) {
-      totals.absenteeismPercent = (totals.totalAbsent / total) * 100;
+    if (totals.actualHeadcount > 0) {
+      totals.absenteeismPercent = (totals.totalAbsent / totals.actualHeadcount) * 100;
     }
 
     return totals;
