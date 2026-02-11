@@ -14,9 +14,29 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
   const [editForm, setEditForm] = useState<Partial<HeadcountData>>({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedLegalEntity, setSelectedLegalEntity] = useState<string>('All');
+  const [selectedLocation, setSelectedLocation] = useState<string>('All');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('All');
   const [locationApprovals, setLocationApprovals] = useState<{ [location: string]: number }>({});
+  const [uploadedData, setUploadedData] = useState<HeadcountData[] | null>(null);
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
+
+  // Custom sort order for legal entities
+  const legalEntityOrder = [
+    'ASP ASP Unit I - Pillaipakkam',
+    'ASP - Unit II - Irumbedu',
+    'Babaa Enterprises - Vengadu'
+  ];
+
+  const sortLegalEntities = (a: string, b: string): number => {
+    const indexA = legalEntityOrder.indexOf(a);
+    const indexB = legalEntityOrder.indexOf(b);
+
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+    return a.localeCompare(b);
+  };
 
   // Calculate actual headcount from active employees
   const actualHeadcount = useMemo(() => {
@@ -46,10 +66,44 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     if (data.headcountData) {
       data.headcountData.forEach(hc => entities.add(hc.legalEntity));
     }
-    return ['All', ...Array.from(entities).sort()];
+    return ['All', ...Array.from(entities).sort(sortLegalEntities)];
   }, [data.employees, data.headcountData]);
 
-  // Get unique locations from both employees and headcount data
+  // Get unique departments
+  const departments = useMemo(() => {
+    const depts = new Set<string>();
+    if (data.employees) {
+      data.employees.forEach(emp => {
+        if ((selectedLegalEntity === 'All' || emp.legalEntity === selectedLegalEntity) &&
+            (selectedLocation === 'All' || emp.location === selectedLocation)) {
+          depts.add(emp.department);
+        }
+      });
+    }
+    if (data.headcountData) {
+      data.headcountData.forEach(hc => {
+        if ((selectedLegalEntity === 'All' || hc.legalEntity === selectedLegalEntity) &&
+            (selectedLocation === 'All' || hc.location === selectedLocation)) {
+          depts.add(hc.department);
+        }
+      });
+    }
+    return ['All', ...Array.from(depts).sort()];
+  }, [data.employees, data.headcountData, selectedLegalEntity, selectedLocation]);
+
+  // Get unique locations (not filtered - show all locations as columns)
+  const allLocations = useMemo(() => {
+    const locs = new Set<string>();
+    if (data.employees) {
+      data.employees.forEach(emp => locs.add(emp.location));
+    }
+    if (data.headcountData) {
+      data.headcountData.forEach(hc => locs.add(hc.location));
+    }
+    return Array.from(locs).sort();
+  }, [data.employees, data.headcountData]);
+
+  // Get unique locations for filter dropdown
   const locations = useMemo(() => {
     const locs = new Set<string>();
     if (data.employees) {
@@ -66,21 +120,26 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
         }
       });
     }
-    return Array.from(locs).sort();
+    return ['All', ...Array.from(locs).sort()];
   }, [data.employees, data.headcountData, selectedLegalEntity]);
 
   // Filtered data
   const filteredData = useMemo(() => {
     if (!data.headcountData) return [];
-    if (selectedLegalEntity === 'All') return data.headcountData;
-    return data.headcountData.filter(hc => hc.legalEntity === selectedLegalEntity);
-  }, [data.headcountData, selectedLegalEntity]);
+    return data.headcountData.filter(hc => {
+      if (selectedLegalEntity !== 'All' && hc.legalEntity !== selectedLegalEntity) return false;
+      if (selectedLocation !== 'All' && hc.location !== selectedLocation) return false;
+      if (selectedDepartment !== 'All' && hc.department !== selectedDepartment) return false;
+      return true;
+    });
+  }, [data.headcountData, selectedLegalEntity, selectedLocation, selectedDepartment]);
 
   // Group data for matrix view
   interface MatrixCell {
     [location: string]: {
-      actual: number;
       approved: number;
+      actual: number;
+      variance: number;
     };
   }
 
@@ -89,8 +148,9 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     department: string;
     subDepartment: string;
     locations: MatrixCell;
-    actualTotal: number;
     approvedTotal: number;
+    actualTotal: number;
+    varianceTotal: number;
   }
 
   const matrixData = useMemo((): MatrixRow[] => {
@@ -100,6 +160,8 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     const activeEmployees = (data.employees || []).filter(emp => {
       if (emp.activeStatus !== 'Active' && emp.activeStatus !== 'active') return false;
       if (selectedLegalEntity !== 'All' && emp.legalEntity !== selectedLegalEntity) return false;
+      if (selectedLocation !== 'All' && emp.location !== selectedLocation) return false;
+      if (selectedDepartment !== 'All' && emp.department !== selectedDepartment) return false;
       return true;
     });
 
@@ -112,14 +174,15 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
           department: emp.department,
           subDepartment: emp.subDepartment,
           locations: {},
+          approvedTotal: 0,
           actualTotal: 0,
-          approvedTotal: 0
+          varianceTotal: 0
         });
       }
 
       const row = grouped.get(key)!;
       if (!row.locations[emp.location]) {
-        row.locations[emp.location] = { actual: 0, approved: 0 };
+        row.locations[emp.location] = { approved: 0, actual: 0, variance: 0 };
       }
       row.locations[emp.location].actual += 1;
       row.actualTotal += 1;
@@ -135,47 +198,61 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
           department: hc.department,
           subDepartment: hc.subDepartment,
           locations: {},
+          approvedTotal: 0,
           actualTotal: 0,
-          approvedTotal: 0
+          varianceTotal: 0
         });
       }
 
       const row = grouped.get(key)!;
       if (!row.locations[hc.location]) {
-        row.locations[hc.location] = { actual: 0, approved: 0 };
+        row.locations[hc.location] = { approved: 0, actual: 0, variance: 0 };
       }
       row.locations[hc.location].approved = hc.approvedHeadcount;
       row.approvedTotal += hc.approvedHeadcount;
     });
 
+    // Calculate variance for each location and row
+    grouped.forEach(row => {
+      allLocations.forEach(loc => {
+        if (row.locations[loc]) {
+          row.locations[loc].variance = row.locations[loc].approved - row.locations[loc].actual;
+        }
+      });
+      row.varianceTotal = row.approvedTotal - row.actualTotal;
+    });
+
     return Array.from(grouped.values()).sort((a, b) => {
-      if (a.legalEntity !== b.legalEntity) return a.legalEntity.localeCompare(b.legalEntity);
+      const legalEntityCompare = sortLegalEntities(a.legalEntity, b.legalEntity);
+      if (legalEntityCompare !== 0) return legalEntityCompare;
       if (a.department !== b.department) return a.department.localeCompare(b.department);
       return a.subDepartment.localeCompare(b.subDepartment);
     });
-  }, [data.employees, filteredData, selectedLegalEntity]);
+  }, [data.employees, filteredData, selectedLegalEntity, selectedLocation, selectedDepartment, allLocations]);
 
   // Calculate column totals
   const columnTotals = useMemo(() => {
-    const totals: { [location: string]: { actual: number; approved: number } } = {};
-    locations.forEach(loc => totals[loc] = { actual: 0, approved: 0 });
+    const totals: { [location: string]: { approved: number; actual: number; variance: number } } = {};
+    allLocations.forEach(loc => totals[loc] = { approved: 0, actual: 0, variance: 0 });
 
     matrixData.forEach(row => {
-      locations.forEach(loc => {
+      allLocations.forEach(loc => {
         if (row.locations[loc]) {
-          totals[loc].actual += row.locations[loc].actual;
           totals[loc].approved += row.locations[loc].approved;
+          totals[loc].actual += row.locations[loc].actual;
+          totals[loc].variance += row.locations[loc].variance;
         }
       });
     });
 
     return totals;
-  }, [matrixData, locations]);
+  }, [matrixData, allLocations]);
 
   const grandTotals = useMemo(() => {
     return {
+      approved: matrixData.reduce((sum, row) => sum + row.approvedTotal, 0),
       actual: matrixData.reduce((sum, row) => sum + row.actualTotal, 0),
-      approved: matrixData.reduce((sum, row) => sum + row.approvedTotal, 0)
+      variance: matrixData.reduce((sum, row) => sum + row.varianceTotal, 0)
     };
   }, [matrixData]);
 
@@ -271,8 +348,7 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
         }
 
         if (newEntries.length > 0) {
-          onUpdate([...data.headcountData, ...newEntries]);
-          alert(`Successfully imported ${newEntries.length} headcount entries`);
+          setUploadedData(newEntries);
         }
       } catch (error) {
         alert('Error reading Excel file. Please check the format.');
@@ -283,38 +359,58 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     e.target.value = ''; // Reset file input
   };
 
+  const handleSaveUpload = () => {
+    if (uploadedData) {
+      onUpdate([...data.headcountData, ...uploadedData]);
+      alert(`Successfully imported ${uploadedData.length} headcount entries`);
+      setUploadedData(null);
+    }
+  };
+
+  const handleCancelUpload = () => {
+    setUploadedData(null);
+  };
+
   // Export current data
   const handleExport = () => {
     // Create header row with location columns
     const headerRow1 = ['Legal Entity', 'Department', 'Sub Department'];
     const headerRow2 = ['', '', ''];
 
-    locations.forEach(loc => {
-      headerRow1.push(loc, '');
-      headerRow2.push('Actual', 'Approved');
+    allLocations.forEach(loc => {
+      headerRow1.push(loc, '', '');
+      headerRow2.push('Approved', 'Actual', 'Variance');
     });
-    headerRow1.push('Total', '');
-    headerRow2.push('Actual', 'Approved');
+    headerRow1.push('Total', '', '');
+    headerRow2.push('Approved', 'Actual', 'Variance');
 
     const exportData = [headerRow1, headerRow2];
 
     // Add data rows
     matrixData.forEach(row => {
       const dataRow = [row.legalEntity, row.department, row.subDepartment];
-      locations.forEach(loc => {
+      allLocations.forEach(loc => {
         const cell = row.locations[loc];
-        dataRow.push(cell ? cell.actual : 0, cell ? cell.approved : 0);
+        dataRow.push(
+          cell ? cell.approved : 0,
+          cell ? cell.actual : 0,
+          cell ? cell.variance : 0
+        );
       });
-      dataRow.push(row.actualTotal, row.approvedTotal);
+      dataRow.push(row.approvedTotal, row.actualTotal, row.varianceTotal);
       exportData.push(dataRow);
     });
 
     // Add totals row
     const totalsRow = ['Total', '', ''];
-    locations.forEach(loc => {
-      totalsRow.push(columnTotals[loc]?.actual || 0, columnTotals[loc]?.approved || 0);
+    allLocations.forEach(loc => {
+      totalsRow.push(
+        columnTotals[loc]?.approved || 0,
+        columnTotals[loc]?.actual || 0,
+        columnTotals[loc]?.variance || 0
+      );
     });
-    totalsRow.push(grandTotals.actual, grandTotals.approved);
+    totalsRow.push(grandTotals.approved, grandTotals.actual, grandTotals.variance);
     exportData.push(totalsRow);
 
     const ws = XLSX.utils.aoa_to_sheet(exportData);
@@ -322,17 +418,17 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     // Merge cells for location headers
     const merges = [];
     let colIndex = 3; // Start after Legal Entity, Department, Sub Department
-    locations.forEach(() => {
+    allLocations.forEach(() => {
       merges.push({
         s: { r: 0, c: colIndex },
-        e: { r: 0, c: colIndex + 1 }
+        e: { r: 0, c: colIndex + 2 }
       });
-      colIndex += 2;
+      colIndex += 3;
     });
     // Merge Total header
     merges.push({
       s: { r: 0, c: colIndex },
-      e: { r: 0, c: colIndex + 1 }
+      e: { r: 0, c: colIndex + 2 }
     });
     ws['!merges'] = merges;
 
@@ -403,23 +499,88 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
           </div>
         </div>
 
-        {/* Filter */}
+        {/* Upload Confirmation */}
+        {uploadedData && (
+          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-lg font-black text-yellow-900">
+                  {uploadedData.length} entries ready to import
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Click "Save" to confirm or "Cancel" to discard
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveUpload}
+                  className="flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition-all font-bold text-sm uppercase tracking-widest"
+                >
+                  <Save size={18} />
+                  Save
+                </button>
+                <button
+                  onClick={handleCancelUpload}
+                  className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all font-bold text-sm uppercase tracking-widest"
+                >
+                  <X size={18} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6 mb-6">
-          <div className="flex items-center gap-4">
-            <label className="text-xs font-black text-slate-700 uppercase tracking-widest">
-              Legal Entity:
-            </label>
-            <select
-              value={selectedLegalEntity}
-              onChange={(e) => setSelectedLegalEntity(e.target.value)}
-              className="px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
-            >
-              {legalEntities.map(entity => (
-                <option key={entity} value={entity}>{entity}</option>
-              ))}
-            </select>
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                Legal Entity:
+              </label>
+              <select
+                value={selectedLegalEntity}
+                onChange={(e) => setSelectedLegalEntity(e.target.value)}
+                className="px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {legalEntities.map(entity => (
+                  <option key={entity} value={entity}>{entity}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                Location:
+              </label>
+              <select
+                value={selectedLocation}
+                onChange={(e) => setSelectedLocation(e.target.value)}
+                className="px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {locations.map(loc => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">
+                Department:
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => setSelectedDepartment(e.target.value)}
+                className="px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+              >
+                {departments.map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
             <div className="ml-auto text-sm font-bold text-slate-600">
-              Actual Headcount: {grandTotals.actual} | Approved Headcount: {grandTotals.approved}
+              Approved: {grandTotals.approved} | Actual: {grandTotals.actual} | Variance: {grandTotals.variance}
             </div>
           </div>
         </div>
@@ -449,21 +610,23 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
                   <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest sticky left-0 bg-slate-900 border-r border-slate-700">Legal Entity</th>
                   <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Department</th>
                   <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Sub Department</th>
-                  {locations.map(loc => (
-                    <th key={loc} colSpan={2} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">{loc}</th>
+                  {allLocations.map(loc => (
+                    <th key={loc} colSpan={3} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">{loc}</th>
                   ))}
-                  <th colSpan={2} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest bg-blue-900 border-r border-slate-700">Total</th>
+                  <th colSpan={3} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest bg-blue-900 border-r border-slate-700">Total</th>
                   <th rowSpan={2} className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Actions</th>
                 </tr>
                 <tr>
-                  {locations.map(loc => (
+                  {allLocations.map(loc => (
                     <React.Fragment key={loc}>
-                      <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-800 border-r border-slate-700">Actual</th>
                       <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-purple-800 border-r border-slate-700">Approved</th>
+                      <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-800 border-r border-slate-700">Actual</th>
+                      <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-blue-800 border-r border-slate-700">Variance</th>
                     </React.Fragment>
                   ))}
-                  <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-900 border-r border-slate-700">Actual</th>
                   <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-purple-900 border-r border-slate-700">Approved</th>
+                  <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-900 border-r border-slate-700">Actual</th>
+                  <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-blue-900 border-r border-slate-700">Variance</th>
                 </tr>
               </thead>
               <tbody>
@@ -472,21 +635,27 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
                     <td className="px-4 py-3 text-sm font-bold text-slate-900 sticky left-0 bg-inherit border-r border-slate-200">{row.legalEntity}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">{row.department}</td>
                     <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">{row.subDepartment}</td>
-                    {locations.map(loc => {
+                    {allLocations.map(loc => {
                       const cell = row.locations[loc];
+                      const variance = cell ? cell.variance : 0;
+                      const varianceColor = variance > 0 ? 'text-green-700' : variance < 0 ? 'text-red-700' : 'text-slate-700';
                       return (
                         <React.Fragment key={loc}>
+                          <td className="px-2 py-3 text-center text-sm font-bold text-purple-700 bg-purple-50 border-r border-slate-200">
+                            {cell ? (cell.approved || '-') : '-'}
+                          </td>
                           <td className="px-2 py-3 text-center text-sm font-bold text-green-700 bg-green-50 border-r border-slate-200">
                             {cell ? cell.actual : '-'}
                           </td>
-                          <td className="px-2 py-3 text-center text-sm font-bold text-purple-700 bg-purple-50 border-r border-slate-200">
-                            {cell ? (cell.approved || '-') : '-'}
+                          <td className={`px-2 py-3 text-center text-sm font-bold ${varianceColor} bg-blue-50 border-r border-slate-200`}>
+                            {cell ? cell.variance : '-'}
                           </td>
                         </React.Fragment>
                       );
                     })}
-                    <td className="px-2 py-3 text-center text-sm font-black text-green-700 bg-green-100 border-r border-slate-200">{row.actualTotal}</td>
                     <td className="px-2 py-3 text-center text-sm font-black text-purple-700 bg-purple-100 border-r border-slate-200">{row.approvedTotal}</td>
+                    <td className="px-2 py-3 text-center text-sm font-black text-green-700 bg-green-100 border-r border-slate-200">{row.actualTotal}</td>
+                    <td className={`px-2 py-3 text-center text-sm font-black ${row.varianceTotal > 0 ? 'text-green-700' : row.varianceTotal < 0 ? 'text-red-700' : 'text-slate-700'} bg-blue-100 border-r border-slate-200`}>{row.varianceTotal}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => {
@@ -497,8 +666,8 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
                           });
                           // Populate current approved values for each location
                           const approvals: { [location: string]: number } = {};
-                          locations.forEach(loc => {
-                            const existing = data.headcountData.find(hc =>
+                          allLocations.forEach(loc => {
+                            const existing = data.headcountData?.find(hc =>
                               hc.legalEntity === row.legalEntity &&
                               hc.department === row.department &&
                               hc.subDepartment === row.subDepartment &&
@@ -519,14 +688,16 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
                 {/* Column Totals Row */}
                 <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white font-black">
                   <td colSpan={3} className="px-4 py-3 text-sm uppercase tracking-widest border-r border-slate-700">Total</td>
-                  {locations.map(loc => (
+                  {allLocations.map(loc => (
                     <React.Fragment key={loc}>
-                      <td className="px-2 py-3 text-center text-sm bg-green-900 border-r border-slate-700">{columnTotals[loc]?.actual || 0}</td>
                       <td className="px-2 py-3 text-center text-sm bg-purple-900 border-r border-slate-700">{columnTotals[loc]?.approved || 0}</td>
+                      <td className="px-2 py-3 text-center text-sm bg-green-900 border-r border-slate-700">{columnTotals[loc]?.actual || 0}</td>
+                      <td className="px-2 py-3 text-center text-sm bg-blue-900 border-r border-slate-700">{columnTotals[loc]?.variance || 0}</td>
                     </React.Fragment>
                   ))}
-                  <td className="px-2 py-3 text-center text-sm bg-green-950 border-r border-slate-700">{grandTotals.actual}</td>
                   <td className="px-2 py-3 text-center text-sm bg-purple-950 border-r border-slate-700">{grandTotals.approved}</td>
+                  <td className="px-2 py-3 text-center text-sm bg-green-950 border-r border-slate-700">{grandTotals.actual}</td>
+                  <td className="px-2 py-3 text-center text-sm bg-blue-950 border-r border-slate-700">{grandTotals.variance}</td>
                   <td></td>
                 </tr>
               </tbody>
@@ -549,22 +720,26 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
                   <thead>
                     <tr className="border-b border-slate-300">
                       <th className="px-4 py-2 text-left text-xs font-black text-slate-700 uppercase">Location</th>
-                      <th className="px-4 py-2 text-center text-xs font-black text-green-700 uppercase">Actual</th>
                       <th className="px-4 py-2 text-center text-xs font-black text-purple-700 uppercase">Approved</th>
+                      <th className="px-4 py-2 text-center text-xs font-black text-green-700 uppercase">Actual</th>
+                      <th className="px-4 py-2 text-center text-xs font-black text-blue-700 uppercase">Variance</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {locations.map(loc => {
+                    {allLocations.map(loc => {
                       const actual = matrixData.find(row =>
                         row.legalEntity === editingRow.legalEntity &&
                         row.department === editingRow.department &&
                         row.subDepartment === editingRow.subDepartment
                       )?.locations[loc]?.actual || 0;
 
+                      const approved = locationApprovals[loc] || 0;
+                      const variance = approved - actual;
+                      const varianceColor = variance > 0 ? 'text-green-700' : variance < 0 ? 'text-red-700' : 'text-slate-700';
+
                       return (
                         <tr key={loc} className="border-b border-slate-200">
                           <td className="px-4 py-3 text-sm font-bold text-slate-900">{loc}</td>
-                          <td className="px-4 py-3 text-center text-sm font-bold text-green-700 bg-green-50">{actual}</td>
                           <td className="px-4 py-3 text-center">
                             <input
                               type="number"
@@ -577,6 +752,8 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
                               className="w-24 px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:outline-none text-sm font-bold text-center bg-purple-50"
                             />
                           </td>
+                          <td className="px-4 py-3 text-center text-sm font-bold text-green-700 bg-green-50">{actual}</td>
+                          <td className={`px-4 py-3 text-center text-sm font-bold ${varianceColor} bg-blue-50`}>{variance}</td>
                         </tr>
                       );
                     })}
@@ -587,10 +764,12 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
               <div className="flex gap-3">
                 <button
                   onClick={() => {
-                    // Update or create headcount entries for each location
-                    const updatedData = [...data.headcountData];
+                    if (!editingRow) return;
 
-                    locations.forEach(loc => {
+                    // Update or create headcount entries for each location
+                    const updatedData = [...(data.headcountData || [])];
+
+                    allLocations.forEach(loc => {
                       const approvedValue = locationApprovals[loc] || 0;
                       const existingIndex = updatedData.findIndex(hc =>
                         hc.legalEntity === editingRow.legalEntity &&
