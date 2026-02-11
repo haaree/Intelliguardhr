@@ -20,6 +20,10 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
 
   // Calculate actual headcount from active employees
   const actualHeadcount = useMemo(() => {
+    if (!data.employees || data.employees.length === 0) {
+      return new Map<string, number>();
+    }
+
     const activeEmployees = data.employees.filter(emp =>
       emp.activeStatus === 'Active' || emp.activeStatus === 'active'
     );
@@ -36,29 +40,38 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
   // Get unique legal entities from both employees and headcount data
   const legalEntities = useMemo(() => {
     const entities = new Set<string>();
-    data.employees.forEach(emp => entities.add(emp.legalEntity));
-    data.headcountData.forEach(hc => entities.add(hc.legalEntity));
+    if (data.employees) {
+      data.employees.forEach(emp => entities.add(emp.legalEntity));
+    }
+    if (data.headcountData) {
+      data.headcountData.forEach(hc => entities.add(hc.legalEntity));
+    }
     return ['All', ...Array.from(entities).sort()];
   }, [data.employees, data.headcountData]);
 
   // Get unique locations from both employees and headcount data
   const locations = useMemo(() => {
     const locs = new Set<string>();
-    data.employees.forEach(emp => {
-      if (selectedLegalEntity === 'All' || emp.legalEntity === selectedLegalEntity) {
-        locs.add(emp.location);
-      }
-    });
-    data.headcountData.forEach(hc => {
-      if (selectedLegalEntity === 'All' || hc.legalEntity === selectedLegalEntity) {
-        locs.add(hc.location);
-      }
-    });
+    if (data.employees) {
+      data.employees.forEach(emp => {
+        if (selectedLegalEntity === 'All' || emp.legalEntity === selectedLegalEntity) {
+          locs.add(emp.location);
+        }
+      });
+    }
+    if (data.headcountData) {
+      data.headcountData.forEach(hc => {
+        if (selectedLegalEntity === 'All' || hc.legalEntity === selectedLegalEntity) {
+          locs.add(hc.location);
+        }
+      });
+    }
     return Array.from(locs).sort();
   }, [data.employees, data.headcountData, selectedLegalEntity]);
 
   // Filtered data
   const filteredData = useMemo(() => {
+    if (!data.headcountData) return [];
     if (selectedLegalEntity === 'All') return data.headcountData;
     return data.headcountData.filter(hc => hc.legalEntity === selectedLegalEntity);
   }, [data.headcountData, selectedLegalEntity]);
@@ -84,7 +97,7 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     const grouped = new Map<string, MatrixRow>();
 
     // First, process actual headcount from employees
-    const activeEmployees = data.employees.filter(emp => {
+    const activeEmployees = (data.employees || []).filter(emp => {
       if (emp.activeStatus !== 'Active' && emp.activeStatus !== 'active') return false;
       if (selectedLegalEntity !== 'All' && emp.legalEntity !== selectedLegalEntity) return false;
       return true;
