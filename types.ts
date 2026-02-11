@@ -140,6 +140,15 @@ export interface ReconciliationRecord {
   isReconciled: boolean; // Whether user has accepted/overridden
 }
 
+export interface HeadcountData {
+  id: string; // Unique identifier
+  legalEntity: string;
+  location: string;
+  department: string;
+  subDepartment: string;
+  approvedHeadcount: number;
+}
+
 export interface AuditQueueRecord {
   id: string; // Unique identifier
   employeeNumber: string;
@@ -184,9 +193,10 @@ export interface AppData {
   auditQueue: AuditQueueRecord[];
   auditLogs: AuditLogEntry[];
   isReconciliationComplete?: boolean; // Flag to enable/disable monthly report
+  headcountData: HeadcountData[];
 }
 
-export type Page = 'landing' | 'login' | 'dashboard' | 'employees' | 'biometric' | 'attendance' | 'monthly' | 'shifts' | 'leave' | 'audit-queue' | 'reports' | 'shift-deviation' | 'excess-hours' | 'manager-pdf';
+export type Page = 'landing' | 'login' | 'dashboard' | 'employees' | 'biometric' | 'attendance' | 'monthly' | 'shifts' | 'leave' | 'audit-queue' | 'reports' | 'shift-deviation' | 'excess-hours' | 'manager-pdf' | 'headcount';
 
 declare global {
   interface AIStudio {

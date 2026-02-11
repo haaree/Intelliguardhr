@@ -19,6 +19,7 @@ const ShiftDeviation = lazy(() => import('./pages/ShiftDeviation.tsx'));
 const ReportsHub = lazy(() => import('./pages/ReportsHub.tsx'));
 const ExcessHoursHub = lazy(() => import('./pages/ExcessHoursHub.tsx'));
 const ManagerPDFReport = lazy(() => import('./pages/ManagerPDFReport.tsx'));
+const HeadcountManagement = lazy(() => import('./pages/HeadcountManagement.tsx'));
 // Legacy components temporarily disabled
 // const LeaveManagement = lazy(() => import('./pages/LeaveReconciliationOptimized.tsx'));
 // const AuditQueue = lazy(() => import('./pages/AuditQueue.tsx'));
@@ -38,7 +39,8 @@ const App: React.FC = () => {
     reconciliationRecords: [],
     auditQueue: [],
     auditLogs: [],
-    isReconciliationComplete: false
+    isReconciliationComplete: false,
+    headcountData: []
   });
   
   const [session, setSession] = useState<AuthSession | null>(null);
@@ -451,6 +453,13 @@ const App: React.FC = () => {
             {currentPage === 'manager-pdf' && (
               <ManagerPDFReport
                 data={appData}
+                role={session.user.role}
+              />
+            )}
+            {currentPage === 'headcount' && (
+              <HeadcountManagement
+                data={appData}
+                onUpdate={(headcountData) => setAppData({ ...appData, headcountData })}
                 role={session.user.role}
               />
             )}
