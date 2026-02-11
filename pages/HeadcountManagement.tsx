@@ -10,30 +10,52 @@ interface HeadcountManagementProps {
 }
 
 const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdate, role }) => {
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingRow, setEditingRow] = useState<{ legalEntity: string; department: string; subDepartment: string } | null>(null);
   const [editForm, setEditForm] = useState<Partial<HeadcountData>>({});
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedLegalEntity, setSelectedLegalEntity] = useState<string>('All');
+  const [locationApprovals, setLocationApprovals] = useState<{ [location: string]: number }>({});
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
-  // Get unique legal entities
+  // Calculate actual headcount from active employees
+  const actualHeadcount = useMemo(() => {
+    const activeEmployees = data.employees.filter(emp =>
+      emp.activeStatus === 'Active' || emp.activeStatus === 'active'
+    );
+
+    const grouped = new Map<string, number>();
+    activeEmployees.forEach(emp => {
+      const key = `${emp.legalEntity}|${emp.location}|${emp.department}|${emp.subDepartment}`;
+      grouped.set(key, (grouped.get(key) || 0) + 1);
+    });
+
+    return grouped;
+  }, [data.employees]);
+
+  // Get unique legal entities from both employees and headcount data
   const legalEntities = useMemo(() => {
     const entities = new Set<string>();
+    data.employees.forEach(emp => entities.add(emp.legalEntity));
     data.headcountData.forEach(hc => entities.add(hc.legalEntity));
     return ['All', ...Array.from(entities).sort()];
-  }, [data.headcountData]);
+  }, [data.employees, data.headcountData]);
 
-  // Get unique locations
+  // Get unique locations from both employees and headcount data
   const locations = useMemo(() => {
     const locs = new Set<string>();
+    data.employees.forEach(emp => {
+      if (selectedLegalEntity === 'All' || emp.legalEntity === selectedLegalEntity) {
+        locs.add(emp.location);
+      }
+    });
     data.headcountData.forEach(hc => {
       if (selectedLegalEntity === 'All' || hc.legalEntity === selectedLegalEntity) {
         locs.add(hc.location);
       }
     });
     return Array.from(locs).sort();
-  }, [data.headcountData, selectedLegalEntity]);
+  }, [data.employees, data.headcountData, selectedLegalEntity]);
 
   // Filtered data
   const filteredData = useMemo(() => {
@@ -43,7 +65,10 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
 
   // Group data for matrix view
   interface MatrixCell {
-    [location: string]: number;
+    [location: string]: {
+      actual: number;
+      approved: number;
+    };
   }
 
   interface MatrixRow {
@@ -51,12 +76,43 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
     department: string;
     subDepartment: string;
     locations: MatrixCell;
-    total: number;
+    actualTotal: number;
+    approvedTotal: number;
   }
 
   const matrixData = useMemo((): MatrixRow[] => {
     const grouped = new Map<string, MatrixRow>();
 
+    // First, process actual headcount from employees
+    const activeEmployees = data.employees.filter(emp => {
+      if (emp.activeStatus !== 'Active' && emp.activeStatus !== 'active') return false;
+      if (selectedLegalEntity !== 'All' && emp.legalEntity !== selectedLegalEntity) return false;
+      return true;
+    });
+
+    activeEmployees.forEach(emp => {
+      const key = `${emp.legalEntity}|${emp.department}|${emp.subDepartment}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          legalEntity: emp.legalEntity,
+          department: emp.department,
+          subDepartment: emp.subDepartment,
+          locations: {},
+          actualTotal: 0,
+          approvedTotal: 0
+        });
+      }
+
+      const row = grouped.get(key)!;
+      if (!row.locations[emp.location]) {
+        row.locations[emp.location] = { actual: 0, approved: 0 };
+      }
+      row.locations[emp.location].actual += 1;
+      row.actualTotal += 1;
+    });
+
+    // Then, add approved headcount from headcountData
     filteredData.forEach(hc => {
       const key = `${hc.legalEntity}|${hc.department}|${hc.subDepartment}`;
 
@@ -66,13 +122,17 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
           department: hc.department,
           subDepartment: hc.subDepartment,
           locations: {},
-          total: 0
+          actualTotal: 0,
+          approvedTotal: 0
         });
       }
 
       const row = grouped.get(key)!;
-      row.locations[hc.location] = hc.approvedHeadcount;
-      row.total += hc.approvedHeadcount;
+      if (!row.locations[hc.location]) {
+        row.locations[hc.location] = { actual: 0, approved: 0 };
+      }
+      row.locations[hc.location].approved = hc.approvedHeadcount;
+      row.approvedTotal += hc.approvedHeadcount;
     });
 
     return Array.from(grouped.values()).sort((a, b) => {
@@ -80,25 +140,31 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
       if (a.department !== b.department) return a.department.localeCompare(b.department);
       return a.subDepartment.localeCompare(b.subDepartment);
     });
-  }, [filteredData]);
+  }, [data.employees, filteredData, selectedLegalEntity]);
 
   // Calculate column totals
   const columnTotals = useMemo(() => {
-    const totals: { [location: string]: number } = {};
-    locations.forEach(loc => totals[loc] = 0);
+    const totals: { [location: string]: { actual: number; approved: number } } = {};
+    locations.forEach(loc => totals[loc] = { actual: 0, approved: 0 });
 
-    filteredData.forEach(hc => {
-      if (totals[hc.location] !== undefined) {
-        totals[hc.location] += hc.approvedHeadcount;
-      }
+    matrixData.forEach(row => {
+      locations.forEach(loc => {
+        if (row.locations[loc]) {
+          totals[loc].actual += row.locations[loc].actual;
+          totals[loc].approved += row.locations[loc].approved;
+        }
+      });
     });
 
     return totals;
-  }, [filteredData, locations]);
+  }, [matrixData, locations]);
 
-  const grandTotal = useMemo(() => {
-    return filteredData.reduce((sum, hc) => sum + hc.approvedHeadcount, 0);
-  }, [filteredData]);
+  const grandTotals = useMemo(() => {
+    return {
+      actual: matrixData.reduce((sum, row) => sum + row.actualTotal, 0),
+      approved: matrixData.reduce((sum, row) => sum + row.approvedTotal, 0)
+    };
+  }, [matrixData]);
 
   // Add new headcount entry
   const handleAdd = () => {
@@ -206,25 +272,56 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
 
   // Export current data
   const handleExport = () => {
-    const exportData = [
-      ['Legal Entity', 'Location', 'Department', 'Sub Department', 'Approved Headcount'],
-      ...filteredData.map(hc => [
-        hc.legalEntity,
-        hc.location,
-        hc.department,
-        hc.subDepartment,
-        hc.approvedHeadcount
-      ])
-    ];
+    // Create header row with location columns
+    const headerRow1 = ['Legal Entity', 'Department', 'Sub Department'];
+    const headerRow2 = ['', '', ''];
+
+    locations.forEach(loc => {
+      headerRow1.push(loc, '');
+      headerRow2.push('Actual', 'Approved');
+    });
+    headerRow1.push('Total', '');
+    headerRow2.push('Actual', 'Approved');
+
+    const exportData = [headerRow1, headerRow2];
+
+    // Add data rows
+    matrixData.forEach(row => {
+      const dataRow = [row.legalEntity, row.department, row.subDepartment];
+      locations.forEach(loc => {
+        const cell = row.locations[loc];
+        dataRow.push(cell ? cell.actual : 0, cell ? cell.approved : 0);
+      });
+      dataRow.push(row.actualTotal, row.approvedTotal);
+      exportData.push(dataRow);
+    });
+
+    // Add totals row
+    const totalsRow = ['Total', '', ''];
+    locations.forEach(loc => {
+      totalsRow.push(columnTotals[loc]?.actual || 0, columnTotals[loc]?.approved || 0);
+    });
+    totalsRow.push(grandTotals.actual, grandTotals.approved);
+    exportData.push(totalsRow);
 
     const ws = XLSX.utils.aoa_to_sheet(exportData);
-    ws['!cols'] = [
-      { wch: 20 },
-      { wch: 20 },
-      { wch: 25 },
-      { wch: 25 },
-      { wch: 20 }
-    ];
+
+    // Merge cells for location headers
+    const merges = [];
+    let colIndex = 3; // Start after Legal Entity, Department, Sub Department
+    locations.forEach(() => {
+      merges.push({
+        s: { r: 0, c: colIndex },
+        e: { r: 0, c: colIndex + 1 }
+      });
+      colIndex += 2;
+    });
+    // Merge Total header
+    merges.push({
+      s: { r: 0, c: colIndex },
+      e: { r: 0, c: colIndex + 1 }
+    });
+    ws['!merges'] = merges;
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Headcount Data');
@@ -309,26 +406,26 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
               ))}
             </select>
             <div className="ml-auto text-sm font-bold text-slate-600">
-              Total Entries: {filteredData.length} | Grand Total Headcount: {grandTotal}
+              Actual Headcount: {grandTotals.actual} | Approved Headcount: {grandTotals.approved}
             </div>
           </div>
         </div>
 
         {/* Matrix Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden">
-          {filteredData.length === 0 ? (
+          {matrixData.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-8">
               <Users size={64} className="text-slate-300 mb-4" />
-              <p className="text-xl font-bold text-slate-700 mb-2">No Headcount Data</p>
+              <p className="text-xl font-bold text-slate-700 mb-2">No Data Available</p>
               <p className="text-sm text-slate-500 mb-6 text-center">
-                Get started by adding a new headcount entry or uploading data via Excel template
+                No active employees found. Upload employee data or add headcount entries to get started.
               </p>
               <button
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all font-bold text-sm uppercase tracking-widest"
               >
                 <Plus size={18} />
-                Add Your First Entry
+                Add Approved Headcount
               </button>
             </div>
           ) : (
@@ -336,58 +433,87 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
               <table className="w-full">
               <thead className="bg-gradient-to-r from-slate-800 to-slate-900 text-white">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest sticky left-0 bg-slate-900">Legal Entity</th>
-                  <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest">Sub Department</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest sticky left-0 bg-slate-900 border-r border-slate-700">Legal Entity</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Department</th>
+                  <th rowSpan={2} className="px-4 py-3 text-left text-xs font-black uppercase tracking-widest border-r border-slate-700">Sub Department</th>
                   {locations.map(loc => (
-                    <th key={loc} className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">{loc}</th>
+                    <th key={loc} colSpan={2} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest border-r border-slate-700">{loc}</th>
                   ))}
-                  <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest bg-blue-900">Total</th>
-                  <th className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Actions</th>
+                  <th colSpan={2} className="px-4 py-2 text-center text-xs font-black uppercase tracking-widest bg-blue-900 border-r border-slate-700">Total</th>
+                  <th rowSpan={2} className="px-4 py-3 text-center text-xs font-black uppercase tracking-widest">Actions</th>
+                </tr>
+                <tr>
+                  {locations.map(loc => (
+                    <React.Fragment key={loc}>
+                      <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-800 border-r border-slate-700">Actual</th>
+                      <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-purple-800 border-r border-slate-700">Approved</th>
+                    </React.Fragment>
+                  ))}
+                  <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-green-900 border-r border-slate-700">Actual</th>
+                  <th className="px-2 py-1 text-center text-[10px] font-bold uppercase tracking-wide bg-purple-900 border-r border-slate-700">Approved</th>
                 </tr>
               </thead>
               <tbody>
                 {matrixData.map((row, idx) => (
                   <tr key={`${row.legalEntity}-${row.department}-${row.subDepartment}`} className={idx % 2 === 0 ? 'bg-slate-50' : 'bg-white'}>
-                    <td className="px-4 py-3 text-sm font-bold text-slate-900 sticky left-0 bg-inherit">{row.legalEntity}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-700">{row.department}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-slate-700">{row.subDepartment}</td>
-                    {locations.map(loc => (
-                      <td key={loc} className="px-4 py-3 text-center text-sm font-bold text-slate-900">
-                        {row.locations[loc] || '-'}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3 text-center text-sm font-black text-blue-600 bg-blue-50">{row.total}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-slate-900 sticky left-0 bg-inherit border-r border-slate-200">{row.legalEntity}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">{row.department}</td>
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-700 border-r border-slate-200">{row.subDepartment}</td>
+                    {locations.map(loc => {
+                      const cell = row.locations[loc];
+                      return (
+                        <React.Fragment key={loc}>
+                          <td className="px-2 py-3 text-center text-sm font-bold text-green-700 bg-green-50 border-r border-slate-200">
+                            {cell ? cell.actual : '-'}
+                          </td>
+                          <td className="px-2 py-3 text-center text-sm font-bold text-purple-700 bg-purple-50 border-r border-slate-200">
+                            {cell ? (cell.approved || '-') : '-'}
+                          </td>
+                        </React.Fragment>
+                      );
+                    })}
+                    <td className="px-2 py-3 text-center text-sm font-black text-green-700 bg-green-100 border-r border-slate-200">{row.actualTotal}</td>
+                    <td className="px-2 py-3 text-center text-sm font-black text-purple-700 bg-purple-100 border-r border-slate-200">{row.approvedTotal}</td>
                     <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            const entry = filteredData.find(hc =>
+                      <button
+                        onClick={() => {
+                          setEditingRow({
+                            legalEntity: row.legalEntity,
+                            department: row.department,
+                            subDepartment: row.subDepartment
+                          });
+                          // Populate current approved values for each location
+                          const approvals: { [location: string]: number } = {};
+                          locations.forEach(loc => {
+                            const existing = data.headcountData.find(hc =>
                               hc.legalEntity === row.legalEntity &&
                               hc.department === row.department &&
-                              hc.subDepartment === row.subDepartment
+                              hc.subDepartment === row.subDepartment &&
+                              hc.location === loc
                             );
-                            if (entry) {
-                              setEditingId(entry.id);
-                              setEditForm(entry);
-                            }
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
-                          title="Edit"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                      </div>
+                            approvals[loc] = existing?.approvedHeadcount || 0;
+                          });
+                          setLocationApprovals(approvals);
+                        }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-all"
+                        title="Edit Approved Headcount"
+                      >
+                        <Edit2 size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
                 {/* Column Totals Row */}
                 <tr className="bg-gradient-to-r from-slate-800 to-slate-900 text-white font-black">
-                  <td colSpan={3} className="px-4 py-3 text-sm uppercase tracking-widest">Total</td>
+                  <td colSpan={3} className="px-4 py-3 text-sm uppercase tracking-widest border-r border-slate-700">Total</td>
                   {locations.map(loc => (
-                    <td key={loc} className="px-4 py-3 text-center text-sm">{columnTotals[loc]}</td>
+                    <React.Fragment key={loc}>
+                      <td className="px-2 py-3 text-center text-sm bg-green-900 border-r border-slate-700">{columnTotals[loc]?.actual || 0}</td>
+                      <td className="px-2 py-3 text-center text-sm bg-purple-900 border-r border-slate-700">{columnTotals[loc]?.approved || 0}</td>
+                    </React.Fragment>
                   ))}
-                  <td className="px-4 py-3 text-center text-sm bg-blue-900">{grandTotal}</td>
+                  <td className="px-2 py-3 text-center text-sm bg-green-950 border-r border-slate-700">{grandTotals.actual}</td>
+                  <td className="px-2 py-3 text-center text-sm bg-purple-950 border-r border-slate-700">{grandTotals.approved}</td>
                   <td></td>
                 </tr>
               </tbody>
@@ -396,11 +522,118 @@ const HeadcountManagement: React.FC<HeadcountManagementProps> = ({ data, onUpdat
           )}
         </div>
 
+        {/* Edit Modal */}
+        {editingRow && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <h2 className="text-xl font-black text-slate-900 mb-2">Edit Approved Headcount</h2>
+              <p className="text-sm text-slate-600 mb-4">
+                {editingRow.legalEntity} | {editingRow.department} | {editingRow.subDepartment}
+              </p>
+
+              <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-300">
+                      <th className="px-4 py-2 text-left text-xs font-black text-slate-700 uppercase">Location</th>
+                      <th className="px-4 py-2 text-center text-xs font-black text-green-700 uppercase">Actual</th>
+                      <th className="px-4 py-2 text-center text-xs font-black text-purple-700 uppercase">Approved</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {locations.map(loc => {
+                      const actual = matrixData.find(row =>
+                        row.legalEntity === editingRow.legalEntity &&
+                        row.department === editingRow.department &&
+                        row.subDepartment === editingRow.subDepartment
+                      )?.locations[loc]?.actual || 0;
+
+                      return (
+                        <tr key={loc} className="border-b border-slate-200">
+                          <td className="px-4 py-3 text-sm font-bold text-slate-900">{loc}</td>
+                          <td className="px-4 py-3 text-center text-sm font-bold text-green-700 bg-green-50">{actual}</td>
+                          <td className="px-4 py-3 text-center">
+                            <input
+                              type="number"
+                              min="0"
+                              value={locationApprovals[loc] || 0}
+                              onChange={(e) => setLocationApprovals({
+                                ...locationApprovals,
+                                [loc]: parseInt(e.target.value) || 0
+                              })}
+                              className="w-24 px-3 py-2 border-2 border-purple-200 rounded-lg focus:border-purple-500 focus:outline-none text-sm font-bold text-center bg-purple-50"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    // Update or create headcount entries for each location
+                    const updatedData = [...data.headcountData];
+
+                    locations.forEach(loc => {
+                      const approvedValue = locationApprovals[loc] || 0;
+                      const existingIndex = updatedData.findIndex(hc =>
+                        hc.legalEntity === editingRow.legalEntity &&
+                        hc.department === editingRow.department &&
+                        hc.subDepartment === editingRow.subDepartment &&
+                        hc.location === loc
+                      );
+
+                      if (existingIndex >= 0) {
+                        // Update existing
+                        updatedData[existingIndex] = {
+                          ...updatedData[existingIndex],
+                          approvedHeadcount: approvedValue
+                        };
+                      } else if (approvedValue > 0) {
+                        // Create new entry only if approved value is > 0
+                        updatedData.push({
+                          id: `hc_${Date.now()}_${loc}`,
+                          legalEntity: editingRow.legalEntity,
+                          location: loc,
+                          department: editingRow.department,
+                          subDepartment: editingRow.subDepartment,
+                          approvedHeadcount: approvedValue
+                        });
+                      }
+                    });
+
+                    onUpdate(updatedData);
+                    setEditingRow(null);
+                    setLocationApprovals({});
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all font-bold text-sm uppercase tracking-widest"
+                >
+                  <Save size={18} />
+                  Save Changes
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingRow(null);
+                    setLocationApprovals({});
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-xl hover:bg-slate-300 transition-all font-bold text-sm uppercase tracking-widest"
+                >
+                  <X size={18} />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Add Modal */}
         {showAddModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md">
-              <h2 className="text-xl font-black text-slate-900 mb-4">Add Headcount Entry</h2>
+              <h2 className="text-xl font-black text-slate-900 mb-4">Add Approved Headcount Entry</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">Legal Entity</label>
