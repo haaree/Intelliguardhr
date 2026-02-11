@@ -466,48 +466,130 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     doc.text(`Generated: ${formatDate(new Date().toISOString().split('T')[0])}`, 14, yPos);
     yPos += 10;
 
-    // Group data by Legal Entity > Location
-    const groupedData = new Map<string, Map<string, EnrichedRecord[]>>();
+    // Group data by Legal Entity > Location with violation categories
+    interface LocationData {
+      present: EnrichedRecord[];
+      absent: EnrichedRecord[];
+      offDay: EnrichedRecord[];
+      workedOff: EnrichedRecord[];
+      errors: EnrichedRecord[];
+      lateEarly: EnrichedRecord[];
+      lessThan4hrs: EnrichedRecord[];
+      hours4to7: EnrichedRecord[];
+      shiftDeviation: EnrichedRecord[];
+      missingPunch: EnrichedRecord[];
+      otherViolations: EnrichedRecord[];
+    }
+
+    const groupedData = new Map<string, Map<string, LocationData>>();
 
     detailedManagerReportData.forEach(report => {
-      // Combine all violation types into a single array
-      const allRecords = [
-        ...report.details.present,
-        ...report.details.absent,
-        ...report.details.offDay,
-        ...report.details.workedOff,
-        ...report.details.errors,
-        ...report.details.lateEarly,
-        ...report.details.lessThan4hrs,
-        ...report.details.hours4to7,
-        ...report.details.shiftDeviation,
-        ...report.details.missingPunch,
-        ...report.details.otherViolations
-      ];
+      const legalEntity = report.legalEntity || 'Unknown';
+      const location = report.location || 'Unknown';
 
-      allRecords.forEach(record => {
-        const legalEntity = report.legalEntity || 'Unknown';
-        const location = report.location || 'Unknown';
+      if (!groupedData.has(legalEntity)) {
+        groupedData.set(legalEntity, new Map());
+      }
 
-        if (!groupedData.has(legalEntity)) {
-          groupedData.set(legalEntity, new Map());
-        }
+      const locationMap = groupedData.get(legalEntity)!;
+      if (!locationMap.has(location)) {
+        locationMap.set(location, {
+          present: [],
+          absent: [],
+          offDay: [],
+          workedOff: [],
+          errors: [],
+          lateEarly: [],
+          lessThan4hrs: [],
+          hours4to7: [],
+          shiftDeviation: [],
+          missingPunch: [],
+          otherViolations: []
+        });
+      }
 
-        const locationMap = groupedData.get(legalEntity)!;
-        if (!locationMap.has(location)) {
-          locationMap.set(location, []);
-        }
-
-        locationMap.get(location)!.push(record);
-      });
+      const locationData = locationMap.get(location)!;
+      locationData.present.push(...report.details.present);
+      locationData.absent.push(...report.details.absent);
+      locationData.offDay.push(...report.details.offDay);
+      locationData.workedOff.push(...report.details.workedOff);
+      locationData.errors.push(...report.details.errors);
+      locationData.lateEarly.push(...report.details.lateEarly);
+      locationData.lessThan4hrs.push(...report.details.lessThan4hrs);
+      locationData.hours4to7.push(...report.details.hours4to7);
+      locationData.shiftDeviation.push(...report.details.shiftDeviation);
+      locationData.missingPunch.push(...report.details.missingPunch);
+      locationData.otherViolations.push(...report.details.otherViolations);
     });
+
+    // Helper function to add a category section
+    const addCategorySection = (title: string, records: EnrichedRecord[]) => {
+      if (records.length === 0) return;
+
+      // Check if we need a new page
+      if (yPos > 180) {
+        doc.addPage('landscape');
+        yPos = 20;
+      }
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, 14, yPos);
+      yPos += 6;
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['S.No', 'Reporting Incharge', 'Dept', 'Sub Dept', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status', 'Comments']],
+        body: records.map((rec: any, index: number) => [
+          index + 1,
+          rec.reportingManager || '-',
+          rec.department || '-',
+          rec.subDepartment || '-',
+          rec.employeeNumber,
+          rec.employeeName,
+          rec.date,
+          rec.shift || '-',
+          rec.shiftStart || '-',
+          rec.inTime || '-',
+          rec.outTime || '-',
+          rec.totalHours || '-',
+          rec.lateBy || '-',
+          rec.earlyBy || '-',
+          rec.excelStatus || '-',
+          rec.comments || '-'
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+        styles: { fontSize: 6, cellPadding: 1.5, overflow: 'linebreak' },
+        tableWidth: 'auto',
+        columnStyles: {
+          0: { cellWidth: 'auto', minCellWidth: 7 },   // S.No
+          1: { cellWidth: 'auto', minCellWidth: 25 },  // Reporting Incharge
+          2: { cellWidth: 'auto', minCellWidth: 20 },  // Dept
+          3: { cellWidth: 'auto', minCellWidth: 20 },  // Sub Dept
+          4: { cellWidth: 'auto', minCellWidth: 12 },  // Emp ID
+          5: { cellWidth: 'auto', minCellWidth: 25 },  // Name
+          6: { cellWidth: 'auto', minCellWidth: 15 },  // Date
+          7: { cellWidth: 'auto', minCellWidth: 10 },  // Shift
+          8: { cellWidth: 'auto', minCellWidth: 12 },  // Shift Start
+          9: { cellWidth: 'auto', minCellWidth: 10 },  // In Time
+          10: { cellWidth: 'auto', minCellWidth: 10 }, // Out Time
+          11: { cellWidth: 'auto', minCellWidth: 10 }, // Work Hrs
+          12: { cellWidth: 'auto', minCellWidth: 10 }, // Late By
+          13: { cellWidth: 'auto', minCellWidth: 10 }, // Early By
+          14: { cellWidth: 'auto', minCellWidth: 15 }, // Keka Status
+          15: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
+        },
+        margin: { left: 7, right: 7 }
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 8;
+    };
 
     // Process each Legal Entity > Location group
     let isFirstPage = true;
     groupedData.forEach((locationMap, legalEntity) => {
-      locationMap.forEach((records, location) => {
-        if (records.length === 0) return;
-
+      locationMap.forEach((locationData, location) => {
         // Add new page if not first
         if (!isFirstPage) {
           doc.addPage('landscape');
@@ -519,56 +601,20 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(`Legal Entity: ${legalEntity} | Location: ${location}`, 14, yPos);
-        yPos += 8;
+        yPos += 10;
 
-        // Table with Reporting Incharge, Department, Sub Department columns
-        autoTable(doc, {
-          startY: yPos,
-          head: [['S.No', 'Reporting Incharge', 'Dept', 'Sub Dept', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status', 'Comments']],
-          body: records.map((rec: any, index: number) => [
-            index + 1,
-            rec.reportingManager || '-',
-            rec.department || '-',
-            rec.subDepartment || '-',
-            rec.employeeNumber,
-            rec.employeeName,
-            rec.date,
-            rec.shift || '-',
-            rec.shiftStart || '-',
-            rec.inTime || '-',
-            rec.outTime || '-',
-            rec.totalHours || '-',
-            rec.lateBy || '-',
-            rec.earlyBy || '-',
-            rec.excelStatus || '-',
-            rec.comments || '-'
-          ]),
-          theme: 'striped',
-          headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-          styles: { fontSize: 6, cellPadding: 1.5, overflow: 'linebreak' },
-          tableWidth: 'auto',
-          columnStyles: {
-            0: { cellWidth: 'auto', minCellWidth: 7 },   // S.No
-            1: { cellWidth: 'auto', minCellWidth: 25 },  // Reporting Incharge
-            2: { cellWidth: 'auto', minCellWidth: 20 },  // Dept
-            3: { cellWidth: 'auto', minCellWidth: 20 },  // Sub Dept
-            4: { cellWidth: 'auto', minCellWidth: 12 },  // Emp ID
-            5: { cellWidth: 'auto', minCellWidth: 25 },  // Name
-            6: { cellWidth: 'auto', minCellWidth: 15 },  // Date
-            7: { cellWidth: 'auto', minCellWidth: 10 },  // Shift
-            8: { cellWidth: 'auto', minCellWidth: 12 },  // Shift Start
-            9: { cellWidth: 'auto', minCellWidth: 10 },  // In Time
-            10: { cellWidth: 'auto', minCellWidth: 10 }, // Out Time
-            11: { cellWidth: 'auto', minCellWidth: 10 }, // Work Hrs
-            12: { cellWidth: 'auto', minCellWidth: 10 }, // Late By
-            13: { cellWidth: 'auto', minCellWidth: 10 }, // Early By
-            14: { cellWidth: 'auto', minCellWidth: 15 }, // Keka Status
-            15: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
-          },
-          margin: { left: 7, right: 7 }
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 10;
+        // Add each category section
+        addCategorySection('Present', locationData.present);
+        addCategorySection('Absent', locationData.absent);
+        addCategorySection('Off Day', locationData.offDay);
+        addCategorySection('Worked Off', locationData.workedOff);
+        addCategorySection('Errors', locationData.errors);
+        addCategorySection('Late & Early Occurrence', locationData.lateEarly);
+        addCategorySection('Worked < 4 Hours', locationData.lessThan4hrs);
+        addCategorySection('Worked 4-7 Hours', locationData.hours4to7);
+        addCategorySection('Shift Deviation', locationData.shiftDeviation);
+        addCategorySection('Missing Punch', locationData.missingPunch);
+        addCategorySection('Others', locationData.otherViolations);
       });
     });
 
@@ -941,75 +987,117 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     const wb = XLSX.utils.book_new();
 
-    // Group data by Legal Entity > Location
-    const groupedData = new Map<string, Map<string, EnrichedRecord[]>>();
+    // Group data by Legal Entity > Location with violation categories
+    interface LocationData {
+      present: EnrichedRecord[];
+      absent: EnrichedRecord[];
+      offDay: EnrichedRecord[];
+      workedOff: EnrichedRecord[];
+      errors: EnrichedRecord[];
+      lateEarly: EnrichedRecord[];
+      lessThan4hrs: EnrichedRecord[];
+      hours4to7: EnrichedRecord[];
+      shiftDeviation: EnrichedRecord[];
+      missingPunch: EnrichedRecord[];
+      otherViolations: EnrichedRecord[];
+    }
+
+    const groupedData = new Map<string, Map<string, LocationData>>();
 
     detailedManagerReportData.forEach(report => {
-      // Combine all violation types into a single array
-      const allRecords = [
-        ...report.details.present,
-        ...report.details.absent,
-        ...report.details.offDay,
-        ...report.details.workedOff,
-        ...report.details.errors,
-        ...report.details.lateEarly,
-        ...report.details.lessThan4hrs,
-        ...report.details.hours4to7,
-        ...report.details.shiftDeviation,
-        ...report.details.missingPunch,
-        ...report.details.otherViolations
-      ];
+      const legalEntity = report.legalEntity || 'Unknown';
+      const location = report.location || 'Unknown';
 
-      allRecords.forEach(record => {
-        const legalEntity = report.legalEntity || 'Unknown';
-        const location = report.location || 'Unknown';
+      if (!groupedData.has(legalEntity)) {
+        groupedData.set(legalEntity, new Map());
+      }
 
-        if (!groupedData.has(legalEntity)) {
-          groupedData.set(legalEntity, new Map());
-        }
+      const locationMap = groupedData.get(legalEntity)!;
+      if (!locationMap.has(location)) {
+        locationMap.set(location, {
+          present: [],
+          absent: [],
+          offDay: [],
+          workedOff: [],
+          errors: [],
+          lateEarly: [],
+          lessThan4hrs: [],
+          hours4to7: [],
+          shiftDeviation: [],
+          missingPunch: [],
+          otherViolations: []
+        });
+      }
 
-        const locationMap = groupedData.get(legalEntity)!;
-        if (!locationMap.has(location)) {
-          locationMap.set(location, []);
-        }
-
-        locationMap.get(location)!.push(record);
-      });
+      const locationData = locationMap.get(location)!;
+      locationData.present.push(...report.details.present);
+      locationData.absent.push(...report.details.absent);
+      locationData.offDay.push(...report.details.offDay);
+      locationData.workedOff.push(...report.details.workedOff);
+      locationData.errors.push(...report.details.errors);
+      locationData.lateEarly.push(...report.details.lateEarly);
+      locationData.lessThan4hrs.push(...report.details.lessThan4hrs);
+      locationData.hours4to7.push(...report.details.hours4to7);
+      locationData.shiftDeviation.push(...report.details.shiftDeviation);
+      locationData.missingPunch.push(...report.details.missingPunch);
+      locationData.otherViolations.push(...report.details.otherViolations);
     });
 
-    // Create a sheet for each Legal Entity > Location group
+    // Create sheets for each Legal Entity > Location group with categories
     groupedData.forEach((locationMap, legalEntity) => {
-      locationMap.forEach((records, location) => {
-        if (records.length === 0) return;
-
+      locationMap.forEach((locationData, location) => {
         const sheetName = `${legalEntity}-${location}`.substring(0, 31); // Excel sheet name limit
+        const sheetData: any[] = [];
 
-        const sheetData: any[] = [
-          ['S.No', 'Reporting Incharge', 'Department', 'Sub Department', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Late By', 'Early By', 'Keka Status', 'Final Status', 'Comments']
-        ];
+        // Helper function to add category data
+        const addCategory = (categoryName: string, records: EnrichedRecord[]) => {
+          if (records.length === 0) return;
 
-        records.forEach((rec: any, index: number) => {
-          sheetData.push([
-            index + 1,
-            rec.reportingManager || '-',
-            rec.department || '-',
-            rec.subDepartment || '-',
-            rec.employeeNumber,
-            rec.employeeName,
-            rec.date,
-            rec.jobTitle || '-',
-            rec.shift || '-',
-            rec.shiftStart || '-',
-            rec.inTime || '-',
-            rec.outTime || '-',
-            rec.totalHours || '-',
-            rec.lateBy || '-',
-            rec.earlyBy || '-',
-            rec.excelStatus,
-            rec.finalStatus,
-            rec.comments || '-'
-          ]);
-        });
+          // Add category header
+          sheetData.push([categoryName]);
+          sheetData.push(['S.No', 'Reporting Incharge', 'Department', 'Sub Department', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Late By', 'Early By', 'Keka Status', 'Final Status', 'Comments']);
+
+          records.forEach((rec: any, index: number) => {
+            sheetData.push([
+              index + 1,
+              rec.reportingManager || '-',
+              rec.department || '-',
+              rec.subDepartment || '-',
+              rec.employeeNumber,
+              rec.employeeName,
+              rec.date,
+              rec.jobTitle || '-',
+              rec.shift || '-',
+              rec.shiftStart || '-',
+              rec.inTime || '-',
+              rec.outTime || '-',
+              rec.totalHours || '-',
+              rec.lateBy || '-',
+              rec.earlyBy || '-',
+              rec.excelStatus,
+              rec.finalStatus,
+              rec.comments || '-'
+            ]);
+          });
+
+          // Add empty row between categories
+          sheetData.push([]);
+        };
+
+        // Add all categories
+        addCategory('Present', locationData.present);
+        addCategory('Absent', locationData.absent);
+        addCategory('Off Day', locationData.offDay);
+        addCategory('Worked Off', locationData.workedOff);
+        addCategory('Errors', locationData.errors);
+        addCategory('Late & Early Occurrence', locationData.lateEarly);
+        addCategory('Worked < 4 Hours', locationData.lessThan4hrs);
+        addCategory('Worked 4-7 Hours', locationData.hours4to7);
+        addCategory('Shift Deviation', locationData.shiftDeviation);
+        addCategory('Missing Punch', locationData.missingPunch);
+        addCategory('Others', locationData.otherViolations);
+
+        if (sheetData.length === 0) return; // Skip if no data
 
         const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
