@@ -48,6 +48,7 @@ interface EnrichedRecord {
   earlyBy?: string;
   auditReason?: string;
   reviewStatus?: string;
+  lateExemption?: boolean;
 }
 
 interface ManagerData {
@@ -80,6 +81,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [selectedSubDepartment, setSelectedSubDepartment] = useState('All');
+  const [lateExemptionFilter, setLateExemptionFilter] = useState<'all' | 'exempted' | 'non-exempted'>('all');
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
@@ -219,6 +221,13 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       if (selectedDepartment !== 'All' && att.department !== selectedDepartment) return;
       if (selectedSubDepartment !== 'All' && att.subDepartment !== selectedSubDepartment) return;
 
+      // Late exemption filter (only when "All" manager is selected)
+      if (selectedManager === 'All' && lateExemptionFilter !== 'all') {
+        const isLateExempt = employee?.lateExemption || false;
+        if (lateExemptionFilter === 'exempted' && !isLateExempt) return;
+        if (lateExemptionFilter === 'non-exempted' && isLateExempt) return;
+      }
+
       // Manager filter
       const manager = att.reportingManager || 'Unknown';
       if (selectedManager !== 'All' && manager !== selectedManager) {
@@ -303,7 +312,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         comments: reconRecord?.comments || '',
         deviation: att.deviation || '',
         lateBy: att.lateBy,
-        earlyBy: att.earlyBy
+        earlyBy: att.earlyBy,
+        lateExemption: employee?.lateExemption || false
       };
 
       // Get the attendance status to categorize records - matching Reconciliation Hub exactly
@@ -539,7 +549,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       autoTable(doc, {
         startY: yPos,
-        head: [['S.No', 'Reporting Incharge', 'Dept', 'Sub Dept', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Keka Status', 'Comments']],
+        head: [['S.No', 'Reporting Incharge', 'Dept', 'Sub Dept', 'Emp ID', 'Name', 'Date', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hrs', 'Late By', 'Early By', 'Late Exm', 'Keka Status', 'Comments']],
         body: records.map((rec: any, index: number) => [
           index + 1,
           rec.reportingManager || '-',
@@ -555,6 +565,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           rec.totalHours || '-',
           rec.lateBy || '-',
           rec.earlyBy || '-',
+          rec.lateExemption ? 'Yes' : 'No',
           rec.excelStatus || '-',
           rec.comments || '-'
         ]),
@@ -577,8 +588,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           11: { cellWidth: 'auto', minCellWidth: 10 }, // Work Hrs
           12: { cellWidth: 'auto', minCellWidth: 10 }, // Late By
           13: { cellWidth: 'auto', minCellWidth: 10 }, // Early By
-          14: { cellWidth: 'auto', minCellWidth: 15 }, // Keka Status
-          15: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
+          14: { cellWidth: 'auto', minCellWidth: 10 }, // Late Exm
+          15: { cellWidth: 'auto', minCellWidth: 15 }, // Keka Status
+          16: { cellWidth: 'auto', minCellWidth: 20 }  // Comments
         },
         margin: { left: 7, right: 7 }
       });
@@ -1053,7 +1065,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
           // Add category header
           sheetData.push([categoryName]);
-          sheetData.push(['S.No', 'Reporting Incharge', 'Department', 'Sub Department', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Late By', 'Early By', 'Keka Status', 'Final Status', 'Comments']);
+          sheetData.push(['S.No', 'Reporting Incharge', 'Department', 'Sub Department', 'Employee ID', 'Employee Name', 'Date', 'Job Title', 'Shift', 'Shift Start', 'In Time', 'Out Time', 'Work Hours', 'Late By', 'Early By', 'Late Exm', 'Keka Status', 'Final Status', 'Comments']);
 
           records.forEach((rec: any, index: number) => {
             sheetData.push([
@@ -1072,6 +1084,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               rec.totalHours || '-',
               rec.lateBy || '-',
               rec.earlyBy || '-',
+              rec.lateExemption ? 'Yes' : 'No',
               rec.excelStatus,
               rec.finalStatus,
               rec.comments || '-'
@@ -1114,6 +1127,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           { wch: 12 }, // Work Hours
           { wch: 10 }, // Late By
           { wch: 10 }, // Early By
+          { wch: 10 }, // Late Exm
           { wch: 15 }, // Keka Status
           { wch: 15 }, // Final Status
           { wch: 30 }  // Comments
@@ -2264,6 +2278,50 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               </select>
             </div>
           </div>
+
+          {/* Late Exemption Filter - Only show when "All" is selected */}
+          {selectedManager === 'All' && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-3">
+                Late Exemption Filter
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="lateExemption"
+                    value="all"
+                    checked={lateExemptionFilter === 'all'}
+                    onChange={(e) => setLateExemptionFilter(e.target.value as 'all')}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-sm font-semibold text-slate-700">All Employees</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="lateExemption"
+                    value="exempted"
+                    checked={lateExemptionFilter === 'exempted'}
+                    onChange={(e) => setLateExemptionFilter(e.target.value as 'exempted')}
+                    className="w-4 h-4 text-green-600"
+                  />
+                  <span className="text-sm font-semibold text-slate-700">Late Exempted Only</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="lateExemption"
+                    value="non-exempted"
+                    checked={lateExemptionFilter === 'non-exempted'}
+                    onChange={(e) => setLateExemptionFilter(e.target.value as 'non-exempted')}
+                    className="w-4 h-4 text-orange-600"
+                  />
+                  <span className="text-sm font-semibold text-slate-700">Non-Exempted Only</span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Summary Cards */}
