@@ -111,6 +111,25 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
       });
     }
 
+    // Helper function to parse DD-MMM-YYYY format to YYYY-MM-DD
+    const parseDateToYYYYMMDD = (dateStr: string): string => {
+      // dateStr is in format like "02-FEB-2026"
+      const months: { [key: string]: string } = {
+        'JAN': '01', 'FEB': '02', 'MAR': '03', 'APR': '04',
+        'MAY': '05', 'JUN': '06', 'JUL': '07', 'AUG': '08',
+        'SEP': '09', 'OCT': '10', 'NOV': '11', 'DEC': '12'
+      };
+
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr; // fallback
+
+      const day = parts[0].padStart(2, '0');
+      const month = months[parts[1].toUpperCase()] || '01';
+      const year = parts[2];
+
+      return `${year}-${month}-${day}`;
+    };
+
     // Process reconciliation data for the date range
     if (data.reconciliationRecords) {
       console.log(`MIS Report: Total reconciliation records: ${data.reconciliationRecords.length}`);
@@ -127,7 +146,7 @@ const MISReport: React.FC<MISReportProps> = ({ data, role }) => {
       }
 
       const filteredReconciliation = data.reconciliationRecords.filter(rec => {
-        const recDate = rec.date;
+        const recDate = parseDateToYYYYMMDD(rec.date);
         if (recDate < startDate || recDate > endDate) return false;
         // Only include finalized/reconciled records
         if (!rec.isReconciled) return false;
