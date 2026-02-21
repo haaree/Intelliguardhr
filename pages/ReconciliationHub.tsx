@@ -181,6 +181,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
   // Initialize records from attendance data
   useEffect(() => {
+    console.time('⏱️ PERF: Initialize records from attendance');
     const absent: ReconciliationRecord[] = [];
     const present: ReconciliationRecord[] = [];
     const workedOff: ReconciliationRecord[] = [];
@@ -188,6 +189,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     const errors: ReconciliationRecord[] = [];
     const audit: ReconciliationRecord[] = [];
 
+    console.time('⏱️ PERF: Create reconciledMap');
     // Create a map of saved reconciliation data for quick lookup
     const reconciledMap = new Map<string, any>();
     if (data.reconciliationRecords && Array.isArray(data.reconciliationRecords)) {
@@ -195,7 +197,9 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         reconciledMap.set(rec.id, rec);
       });
     }
+    console.timeEnd('⏱️ PERF: Create reconciledMap');
 
+    console.time('⏱️ PERF: Process attendance records');
     data.attendance.forEach(att => {
       const recordId = `${att.employeeNumber}-${att.date}`;
       const savedReconciliation = reconciledMap.get(recordId);
@@ -262,14 +266,18 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         audit.push(record);
       }
     });
+    console.timeEnd('⏱️ PERF: Process attendance records');
 
+    console.time('⏱️ PERF: Set state records');
     setAbsentRecords(absent);
     setPresentRecords(present);
     setWorkedOffRecords(workedOff);
     setOffDaysRecords(offDays);
     setErrorRecords(errors);
     setAuditRecords(audit);
+    console.timeEnd('⏱️ PERF: Set state records');
 
+    console.time('⏱️ PERF: Calculate module statuses');
     setModuleStatuses({
       absent: { name: 'Absent', total: absent.length, reconciled: absent.filter(r => r.isReconciled).length, isComplete: absent.length > 0 && absent.every(r => r.isReconciled) },
       present: { name: 'Present', total: present.length, reconciled: present.filter(r => r.isReconciled).length, isComplete: present.length > 0 && present.every(r => r.isReconciled) },
@@ -278,6 +286,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       errors: { name: 'Errors', total: errors.length, reconciled: errors.filter(r => r.isReconciled).length, isComplete: errors.length > 0 && errors.every(r => r.isReconciled) },
       audit: { name: 'Audit Queue', total: audit.length, reconciled: audit.filter(r => r.isReconciled).length, isComplete: audit.length > 0 && audit.every(r => r.isReconciled) }
     });
+    console.timeEnd('⏱️ PERF: Calculate module statuses');
+    console.timeEnd('⏱️ PERF: Initialize records from attendance');
   }, [data.attendance, data.reconciliationRecords]);
 
   const getCurrentRecords = () => {
@@ -294,8 +304,10 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
   // Get filter options from current records
   const matrixOptions = useMemo(() => {
+    console.time('⏱️ PERF: matrixOptions calculation');
     const currentRecords = getCurrentRecords();
-    return {
+    console.log(`📊 PERF: matrixOptions - processing ${currentRecords.length} records`);
+    const result = {
       shift: ['All', ...new Set(currentRecords.map(r => r.shift))].filter(Boolean),
       department: ['All', ...new Set(currentRecords.map(r => r.department))].filter(Boolean),
       costCenter: ['All', ...new Set(currentRecords.map(r => r.costCenter))].filter(Boolean),
@@ -304,6 +316,8 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       reportingManager: ['All', ...new Set(currentRecords.map(r => r.reportingManager))].filter(Boolean),
       status: ['All', ...new Set(currentRecords.map(r => r.finalStatus))].filter(Boolean)
     };
+    console.timeEnd('⏱️ PERF: matrixOptions calculation');
+    return result;
   }, [activeTab, absentRecords, presentRecords, workedOffRecords, offDaysRecords, errorRecords, auditRecords]);
 
   // Excel upload for all modules
@@ -1301,6 +1315,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   // Helper function to get occurrence count for late/early violations
   // PERFORMANCE: Pre-compute occurrence counts once instead of on every render
   const occurrenceCountMap = useMemo(() => {
+    console.time('⏱️ PERF: occurrenceCountMap calculation');
     const map = new Map<string, number>();
 
     // Group late/early violations by employee and month
@@ -1336,6 +1351,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       });
     });
 
+    console.timeEnd('⏱️ PERF: occurrenceCountMap calculation');
     return map;
   }, [auditRecords]);
 
@@ -1344,7 +1360,9 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   };
 
   const filteredRecords = useMemo(() => {
+    console.time('⏱️ PERF: filteredRecords calculation');
     const records = getCurrentRecords();
+    console.log(`📊 PERF: getCurrentRecords returned ${records.length} records for tab: ${activeTab}`);
     let filtered = records.filter(r => {
       const matchSearch = r.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           r.employeeNumber.toLowerCase().includes(searchTerm.toLowerCase());
@@ -1390,20 +1408,27 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       });
     }
 
+    console.log(`📊 PERF: After filtering/sorting: ${filtered.length} records`);
+    console.timeEnd('⏱️ PERF: filteredRecords calculation');
     return filtered;
   }, [activeTab, auditSubTab, searchTerm, matrixFilters, sortConfig, absentRecords, presentRecords, workedOffRecords, offDaysRecords, errorRecords, auditRecords]);
 
   // PERFORMANCE: Paginated records to render (only 100 rows at a time)
   const paginatedRecords = useMemo(() => {
+    console.time('⏱️ PERF: paginatedRecords calculation');
     const startIndex = (currentPage - 1) * rowsPerPage;
     const endIndex = startIndex + rowsPerPage;
-    return filteredRecords.slice(startIndex, endIndex);
+    const result = filteredRecords.slice(startIndex, endIndex);
+    console.log(`📊 PERF: Pagination: page ${currentPage}, showing ${result.length} of ${filteredRecords.length} total records`);
+    console.timeEnd('⏱️ PERF: paginatedRecords calculation');
+    return result;
   }, [filteredRecords, currentPage, rowsPerPage]);
 
   const totalPages = Math.ceil(filteredRecords.length / rowsPerPage);
 
   // Reset to page 1 when tab changes
   useEffect(() => {
+    console.log(`🔄 PERF: Tab changed to ${activeTab}${auditSubTab ? '/' + auditSubTab : ''} - resetting to page 1`);
     setCurrentPage(1);
   }, [activeTab, auditSubTab]);
 
@@ -1693,7 +1718,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                 ? 'bg-white border-teal-300 shadow-lg'
                 : 'bg-white border-slate-100 hover:border-slate-200'
             }`}
-            onClick={() => setActiveTab(key as any)}
+            onClick={() => {
+              console.log(`🖱️ PERF: Card click - switching to tab: ${key}`);
+              console.time(`⏱️ PERF: Tab switch to ${key}`);
+              setActiveTab(key as any);
+              setTimeout(() => console.timeEnd(`⏱️ PERF: Tab switch to ${key}`), 0);
+            }}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-black text-slate-600 uppercase tracking-widest">{status.name}</p>
@@ -1717,7 +1747,12 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => {
+                  console.log(`🖱️ PERF: Tab button click - switching to tab: ${tab.id}`);
+                  console.time(`⏱️ PERF: Tab switch to ${tab.id}`);
+                  setActiveTab(tab.id as any);
+                  setTimeout(() => console.timeEnd(`⏱️ PERF: Tab switch to ${tab.id}`), 0);
+                }}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
                   isActive
                     ? `bg-${tab.color}-600 text-white shadow-lg`
