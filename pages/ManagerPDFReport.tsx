@@ -1700,20 +1700,37 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         let data: any[][] = [];
 
+        // Map violation type to short code for better readability and space efficiency
+        const violationShortCode: Record<string, string> = {
+          'Present': 'P',
+          'Absent': 'A',
+          'OffDay': 'OD',
+          'WorkedOff': 'WO',
+          'Errors': 'ERR',
+          'LateEarly': 'LE',
+          'Less4hrs': 'L4',
+          '4-7hrs': '47',
+          'ShiftDev': 'SD',
+          'MissPunch': 'MP',
+          'Others': 'OTH'
+        };
+
+        const shortCode = violationShortCode[sheetName] || sheetName;
+
         // Create unique sheet name - IMPORTANT: Add unit index BEFORE truncation
         // This prevents duplicate names when units have similar long names
         let finalSheetName: string;
 
         if (managerReports.length > 1) {
           // Multiple units: Add index first, then truncate
-          // Format: "UnitLabel-ViolationType-UnitNum" truncated to 31 chars
+          // Format: "UnitLabel-Code-UnitNum" (max 31 chars)
           const unitSuffix = `-${unitIndex + 1}`;
-          const maxLabelLength = 31 - sheetName.length - unitSuffix.length - 1; // -1 for hyphen before sheetName
+          const maxLabelLength = 31 - shortCode.length - unitSuffix.length - 1; // -1 for hyphen before code
           const truncatedLabel = safeUnitLabel.substring(0, maxLabelLength);
-          finalSheetName = `${truncatedLabel}-${sheetName}${unitSuffix}`;
+          finalSheetName = `${truncatedLabel}-${shortCode}${unitSuffix}`;
         } else {
           // Single unit: Just combine and truncate
-          finalSheetName = `${safeUnitLabel}-${sheetName}`.substring(0, 31);
+          finalSheetName = `${safeUnitLabel}-${shortCode}`.substring(0, 31);
         }
 
         // Additional safety: Ensure uniqueness with counter if still duplicate
