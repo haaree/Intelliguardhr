@@ -399,13 +399,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     const hours = convertToDecimalHours(totalHours);
 
     if (hours === 0) return 'No Hours Data';
-    if (hours === 8.0) return 'Exactly 8 hrs';
-    if (hours === 8.5) return 'Exactly 8.30 hrs';
+
+    // Use small epsilon for floating point comparison
+    if (Math.abs(hours - 8.0) < 0.01) return 'Exactly 8 hrs';
+    if (Math.abs(hours - 8.5) < 0.01) return 'Exactly 8.30 hrs';
+    if (Math.abs(hours - 12.0) < 0.01) return 'Exactly 12 hrs';
+
+    // Range checks (excluding exact matches above)
     if (hours > 0 && hours < 9) return 'Up to 9 hrs';
     if (hours >= 9 && hours < 10) return '9 hrs to 10 hrs';
     if (hours >= 10 && hours < 11) return '10 hrs to 11 hrs';
     if (hours >= 11 && hours < 12) return '11 hrs to 12 hrs';
-    if (hours === 12.0) return 'Exactly 12 hrs';
     if (hours > 12 && hours < 13) return '12 hrs to 13 hrs';
     if (hours >= 13 && hours < 14) return '13 hrs to 14 hrs';
     if (hours >= 14 && hours < 15) return '14 hrs to 15 hrs';
@@ -441,13 +445,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Check which categories actually have data
       const availableCategories = new Set<string>();
+      let totalPresentRecords = 0;
       detailedManagerReportData.forEach(report => {
         const records = report.details.present as EnrichedRecord[];
+        totalPresentRecords += records.length;
         records.forEach(record => {
           const category = categorizeHours(record.totalHours || '00:00');
           availableCategories.add(category);
         });
       });
+
+      console.log(`Present Sub-Filter: Found ${totalPresentRecords} present records across ${availableCategories.size} categories`);
+      console.log('Available categories:', Array.from(availableCategories));
 
       // Return only categories that have data, in the defined order
       return hoursCategories.filter(cat => availableCategories.has(cat));
