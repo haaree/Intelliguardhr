@@ -538,6 +538,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       otherViolations: 0
     };
 
+    // Only calculate counts if we have data and dates are selected
+    if (!detailedManagerReportData.length || !fromDate || !toDate) {
+      return counts;
+    }
+
     detailedManagerReportData.forEach(report => {
       counts.present += report.violations.present;
       counts.absent += report.violations.absent;
@@ -557,7 +562,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                  counts.shiftDeviation + counts.missingPunch + counts.otherViolations;
 
     return counts;
-  }, [detailedManagerReportData]);
+  }, [detailedManagerReportData, fromDate, toDate]);
 
   // Consolidated data for GUI display - aggregate by manager name only
   const managerReportData = useMemo((): ManagerData[] => {
@@ -697,7 +702,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
   // Calculate counts for each sub-status option
   const subStatusCounts = useMemo((): Record<string, number> => {
-    if (selectedViolationType === 'all' || !availableSubStatuses.length) {
+    if (selectedViolationType === 'all' || !availableSubStatuses.length || !fromDate || !toDate) {
       return {};
     }
 
@@ -723,7 +728,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     });
 
     return counts;
-  }, [detailedManagerReportData, selectedViolationType, availableSubStatuses]);
+  }, [detailedManagerReportData, selectedViolationType, availableSubStatuses, fromDate, toDate]);
 
   // Calculate total filtered records count
   const totalFilteredRecords = useMemo((): number => {
