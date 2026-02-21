@@ -1650,11 +1650,20 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         .map(word => word[0].toUpperCase())
         .join('');
 
-      return abbr || text;
+      const result = abbr || text;
+      console.log(`🔤 Abbreviate: "${text}" → "${result}"`);
+      return result;
     };
 
     // Now create sheets for each organizational unit
     managerReports.forEach((managerData, unitIndex) => {
+      console.log(`\n📦 Processing Unit ${unitIndex + 1}:`, {
+        legalEntity: managerData.legalEntity,
+        location: managerData.location,
+        department: managerData.department,
+        subDepartment: managerData.subDepartment
+      });
+
       // Build context label for sheet naming with abbreviations
       const contextParts: string[] = [];
 
@@ -1674,6 +1683,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Keep full unit label with abbreviations
       const unitLabel = contextParts.length > 0 ? contextParts.join('-') : `Unit${unitIndex + 1}`;
+      console.log(`📝 Unit Label: "${unitLabel}"`);
 
       // Unit summary - DISABLED to save space
       // const unitTotal = managerData.violations.present +
@@ -1714,7 +1724,12 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Helper function to add detail sheet for this unit
       const addDetailSheet = (sheetName: string, records: any[], isAudit: boolean = false) => {
-        if (records.length === 0) return;
+        console.log(`\n  🔍 addDetailSheet called with: sheetName="${sheetName}", records=${records.length}`);
+
+        if (records.length === 0) {
+          console.log(`  ⏭️  Skipping - no records`);
+          return;
+        }
 
         let data: any[][] = [];
 
@@ -1734,37 +1749,45 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         };
 
         const violationName = violationNameMap[sheetName] || sheetName;
+        console.log(`  📋 Violation type: "${sheetName}" → "${violationName}"`);
 
         // Format date as DDMmmYY (e.g., 01Feb26)
         let dateStr = '';
         try {
           const dateParts = fromDate.split('-');
+          console.log(`  📅 Date parts:`, dateParts);
           const day = dateParts[2] || dateParts[0];
           const year = (dateParts[0] || dateParts[2]).slice(-2); // Last 2 digits of year
           const monthNum = parseInt(dateParts[1]) - 1;
           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
           dateStr = `${day}${months[monthNum]}${year}`;
+          console.log(`  📅 Date formatted: "${dateStr}"`);
         } catch (error) {
-          console.error('Date parsing error:', error);
+          console.error('  ❌ Date parsing error:', error);
           dateStr = 'NoDate';
         }
 
         // Build full descriptive name: EntityName-Date-ViolationType
         // NO 31 char limit - Excel.js library handles longer names automatically
         let baseSheetName = `${unitLabel}-${dateStr}-${violationName}`;
+        console.log(`  🏷️  Base sheet name: "${baseSheetName}" (${baseSheetName.length} chars)`);
 
         // Check if this exact name already exists, if so add a number
         let finalSheetName = baseSheetName;
         let counter = 1;
 
+        console.log(`  🔎 Checking for duplicates in usedSheetNames:`, Array.from(usedSheetNames));
+
         while (usedSheetNames.has(finalSheetName)) {
           counter++;
           finalSheetName = `${baseSheetName}-${counter}`;
+          console.log(`  ⚠️  Duplicate found! Trying: "${finalSheetName}"`);
         }
 
         usedSheetNames.add(finalSheetName);
 
-        console.log(`📊 Creating sheet: "${finalSheetName}" with ${records.length} records`);
+        console.log(`  ✅ Final sheet name: "${finalSheetName}" (${finalSheetName.length} chars)`);
+        console.log(`  📊 Creating sheet with ${records.length} records`);
 
         // Add context as first rows in the sheet with Department and Sub Department
         const headerRows: any[][] = [
