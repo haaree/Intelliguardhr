@@ -812,11 +812,14 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
 
   // Helper function to reload records fresh from attendance data
   const reloadRecordsFromAttendance = (records: ReconciliationRecord[]) => {
+    // PERFORMANCE: Create attendance lookup map for O(1) access instead of O(n) find
+    const attendanceMap = new Map(
+      data.attendance.map(att => [`${att.employeeNumber}-${att.date}`, att])
+    );
+
     return records.map(rec => {
-      // Find the corresponding attendance record
-      const attRecord = data.attendance.find(
-        att => `${att.employeeNumber}-${att.date}` === rec.id
-      );
+      // Find the corresponding attendance record - O(1) lookup
+      const attRecord = attendanceMap.get(rec.id);
 
       if (!attRecord) {
         // If attendance record not found, just reset to blank state
@@ -1486,13 +1489,14 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData: any[] = XLSX.utils.sheet_to_json(firstSheet);
 
+        // PERFORMANCE: Create upload data lookup map for O(1) access
+        const uploadedDataMap = new Map(
+          jsonData.map((ur: any) => [`${ur['Employee Number']}_${ur['Date']}`, ur])
+        );
+
         // Update records based on uploaded data
         const updatedRecords = auditRecords.map(record => {
-          const uploadedRecord = jsonData.find(
-            (ur: any) =>
-              ur['Employee Number'] === record.employeeNumber &&
-              ur['Date'] === record.date
-          );
+          const uploadedRecord = uploadedDataMap.get(`${record.employeeNumber}_${record.date}`);
 
           if (uploadedRecord) {
             return {
