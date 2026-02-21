@@ -1567,8 +1567,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   };
 
   const generateConsolidatedExcel = (managerReports: ManagerData[]) => {
+    console.log('📊 Starting Excel Generation:', {
+      managerName: managerReports[0].managerName,
+      numberOfUnits: managerReports.length,
+      selectedViolationType
+    });
+
     const wb = XLSX.utils.book_new();
     const managerName = managerReports[0].managerName;
+
+    // Track used sheet names to prevent duplicates
+    const usedSheetNames = new Set<string>();
 
     // Overall Summary Sheet (aggregated across all entities/locations/depts) - DISABLED to save space
     // const aggregated = {
@@ -1694,9 +1703,21 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         // Create sheet name with unit prefix and index to ensure uniqueness
         // Format: UnitLabel-ViolationType-Index (max 31 chars)
         const baseSheetName = `${safeUnitLabel}-${sheetName}`;
-        const finalSheetName = managerReports.length > 1
+        let finalSheetName = managerReports.length > 1
           ? `${baseSheetName}-${unitIndex + 1}`.substring(0, 31)
           : baseSheetName.substring(0, 31);
+
+        // Ensure uniqueness - add counter if duplicate exists
+        let counter = 1;
+        let uniqueSheetName = finalSheetName;
+        while (usedSheetNames.has(uniqueSheetName)) {
+          counter++;
+          uniqueSheetName = `${finalSheetName.substring(0, 28)}-${counter}`;
+        }
+        finalSheetName = uniqueSheetName;
+        usedSheetNames.add(finalSheetName);
+
+        console.log(`📊 Creating sheet: "${finalSheetName}" with ${records.length} records`);
 
         // Add context as first rows in the sheet with Department and Sub Department
         const headerRows: any[][] = [
@@ -1806,7 +1827,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             ];
         ws['!cols'] = colWidths;
 
-        XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
+        try {
+          XLSX.utils.book_append_sheet(wb, ws, finalSheetName);
+          console.log(`✅ Successfully added sheet: "${finalSheetName}"`);
+        } catch (error) {
+          console.error(`❌ Failed to add sheet "${finalSheetName}":`, error);
+          alert(`Error creating Excel sheet "${finalSheetName}". Please check console for details.`);
+          throw error;
+        }
       };
 
       // Add all detail sheets for this organizational unit
@@ -1848,7 +1876,18 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     // Save Excel file
     const fileName = `Manager_Report_${managerName.replace(/\s+/g, '_')}_${fromDate}_to_${toDate}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+
+    console.log('📊 Attempting to save Excel file:', fileName);
+    console.log('📊 Total sheets created:', Object.keys(wb.Sheets).length);
+    console.log('📊 Sheet names:', Object.keys(wb.Sheets));
+
+    try {
+      XLSX.writeFile(wb, fileName);
+      console.log('✅ Excel file saved successfully!');
+    } catch (error) {
+      console.error('❌ Failed to save Excel file:', error);
+      alert('Failed to generate Excel file. Please check console for details.');
+    }
   };
 
   // Generate individual Excel (consolidated for all org units of a manager)
