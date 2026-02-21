@@ -459,8 +459,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return [];
     }
 
-    // For "Present" violation type, use hours-based categories
-    if (selectedViolationType === 'present') {
+    // For "Present" and "Worked Off" violation types, use hours-based categories
+    if (selectedViolationType === 'present' || selectedViolationType === 'workedOff') {
       const hoursCategories = [
         'Exactly 8 hrs',
         'Exactly 8.30 hrs',
@@ -479,24 +479,25 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       // Check which categories actually have data
       const availableCategories = new Set<string>();
-      let totalPresentRecords = 0;
+      let totalRecords = 0;
       detailedManagerReportData.forEach(report => {
-        const records = report.details.present as EnrichedRecord[];
-        totalPresentRecords += records.length;
+        const detailsKey = selectedViolationType as keyof typeof report.details;
+        const records = report.details[detailsKey] as EnrichedRecord[];
+        totalRecords += records.length;
         records.forEach(record => {
           const category = categorizeHours(record.totalHours || '00:00');
           availableCategories.add(category);
         });
       });
 
-      console.log(`Present Sub-Filter: Found ${totalPresentRecords} present records across ${availableCategories.size} categories`);
+      console.log(`${selectedViolationType} Sub-Filter: Found ${totalRecords} records across ${availableCategories.size} categories`);
       console.log('Available categories:', Array.from(availableCategories));
 
       // Return only categories that have data, in the defined order
       return hoursCategories.filter(cat => availableCategories.has(cat));
     }
 
-    // For other violation types, use Excel status-based categories
+    // For other violation types (Absent, Late/Early, Worked <4hrs, Worked 4-7hrs, Shift Deviation, Missing Punch, Other Violations), use Excel status-based categories
     const statusSet = new Set<string>();
 
     detailedManagerReportData.forEach(report => {
@@ -636,15 +637,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         return records;
       }
 
-      // For "Present" violation type, filter by hours category
-      if (selectedViolationType === 'present') {
+      // For "Present" and "Worked Off" violation types, filter by hours category
+      if (selectedViolationType === 'present' || selectedViolationType === 'workedOff') {
         return records.filter(record => {
           const hoursCategory = categorizeHours(record.totalHours || '00:00');
           return selectedSubStatuses.includes(hoursCategory);
         });
       }
 
-      // For other violation types, filter by Excel status
+      // For other violation types (Absent, Late/Early, etc.), filter by Excel status
       return records.filter(record => {
         const excelStatus = record.excelStatus?.trim() || 'Not Regularized';
         return selectedSubStatuses.includes(excelStatus);
@@ -709,11 +710,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       records.forEach(record => {
         let key: string;
 
-        if (selectedViolationType === 'present') {
-          // For Present, use hours categorization
+        if (selectedViolationType === 'present' || selectedViolationType === 'workedOff') {
+          // For Present and Worked Off, use hours categorization
           key = categorizeHours(record.totalHours || '00:00');
         } else {
-          // For other types, use Excel status
+          // For other types (Absent, Late/Early, etc.), use Excel status
           key = record.excelStatus?.trim() || 'Not Regularized';
         }
 
@@ -744,15 +745,15 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         return records;
       }
 
-      // For "Present" violation type, filter by hours category
-      if (selectedViolationType === 'present') {
+      // For "Present" and "Worked Off" violation types, filter by hours category
+      if (selectedViolationType === 'present' || selectedViolationType === 'workedOff') {
         return records.filter(record => {
           const hoursCategory = categorizeHours(record.totalHours || '00:00');
           return selectedSubStatuses.includes(hoursCategory);
         });
       }
 
-      // For other violation types, filter by Excel status
+      // For other violation types (Absent, Late/Early, etc.), filter by Excel status
       return records.filter(record => {
         const excelStatus = record.excelStatus?.trim() || 'Not Regularized';
         return selectedSubStatuses.includes(excelStatus);
@@ -2808,7 +2809,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             <div className="mt-4 border-t border-slate-200 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
-                  {selectedViolationType === 'present' ? 'Work Hours Filter (Multi-Select)' : 'Excel Status Filter (Multi-Select)'}
+                  {(selectedViolationType === 'present' || selectedViolationType === 'workedOff') ? 'Work Hours Filter (Multi-Select)' : 'Excel Status Filter (Multi-Select)'}
                 </label>
                 {selectedSubStatuses.length > 0 && (
                   <button
