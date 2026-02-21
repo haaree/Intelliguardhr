@@ -728,6 +728,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
   // Generate consolidated PDF for ALL reporting incharges (landscape, grouped by Legal Entity > Location)
   const generateAllInchargesConsolidatedPDF = () => {
+    console.log('PDF Generation Started');
+    console.log('Filtered Data Length:', filteredDetailedManagerReportData.length);
+    console.log('Selected Violation Type:', selectedViolationType);
+    console.log('Selected Sub-Statuses:', selectedSubStatuses);
+
     if (filteredDetailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
       return;
@@ -807,8 +812,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       locationData.otherViolations.push(...report.details.otherViolations);
     });
 
+    // Debug: Log grouped data
+    console.log('PDF Grouped Data - Total Entities:', groupedData.size);
+    groupedData.forEach((locationMap, legalEntity) => {
+      locationMap.forEach((locationData, location) => {
+        console.log(`${legalEntity} - ${location}: Present=${locationData.present.length}, Absent=${locationData.absent.length}`);
+      });
+    });
+
     // Helper function to add a category section
     const addCategorySection = (title: string, records: EnrichedRecord[]) => {
+      console.log(`Adding section: ${title} with ${records.length} records`);
       if (records.length === 0) return;
 
       // Check if we need a new page
