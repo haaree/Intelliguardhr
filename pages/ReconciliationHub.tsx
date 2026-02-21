@@ -200,57 +200,76 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     console.timeEnd('⏱️ PERF: Create reconciledMap');
 
     console.time('⏱️ PERF: Process attendance records');
-    data.attendance.forEach(att => {
+    console.log(`📊 PERF: Processing ${data.attendance.length} attendance records`);
+
+    // PERFORMANCE: Clear arrays efficiently
+    absent.length = 0;
+    present.length = 0;
+    workedOff.length = 0;
+    offDays.length = 0;
+    errors.length = 0;
+    audit.length = 0;
+
+    const logInterval = 5000; // Log every 5000 records
+
+    data.attendance.forEach((att: any, index: number) => {
+      if (index > 0 && index % logInterval === 0) {
+        console.log(`📊 PERF: Processed ${index} / ${data.attendance.length} records (${Math.round(index/data.attendance.length*100)}%)`);
+      }
       const recordId = `${att.employeeNumber}-${att.date}`;
       const savedReconciliation = reconciledMap.get(recordId);
 
-      // If reconciliation data exists, restore it; otherwise create new record
-      const record: ReconciliationRecord = savedReconciliation ? {
-        ...savedReconciliation,
-        // Update dynamic fields from current attendance data
-        employeeName: att.employeeName,
-        department: att.department || 'N/A',
-        subDepartment: att.subDepartment || 'N/A',
-        location: att.location || 'N/A',
-        costCenter: att.costCenter || 'N/A',
-        legalEntity: att.legalEntity || 'N/A',
-        reportingManager: att.reportingManager || 'N/A',
-        shift: att.shift || 'N/A',
-        shiftStart: att.shiftStart || '00:00',
-        shiftEnd: att.shiftEnd || '00:00',
-        inTime: att.inTime || '00:00',
-        outTime: att.outTime || '00:00',
-        totalHours: att.totalHours || '00:00',
-        deviation: att.deviation,
-        lateBy: att.lateBy,
-        earlyBy: att.earlyBy,
-        // Preserve excelStatus from saved data (undefined if cleared)
-        excelStatus: savedReconciliation.excelStatus
-      } : {
-        id: recordId,
-        employeeNumber: att.employeeNumber,
-        employeeName: att.employeeName,
-        department: att.department || 'N/A',
-        subDepartment: att.subDepartment || 'N/A',
-        location: att.location || 'N/A',
-        costCenter: att.costCenter || 'N/A',
-        legalEntity: att.legalEntity || 'N/A',
-        reportingManager: att.reportingManager || 'N/A',
-        date: att.date,
-        shift: att.shift || 'N/A',
-        shiftStart: att.shiftStart || '00:00',
-        shiftEnd: att.shiftEnd || '00:00',
-        inTime: att.inTime || '00:00',
-        outTime: att.outTime || '00:00',
-        totalHours: att.totalHours || '00:00',
-        originalStatus: att.status === 'Absent' ? 'A' : att.status,  // Normalize "Absent" to "A"
-        finalStatus: att.status === 'Absent' ? 'A' : att.status,  // Normalize "Absent" to "A"
-        comments: '',
-        isReconciled: false,
-        deviation: att.deviation,
-        lateBy: att.lateBy,
-        earlyBy: att.earlyBy
-      };
+      // PERFORMANCE: Create record object more efficiently
+      let record: ReconciliationRecord;
+
+      if (savedReconciliation) {
+        // If reconciliation exists, update only dynamic fields
+        record = savedReconciliation;
+        record.employeeName = att.employeeName;
+        record.department = att.department || 'N/A';
+        record.subDepartment = att.subDepartment || 'N/A';
+        record.location = att.location || 'N/A';
+        record.costCenter = att.costCenter || 'N/A';
+        record.legalEntity = att.legalEntity || 'N/A';
+        record.reportingManager = att.reportingManager || 'N/A';
+        record.shift = att.shift || 'N/A';
+        record.shiftStart = att.shiftStart || '00:00';
+        record.shiftEnd = att.shiftEnd || '00:00';
+        record.inTime = att.inTime || '00:00';
+        record.outTime = att.outTime || '00:00';
+        record.totalHours = att.totalHours || '00:00';
+        record.deviation = att.deviation;
+        record.lateBy = att.lateBy;
+        record.earlyBy = att.earlyBy;
+      } else {
+        // Create new record
+        const normalizedStatus = att.status === 'Absent' ? 'A' : att.status;
+        record = {
+          id: recordId,
+          employeeNumber: att.employeeNumber,
+          employeeName: att.employeeName,
+          department: att.department || 'N/A',
+          subDepartment: att.subDepartment || 'N/A',
+          location: att.location || 'N/A',
+          costCenter: att.costCenter || 'N/A',
+          legalEntity: att.legalEntity || 'N/A',
+          reportingManager: att.reportingManager || 'N/A',
+          date: att.date,
+          shift: att.shift || 'N/A',
+          shiftStart: att.shiftStart || '00:00',
+          shiftEnd: att.shiftEnd || '00:00',
+          inTime: att.inTime || '00:00',
+          outTime: att.outTime || '00:00',
+          totalHours: att.totalHours || '00:00',
+          originalStatus: normalizedStatus,
+          finalStatus: normalizedStatus,
+          comments: '',
+          isReconciled: false,
+          deviation: att.deviation,
+          lateBy: att.lateBy,
+          earlyBy: att.earlyBy
+        };
+      }
 
       if (att.status === 'Absent' || att.status === 'A') {
         absent.push(record);
@@ -278,13 +297,32 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     console.timeEnd('⏱️ PERF: Set state records');
 
     console.time('⏱️ PERF: Calculate module statuses');
+    // PERFORMANCE: Calculate reconciled counts in a single pass instead of 6 separate .filter() calls
+    const calculateStatus = (records: ReconciliationRecord[], name: string) => {
+      let reconciledCount = 0;
+      let allReconciled = records.length > 0;
+      for (const r of records) {
+        if (r.isReconciled) {
+          reconciledCount++;
+        } else {
+          allReconciled = false;
+        }
+      }
+      return {
+        name,
+        total: records.length,
+        reconciled: reconciledCount,
+        isComplete: allReconciled
+      };
+    };
+
     setModuleStatuses({
-      absent: { name: 'Absent', total: absent.length, reconciled: absent.filter(r => r.isReconciled).length, isComplete: absent.length > 0 && absent.every(r => r.isReconciled) },
-      present: { name: 'Present', total: present.length, reconciled: present.filter(r => r.isReconciled).length, isComplete: present.length > 0 && present.every(r => r.isReconciled) },
-      workedoff: { name: 'Worked Off', total: workedOff.length, reconciled: workedOff.filter(r => r.isReconciled).length, isComplete: workedOff.length > 0 && workedOff.every(r => r.isReconciled) },
-      offdays: { name: 'Off Days', total: offDays.length, reconciled: offDays.filter(r => r.isReconciled).length, isComplete: offDays.length > 0 && offDays.every(r => r.isReconciled) },
-      errors: { name: 'Errors', total: errors.length, reconciled: errors.filter(r => r.isReconciled).length, isComplete: errors.length > 0 && errors.every(r => r.isReconciled) },
-      audit: { name: 'Audit Queue', total: audit.length, reconciled: audit.filter(r => r.isReconciled).length, isComplete: audit.length > 0 && audit.every(r => r.isReconciled) }
+      absent: calculateStatus(absent, 'Absent'),
+      present: calculateStatus(present, 'Present'),
+      workedoff: calculateStatus(workedOff, 'Worked Off'),
+      offdays: calculateStatus(offDays, 'Off Days'),
+      errors: calculateStatus(errors, 'Errors'),
+      audit: calculateStatus(audit, 'Audit Queue')
     });
     console.timeEnd('⏱️ PERF: Calculate module statuses');
     console.timeEnd('⏱️ PERF: Initialize records from attendance');
