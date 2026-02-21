@@ -1654,8 +1654,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         contextParts.push(managerData.subDepartment);
       }
 
+      // Keep full unit label (don't truncate yet - will be done in addDetailSheet)
       const unitLabel = contextParts.length > 0 ? contextParts.join('-') : `Unit${unitIndex + 1}`;
-      const safeUnitLabel = unitLabel.substring(0, 25); // Excel sheet name limit
 
       // Unit summary - DISABLED to save space
       // const unitTotal = managerData.violations.present +
@@ -1700,58 +1700,22 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         let data: any[][] = [];
 
-        // Map violation type to full descriptive names
-        const violationFullName: Record<string, string> = {
-          'Present': 'Present',
-          'Absent': 'Absent',
-          'OffDay': 'Off Day',
-          'WorkedOff': 'Worked Off',
-          'Errors': 'Errors',
-          'LateEarly': 'Late Early',
-          'Less4hrs': 'Less 4hrs',
-          '4-7hrs': '4-7hrs',
-          'ShiftDev': 'Shift Dev',
-          'MissPunch': 'Missing Punch',
-          'Others': 'Others'
-        };
+        // Use full organizational unit name, truncate to 31 chars, add number if duplicate
+        // Format: "LegalEntity-Location-Dept" or "LegalEntity-Location-Dept-2" if duplicate
+        let baseSheetName = unitLabel.substring(0, 31);
 
-        const violationName = violationFullName[sheetName] || sheetName;
-
-        // Create sheet name format: "DailyReport-ViolationType-Date-UnitNum"
-        // Example: "DailyReport-Present-01Feb-1"
-        let dateStr = 'NoDate';
-        try {
-          const dateParts = fromDate.split('-');
-          const day = dateParts[2] || dateParts[0]; // Handle both DD-MM-YYYY and YYYY-MM-DD
-          const monthNum = parseInt(dateParts[1]) - 1;
-          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-          dateStr = `${day}${months[monthNum]}`;
-        } catch (error) {
-          console.error('Date parsing error:', error);
-        }
-
-        let finalSheetName: string;
-
-        if (managerReports.length > 1) {
-          // Multiple units: Add unit number
-          // Format: "DailyReport-ViolationType-Date-UnitNum" (max 31 chars)
-          const baseName = `DailyReport-${violationName}-${dateStr}`;
-          const unitSuffix = `-${unitIndex + 1}`;
-          finalSheetName = `${baseName}${unitSuffix}`.substring(0, 31);
-        } else {
-          // Single unit: No unit number needed
-          finalSheetName = `DailyReport-${violationName}-${dateStr}`.substring(0, 31);
-        }
-
-        // Additional safety: Ensure uniqueness with counter if still duplicate
+        // Check if this name already exists, if so add a number
+        let finalSheetName = baseSheetName;
         let counter = 1;
-        let uniqueSheetName = finalSheetName;
-        while (usedSheetNames.has(uniqueSheetName)) {
+
+        while (usedSheetNames.has(finalSheetName)) {
           counter++;
-          // Make room for counter by truncating further
-          uniqueSheetName = `${finalSheetName.substring(0, 28)}-${counter}`;
+          // Add number suffix, truncate base name if needed to fit
+          const suffix = `-${counter}`;
+          const maxBaseLength = 31 - suffix.length;
+          finalSheetName = `${unitLabel.substring(0, maxBaseLength)}${suffix}`;
         }
-        finalSheetName = uniqueSheetName;
+
         usedSheetNames.add(finalSheetName);
 
         console.log(`📊 Creating sheet: "${finalSheetName}" with ${records.length} records`);
