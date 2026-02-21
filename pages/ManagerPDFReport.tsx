@@ -1691,8 +1691,12 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         let data: any[][] = [];
 
-        // Create sheet name with unit prefix
-        const finalSheetName = `${safeUnitLabel}-${sheetName}`.substring(0, 31); // Excel sheet name limit
+        // Create sheet name with unit prefix and index to ensure uniqueness
+        // Format: UnitLabel-ViolationType-Index (max 31 chars)
+        const baseSheetName = `${safeUnitLabel}-${sheetName}`;
+        const finalSheetName = managerReports.length > 1
+          ? `${baseSheetName}-${unitIndex + 1}`.substring(0, 31)
+          : baseSheetName.substring(0, 31);
 
         // Add context as first rows in the sheet with Department and Sub Department
         const headerRows: any[][] = [
