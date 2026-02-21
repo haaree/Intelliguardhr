@@ -179,16 +179,41 @@ const LeaveManagementEnhanced: React.FC<LeaveManagementEnhancedProps> = ({
       const absentRecords = data.attendance.filter(r => r.status === 'Absent');
       const reconciliations: LeaveReconciliation[] = [];
 
+      // PERFORMANCE OPTIMIZATION: Create a Map of leave records grouped by employee for O(1) lookup
+      // This prevents O(n×m) nested loops - converts to O(n+m) linear time
+      const leavesByEmployee = new Map<string, typeof filteredLeaves>();
+      filteredLeaves.forEach(leave => {
+        const empLeaves = leavesByEmployee.get(leave.employeeNumber) || [];
+        empLeaves.push(leave);
+        leavesByEmployee.set(leave.employeeNumber, empLeaves);
+      });
+
       // Check each absent record against filtered leave records
       absentRecords.forEach(absent => {
-        const matchingLeave = filteredLeaves.find(leave => {
-          if (leave.employeeNumber !== absent.employeeNumber) return false;
+        const absentDate = parseFormattedDate(absent.date);
+        if (!absentDate) {
+          reconciliations.push({
+            employeeNumber: absent.employeeNumber,
+            employeeName: absent.employeeName,
+            date: absent.date,
+            absentInAttendance: true,
+            leaveRecord: undefined,
+            reconciliationStatus: 'Unmatched',
+            finalStatus: 'A',
+            remarks: 'No leave record found',
+            isPushedToMonthly: false
+          });
+          return;
+        }
 
-          const absentDate = parseFormattedDate(absent.date);
+        // Get only leaves for this specific employee - much faster than searching all leaves
+        const employeeLeaves = leavesByEmployee.get(absent.employeeNumber) || [];
+
+        const matchingLeave = employeeLeaves.find(leave => {
           const fromDate = parseFormattedDate(leave.fromDate);
           const toDate = parseFormattedDate(leave.toDate);
 
-          if (!absentDate || !fromDate || !toDate) return false;
+          if (!fromDate || !toDate) return false;
 
           return absentDate >= fromDate && absentDate <= toDate;
         });
