@@ -176,7 +176,7 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   };
 
   // Initialize records from attendance data
-  useMemo(() => {
+  useEffect(() => {
     const absent: ReconciliationRecord[] = [];
     const present: ReconciliationRecord[] = [];
     const workedOff: ReconciliationRecord[] = [];
