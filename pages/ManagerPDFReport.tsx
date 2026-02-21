@@ -1719,7 +1719,16 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         // Create sheet name format: "DailyReport-ViolationType-Date-UnitNum"
         // Example: "DailyReport-Present-01Feb-1"
-        const dateStr = `${fromDate.split('-')[0]}${new Date(fromDate).toLocaleString('en', { month: 'short' })}`;
+        let dateStr = 'NoDate';
+        try {
+          const dateParts = fromDate.split('-');
+          const day = dateParts[2] || dateParts[0]; // Handle both DD-MM-YYYY and YYYY-MM-DD
+          const monthNum = parseInt(dateParts[1]) - 1;
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          dateStr = `${day}${months[monthNum]}`;
+        } catch (error) {
+          console.error('Date parsing error:', error);
+        }
 
         let finalSheetName: string;
 
