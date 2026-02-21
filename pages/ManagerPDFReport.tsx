@@ -1700,37 +1700,38 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         let data: any[][] = [];
 
-        // Map violation type to short code for better readability and space efficiency
-        const violationShortCode: Record<string, string> = {
-          'Present': 'P',
-          'Absent': 'A',
-          'OffDay': 'OD',
-          'WorkedOff': 'WO',
-          'Errors': 'ERR',
-          'LateEarly': 'LE',
-          'Less4hrs': 'L4',
-          '4-7hrs': '47',
-          'ShiftDev': 'SD',
-          'MissPunch': 'MP',
-          'Others': 'OTH'
+        // Map violation type to full descriptive names
+        const violationFullName: Record<string, string> = {
+          'Present': 'Present',
+          'Absent': 'Absent',
+          'OffDay': 'Off Day',
+          'WorkedOff': 'Worked Off',
+          'Errors': 'Errors',
+          'LateEarly': 'Late Early',
+          'Less4hrs': 'Less 4hrs',
+          '4-7hrs': '4-7hrs',
+          'ShiftDev': 'Shift Dev',
+          'MissPunch': 'Missing Punch',
+          'Others': 'Others'
         };
 
-        const shortCode = violationShortCode[sheetName] || sheetName;
+        const violationName = violationFullName[sheetName] || sheetName;
 
-        // Create unique sheet name - IMPORTANT: Add unit index BEFORE truncation
-        // This prevents duplicate names when units have similar long names
+        // Create sheet name format: "DailyReport-ViolationType-Date-UnitNum"
+        // Example: "DailyReport-Present-01Feb-1"
+        const dateStr = `${fromDate.split('-')[0]}${new Date(fromDate).toLocaleString('en', { month: 'short' })}`;
+
         let finalSheetName: string;
 
         if (managerReports.length > 1) {
-          // Multiple units: Add index first, then truncate
-          // Format: "UnitLabel-Code-UnitNum" (max 31 chars)
+          // Multiple units: Add unit number
+          // Format: "DailyReport-ViolationType-Date-UnitNum" (max 31 chars)
+          const baseName = `DailyReport-${violationName}-${dateStr}`;
           const unitSuffix = `-${unitIndex + 1}`;
-          const maxLabelLength = 31 - shortCode.length - unitSuffix.length - 1; // -1 for hyphen before code
-          const truncatedLabel = safeUnitLabel.substring(0, maxLabelLength);
-          finalSheetName = `${truncatedLabel}-${shortCode}${unitSuffix}`;
+          finalSheetName = `${baseName}${unitSuffix}`.substring(0, 31);
         } else {
-          // Single unit: Just combine and truncate
-          finalSheetName = `${safeUnitLabel}-${shortCode}`.substring(0, 31);
+          // Single unit: No unit number needed
+          finalSheetName = `DailyReport-${violationName}-${dateStr}`.substring(0, 31);
         }
 
         // Additional safety: Ensure uniqueness with counter if still duplicate
