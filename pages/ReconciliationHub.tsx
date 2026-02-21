@@ -84,6 +84,10 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   const [showExceptionsOnly, setShowExceptionsOnly] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
+  // Pagination state - PERFORMANCE FIX: Limit rows rendered at once
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 100; // Show 100 rows per page
+
   // Sorting state
   const [sortConfig, setSortConfig] = useState<{ key: keyof ReconciliationRecord | null; direction: 'asc' | 'desc' | null }>({
     key: null,
@@ -1368,6 +1372,20 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
     return filtered;
   }, [activeTab, auditSubTab, searchTerm, matrixFilters, sortConfig, absentRecords, presentRecords, workedOffRecords, offDaysRecords, errorRecords, auditRecords]);
 
+  // PERFORMANCE: Paginated records to render (only 100 rows at a time)
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = startIndex + rowsPerPage;
+    return filteredRecords.slice(startIndex, endIndex);
+  }, [filteredRecords, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(filteredRecords.length / rowsPerPage);
+
+  // Reset to page 1 when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, auditSubTab]);
+
   // Excel Export with filters
   const handleExport = () => {
     if (!filteredRecords.length) return alert("No records to export.");
@@ -1808,8 +1826,31 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
       {/* Actions Bar */}
       <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-xl">
         <div className="flex flex-col md:flex-row gap-3 items-center justify-between">
-          <div className="text-sm font-black text-slate-600">
-            Showing {filteredRecords.length} of {getCurrentRecords().length} records
+          <div className="flex items-center gap-4">
+            <div className="text-sm font-black text-slate-600">
+              Showing {Math.min((currentPage - 1) * rowsPerPage + 1, filteredRecords.length)}-{Math.min(currentPage * rowsPerPage, filteredRecords.length)} of {filteredRecords.length} records
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ← Prev
+                </button>
+                <span className="text-xs font-black text-slate-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 text-xs font-bold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 flex-wrap">
@@ -1898,7 +1939,9 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
                   </td>
                 </tr>
               ) : (
-                filteredRecords.map((record, idx) => {
+                paginatedRecords.map((record, globalIdx) => {
+                  // Calculate actual index in filteredRecords for handlers
+                  const idx = (currentPage - 1) * rowsPerPage + globalIdx;
                   // Determine row color for late/early occurrences in audit sub-tab
                   let rowColorClass = '';
                   if (activeTab === 'audit' && auditSubTab === 'lateearly' && !record.isReconciled) {
