@@ -73,6 +73,38 @@ interface ManagerData {
   };
 }
 
+// Helper function to convert HH:MM to decimal hours (defined outside component)
+function convertToDecimalHours(timeStr: string): number {
+  if (!timeStr || timeStr === '00:00') return 0;
+  const [hoursStr, minutesStr] = timeStr.split(':');
+  return parseFloat(hoursStr || '0') + parseFloat(minutesStr || '0') / 60;
+}
+
+// Helper function to categorize hours worked (defined outside component)
+function categorizeHours(totalHours: string): string {
+  const hours = convertToDecimalHours(totalHours);
+
+  if (hours === 0) return 'No Hours Data';
+
+  // Use small epsilon for floating point comparison
+  if (Math.abs(hours - 8.0) < 0.01) return 'Exactly 8 hrs';
+  if (Math.abs(hours - 8.5) < 0.01) return 'Exactly 8.30 hrs';
+  if (Math.abs(hours - 12.0) < 0.01) return 'Exactly 12 hrs';
+
+  // Range checks (excluding exact matches above)
+  if (hours > 0 && hours < 9) return 'Up to 9 hrs';
+  if (hours >= 9 && hours < 10) return '9 hrs to 10 hrs';
+  if (hours >= 10 && hours < 11) return '10 hrs to 11 hrs';
+  if (hours >= 11 && hours < 12) return '11 hrs to 12 hrs';
+  if (hours > 12 && hours < 13) return '12 hrs to 13 hrs';
+  if (hours >= 13 && hours < 14) return '13 hrs to 14 hrs';
+  if (hours >= 14 && hours < 15) return '14 hrs to 15 hrs';
+  if (hours >= 15 && hours < 16) return '15 hrs to 16 hrs';
+  if (hours >= 16) return '16 hrs and above';
+
+  return 'No Hours Data';
+}
+
 const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -194,38 +226,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     }
 
     return 'otherViolations';
-  };
-
-  // Helper function to convert HH:MM to decimal hours
-  const convertToDecimalHours = (timeStr: string): number => {
-    if (!timeStr || timeStr === '00:00') return 0;
-    const [hoursStr, minutesStr] = timeStr.split(':');
-    return parseFloat(hoursStr || '0') + parseFloat(minutesStr || '0') / 60;
-  };
-
-  // Helper function to categorize hours worked
-  const categorizeHours = (totalHours: string): string => {
-    const hours = convertToDecimalHours(totalHours);
-
-    if (hours === 0) return 'No Hours Data';
-
-    // Use small epsilon for floating point comparison
-    if (Math.abs(hours - 8.0) < 0.01) return 'Exactly 8 hrs';
-    if (Math.abs(hours - 8.5) < 0.01) return 'Exactly 8.30 hrs';
-    if (Math.abs(hours - 12.0) < 0.01) return 'Exactly 12 hrs';
-
-    // Range checks (excluding exact matches above)
-    if (hours > 0 && hours < 9) return 'Up to 9 hrs';
-    if (hours >= 9 && hours < 10) return '9 hrs to 10 hrs';
-    if (hours >= 10 && hours < 11) return '10 hrs to 11 hrs';
-    if (hours >= 11 && hours < 12) return '11 hrs to 12 hrs';
-    if (hours > 12 && hours < 13) return '12 hrs to 13 hrs';
-    if (hours >= 13 && hours < 14) return '13 hrs to 14 hrs';
-    if (hours >= 14 && hours < 15) return '14 hrs to 15 hrs';
-    if (hours >= 15 && hours < 16) return '15 hrs to 16 hrs';
-    if (hours >= 16) return '16 hrs and above';
-
-    return 'No Hours Data';
   };
 
   // Process data for selected manager and date range
