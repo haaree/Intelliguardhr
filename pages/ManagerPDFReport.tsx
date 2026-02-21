@@ -1700,18 +1700,28 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         let data: any[][] = [];
 
-        // Create sheet name with unit prefix and index to ensure uniqueness
-        // Format: UnitLabel-ViolationType-Index (max 31 chars)
-        const baseSheetName = `${safeUnitLabel}-${sheetName}`;
-        let finalSheetName = managerReports.length > 1
-          ? `${baseSheetName}-${unitIndex + 1}`.substring(0, 31)
-          : baseSheetName.substring(0, 31);
+        // Create unique sheet name - IMPORTANT: Add unit index BEFORE truncation
+        // This prevents duplicate names when units have similar long names
+        let finalSheetName: string;
 
-        // Ensure uniqueness - add counter if duplicate exists
+        if (managerReports.length > 1) {
+          // Multiple units: Add index first, then truncate
+          // Format: "UnitLabel-ViolationType-UnitNum" truncated to 31 chars
+          const unitSuffix = `-${unitIndex + 1}`;
+          const maxLabelLength = 31 - sheetName.length - unitSuffix.length - 1; // -1 for hyphen before sheetName
+          const truncatedLabel = safeUnitLabel.substring(0, maxLabelLength);
+          finalSheetName = `${truncatedLabel}-${sheetName}${unitSuffix}`;
+        } else {
+          // Single unit: Just combine and truncate
+          finalSheetName = `${safeUnitLabel}-${sheetName}`.substring(0, 31);
+        }
+
+        // Additional safety: Ensure uniqueness with counter if still duplicate
         let counter = 1;
         let uniqueSheetName = finalSheetName;
         while (usedSheetNames.has(uniqueSheetName)) {
           counter++;
+          // Make room for counter by truncating further
           uniqueSheetName = `${finalSheetName.substring(0, 28)}-${counter}`;
         }
         finalSheetName = uniqueSheetName;
