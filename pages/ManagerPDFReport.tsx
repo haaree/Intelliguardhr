@@ -890,16 +890,42 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         doc.text(`Legal Entity: ${legalEntity} | Location: ${location}`, 14, yPos);
         yPos += 10;
 
-        // Add each category section (excluding Present and Off Day to save pages)
-        addCategorySection('Absent', locationData.absent);
-        addCategorySection('Worked Off', locationData.workedOff);
-        addCategorySection('Errors', locationData.errors);
-        addCategorySection('Late & Early Occurrence', locationData.lateEarly);
-        addCategorySection('Worked < 4 Hours', locationData.lessThan4hrs);
-        addCategorySection('Worked 4-7 Hours', locationData.hours4to7);
-        addCategorySection('Shift Deviation', locationData.shiftDeviation);
-        addCategorySection('Missing Punch', locationData.missingPunch);
-        addCategorySection('Others', locationData.otherViolations);
+        // Add category sections based on selected violation filter
+        // Include Present only when specifically filtered (to save pages otherwise)
+        if (selectedViolationType === 'present' || selectedViolationType === 'all') {
+          addCategorySection('Present', locationData.present);
+        }
+        if (selectedViolationType === 'absent' || selectedViolationType === 'all') {
+          addCategorySection('Absent', locationData.absent);
+        }
+        if (selectedViolationType === 'offDay' || selectedViolationType === 'all') {
+          // Off Day also excluded by default to save pages, include only when filtered
+          addCategorySection('Off Day', locationData.offDay);
+        }
+        if (selectedViolationType === 'workedOff' || selectedViolationType === 'all') {
+          addCategorySection('Worked Off', locationData.workedOff);
+        }
+        if (selectedViolationType === 'errors' || selectedViolationType === 'all') {
+          addCategorySection('Errors', locationData.errors);
+        }
+        if (selectedViolationType === 'lateEarly' || selectedViolationType === 'all') {
+          addCategorySection('Late & Early Occurrence', locationData.lateEarly);
+        }
+        if (selectedViolationType === 'lessThan4hrs' || selectedViolationType === 'all') {
+          addCategorySection('Worked < 4 Hours', locationData.lessThan4hrs);
+        }
+        if (selectedViolationType === 'hours4to7' || selectedViolationType === 'all') {
+          addCategorySection('Worked 4-7 Hours', locationData.hours4to7);
+        }
+        if (selectedViolationType === 'shiftDeviation' || selectedViolationType === 'all') {
+          addCategorySection('Shift Deviation', locationData.shiftDeviation);
+        }
+        if (selectedViolationType === 'missingPunch' || selectedViolationType === 'all') {
+          addCategorySection('Missing Punch', locationData.missingPunch);
+        }
+        if (selectedViolationType === 'otherViolations' || selectedViolationType === 'all') {
+          addCategorySection('Others', locationData.otherViolations);
+        }
       });
     });
 
@@ -1190,16 +1216,42 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         yPos = (doc as any).lastAutoTable.finalY + 10;
       };
 
-      // Add all detail sections for this unit (excluding Present and Off Day to save pages)
-      addDetailSection('Absent', managerData.details.absent);
-      addDetailSection('Worked Off', managerData.details.workedOff);
-      addDetailSection('Errors', managerData.details.errors, true);
-      addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
-      addDetailSection('Worked < 4 Hours', managerData.details.lessThan4hrs, true);
-      addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
-      addDetailSection('Shift Deviation', managerData.details.shiftDeviation, true);
-      addDetailSection('Missing Punch', managerData.details.missingPunch, true);
-      addDetailSection('Others', managerData.details.otherViolations, true);
+      // Add detail sections based on selected violation filter
+      // Include Present only when specifically filtered (to save pages otherwise)
+      if (selectedViolationType === 'present' || selectedViolationType === 'all') {
+        addDetailSection('Present', managerData.details.present);
+      }
+      if (selectedViolationType === 'absent' || selectedViolationType === 'all') {
+        addDetailSection('Absent', managerData.details.absent);
+      }
+      if (selectedViolationType === 'offDay' || selectedViolationType === 'all') {
+        // Off Day also excluded by default to save pages, include only when filtered
+        addDetailSection('Off Day', managerData.details.offDay);
+      }
+      if (selectedViolationType === 'workedOff' || selectedViolationType === 'all') {
+        addDetailSection('Worked Off', managerData.details.workedOff);
+      }
+      if (selectedViolationType === 'errors' || selectedViolationType === 'all') {
+        addDetailSection('Errors', managerData.details.errors, true);
+      }
+      if (selectedViolationType === 'lateEarly' || selectedViolationType === 'all') {
+        addDetailSection('Late & Early Occurrence', managerData.details.lateEarly, true);
+      }
+      if (selectedViolationType === 'lessThan4hrs' || selectedViolationType === 'all') {
+        addDetailSection('Worked < 4 Hours', managerData.details.lessThan4hrs, true);
+      }
+      if (selectedViolationType === 'hours4to7' || selectedViolationType === 'all') {
+        addDetailSection('Worked 4-7 Hours', managerData.details.hours4to7, true);
+      }
+      if (selectedViolationType === 'shiftDeviation' || selectedViolationType === 'all') {
+        addDetailSection('Shift Deviation', managerData.details.shiftDeviation, true);
+      }
+      if (selectedViolationType === 'missingPunch' || selectedViolationType === 'all') {
+        addDetailSection('Missing Punch', managerData.details.missingPunch, true);
+      }
+      if (selectedViolationType === 'otherViolations' || selectedViolationType === 'all') {
+        addDetailSection('Others', managerData.details.otherViolations, true);
+      }
     });
 
     // Save consolidated PDF
