@@ -1637,12 +1637,30 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     // const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
     // XLSX.utils.book_append_sheet(wb, summaryWs, 'Overall Summary');
 
+    // Helper function to create abbreviation from company name
+    const abbreviate = (text: string): string => {
+      if (!text || text === 'Unknown') return text;
+
+      // Split by spaces and common separators
+      const words = text.split(/[\s\-_\.]+/);
+
+      // Take first letter of each word, capitalize
+      const abbr = words
+        .filter(word => word.length > 0)
+        .map(word => word[0].toUpperCase())
+        .join('');
+
+      return abbr || text;
+    };
+
     // Now create sheets for each organizational unit
     managerReports.forEach((managerData, unitIndex) => {
-      // Build context label for sheet naming
+      // Build context label for sheet naming with abbreviations
       const contextParts: string[] = [];
+
       if (managerData.legalEntity && managerData.legalEntity !== 'Unknown') {
-        contextParts.push(managerData.legalEntity);
+        // Abbreviate legal entity (e.g., "Asian Sealing Products Pvt Ltd" → "ASP")
+        contextParts.push(abbreviate(managerData.legalEntity));
       }
       if (managerData.location && managerData.location !== 'Unknown') {
         contextParts.push(managerData.location);
@@ -1654,7 +1672,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         contextParts.push(managerData.subDepartment);
       }
 
-      // Keep full unit label (don't truncate yet - will be done in addDetailSheet)
+      // Keep full unit label with abbreviations
       const unitLabel = contextParts.length > 0 ? contextParts.join('-') : `Unit${unitIndex + 1}`;
 
       // Unit summary - DISABLED to save space
