@@ -1700,20 +1700,48 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
         let data: any[][] = [];
 
-        // Use full organizational unit name, truncate to 31 chars, add number if duplicate
-        // Format: "LegalEntity-Location-Dept" or "LegalEntity-Location-Dept-2" if duplicate
-        let baseSheetName = unitLabel.substring(0, 31);
+        // Map violation type names
+        const violationNameMap: Record<string, string> = {
+          'Present': 'Present',
+          'Absent': 'Absent',
+          'OffDay': 'OffDay',
+          'WorkedOff': 'WorkedOff',
+          'Errors': 'Errors',
+          'LateEarly': 'LateEarly',
+          'Less4hrs': 'Less4hrs',
+          '4-7hrs': '4to7hrs',
+          'ShiftDev': 'ShiftDev',
+          'MissPunch': 'MissPunch',
+          'Others': 'Others'
+        };
 
-        // Check if this name already exists, if so add a number
+        const violationName = violationNameMap[sheetName] || sheetName;
+
+        // Format date as DDMmmYY (e.g., 01Feb26)
+        let dateStr = '';
+        try {
+          const dateParts = fromDate.split('-');
+          const day = dateParts[2] || dateParts[0];
+          const year = (dateParts[0] || dateParts[2]).slice(-2); // Last 2 digits of year
+          const monthNum = parseInt(dateParts[1]) - 1;
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          dateStr = `${day}${months[monthNum]}${year}`;
+        } catch (error) {
+          console.error('Date parsing error:', error);
+          dateStr = 'NoDate';
+        }
+
+        // Build full descriptive name: EntityName-Date-ViolationType
+        // NO 31 char limit - Excel.js library handles longer names automatically
+        let baseSheetName = `${unitLabel}-${dateStr}-${violationName}`;
+
+        // Check if this exact name already exists, if so add a number
         let finalSheetName = baseSheetName;
         let counter = 1;
 
         while (usedSheetNames.has(finalSheetName)) {
           counter++;
-          // Add number suffix, truncate base name if needed to fit
-          const suffix = `-${counter}`;
-          const maxBaseLength = 31 - suffix.length;
-          finalSheetName = `${unitLabel.substring(0, maxBaseLength)}${suffix}`;
+          finalSheetName = `${baseSheetName}-${counter}`;
         }
 
         usedSheetNames.add(finalSheetName);
