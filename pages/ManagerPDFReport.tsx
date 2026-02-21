@@ -362,16 +362,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         managerData.details.present.push(enrichedRec);
         managerData.violations.present++;
 
-        // Debug: Log a sample present record
-        if (managerData.violations.present === 1) {
-          console.log('Sample Present Record:', {
-            employee: att.employeeNumber,
-            date: att.date,
-            status: attStatus,
-            totalHours: att.totalHours,
-            category: categorizeHours(att.totalHours || '00:00')
-          });
-        }
       } else if (attStatus === 'Worked Off' || attStatus === 'WOH') {
         managerData.details.workedOff.push(enrichedRec);
         managerData.violations.workedOff++;
@@ -429,27 +419,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       a.managerName.localeCompare(b.managerName)
     );
 
-    // Debug: Log total violations summary
-    const totalViolations = result.reduce((sum, report) => ({
-      present: sum.present + report.violations.present,
-      absent: sum.absent + report.violations.absent,
-      offDay: sum.offDay + report.violations.offDay,
-      workedOff: sum.workedOff + report.violations.workedOff,
-      errors: sum.errors + report.violations.errors,
-      lateEarly: sum.lateEarly + report.violations.lateEarly,
-      lessThan4hrs: sum.lessThan4hrs + report.violations.lessThan4hrs,
-      hours4to7: sum.hours4to7 + report.violations.hours4to7,
-      shiftDeviation: sum.shiftDeviation + report.violations.shiftDeviation,
-      missingPunch: sum.missingPunch + report.violations.missingPunch,
-      otherViolations: sum.otherViolations + report.violations.otherViolations
-    }), {
-      present: 0, absent: 0, offDay: 0, workedOff: 0, errors: 0,
-      lateEarly: 0, lessThan4hrs: 0, hours4to7: 0, shiftDeviation: 0,
-      missingPunch: 0, otherViolations: 0
-    });
-
-    console.log('Detailed Manager Report Data - Violation Totals:', totalViolations);
-
     return result;
   }, [data, fromDate, toDate, selectedManager, selectedLegalEntity, selectedLocation, selectedDepartment, selectedSubDepartment]);
 
@@ -489,9 +458,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           availableCategories.add(category);
         });
       });
-
-      console.log(`${selectedViolationType} Sub-Filter: Found ${totalRecords} records across ${availableCategories.size} categories`);
-      console.log('Available categories:', Array.from(availableCategories));
 
       // Return only categories that have data, in the defined order
       return hoursCategories.filter(cat => availableCategories.has(cat));
@@ -810,10 +776,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
   // Generate consolidated PDF for ALL reporting incharges (landscape, grouped by Legal Entity > Location)
   const generateAllInchargesConsolidatedPDF = () => {
-    console.log('PDF Generation Started');
-    console.log('Filtered Data Length:', filteredDetailedManagerReportData.length);
-    console.log('Selected Violation Type:', selectedViolationType);
-    console.log('Selected Sub-Statuses:', selectedSubStatuses);
 
     if (filteredDetailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
@@ -894,17 +856,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       locationData.otherViolations.push(...report.details.otherViolations);
     });
 
-    // Debug: Log grouped data
-    console.log('PDF Grouped Data - Total Entities:', groupedData.size);
-    groupedData.forEach((locationMap, legalEntity) => {
-      locationMap.forEach((locationData, location) => {
-        console.log(`${legalEntity} - ${location}: Present=${locationData.present.length}, Absent=${locationData.absent.length}`);
-      });
-    });
-
     // Helper function to add a category section
     const addCategorySection = (title: string, records: EnrichedRecord[]) => {
-      console.log(`Adding section: ${title} with ${records.length} records`);
       if (records.length === 0) return;
 
       // Check if we need a new page
@@ -2380,25 +2333,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     // yPos = (doc as any).lastAutoTable.finalY + 10;
 
-    // Debug: Log organizational units
-    console.log('=== EXCESS HOURS PDF DEBUG ===');
-    console.log('Debug Counters:', debugCounters);
-    console.log('Total organizational units:', orgUnits.length);
-    orgUnits.forEach((unit, idx) => {
-      console.log(`Unit ${idx + 1}:`, {
-        legalEntity: unit.legalEntity,
-        location: unit.location,
-        department: unit.department,
-        subDepartment: unit.subDepartment,
-        recordCount: unit.records.length
-      });
-    });
-
     // Process each organizational unit (same structure as Manager PDF)
     orgUnits.forEach((unit, unitIndex) => {
       if (unit.records.length === 0) return;
-
-      console.log(`Processing unit ${unitIndex + 1}/${orgUnits.length}:`, unit.department);
 
       // Add page break before each new organizational unit (except first - now always add since no overall summary)
       if (unitIndex > 0) {
@@ -2483,8 +2420,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const addUnitSection = (title: string, records: any[]) => {
         if (records.length === 0) return;
 
-        console.log(`  Adding section: ${title}, Records: ${records.length}`);
-
         // Check if we need a new page
         if (yPos > 170) {
           doc.addPage('landscape');
@@ -2496,20 +2431,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         doc.text(title, 14, yPos);
         yPos += 5;
 
-        // Debug: Log first record to verify columns
-        if (records.length > 0) {
-          console.log('    First record sample:', {
-            employeeNumber: records[0].employeeNumber,
-            employeeName: records[0].employeeName,
-            date: records[0].date,
-            department: records[0].department,
-            subDepartment: records[0].subDepartment,
-            excessHours: records[0].excessHours
-          });
-        }
-
         const tableHeaders = ['S.No', 'Emp ID', 'Name', 'Date', 'Job Title', 'Location', 'Status', 'Shift', 'Shift Start', 'Shift End', 'In Time', 'Out Time', 'Total Hrs', 'Excess Hrs', 'Over 16', 'OT Form', 'Final OT Hrs'];
-        console.log('    Table headers (17 columns):', tableHeaders.join(', '));
 
         autoTable(doc, {
           startY: yPos,
@@ -2562,7 +2484,6 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           margin: { left: 7, right: 7 }
         });
 
-        console.log(`    Table created with ${records.length} rows`);
         yPos = (doc as any).lastAutoTable.finalY + 10;
       };
 
