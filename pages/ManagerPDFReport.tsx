@@ -1325,10 +1325,30 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
+    console.log('📊 PDF Export Debug:', {
+      selectedManager,
+      selectedViolationType,
+      selectedSubStatuses,
+      totalFilteredManagers: filteredDetailedManagerReportData.length,
+      filteredManagers: filteredDetailedManagerReportData.map((m: ManagerData) => m.managerName)
+    });
+
     // Get all detailed reports for this manager (all entity/location/dept combinations)
-    const managerReports = filteredDetailedManagerReportData.filter(m => m.managerName === selectedManager);
+    const managerReports = filteredDetailedManagerReportData.filter((m: ManagerData) => m.managerName === selectedManager);
+
+    console.log('📊 Manager Reports Found:', managerReports.length);
+
     if (managerReports.length === 0) {
-      alert('No data found for selected manager in the date range');
+      // Build helpful error message
+      let errorMsg = `No data found for manager "${selectedManager}"`;
+      if (selectedViolationType !== 'all') {
+        errorMsg += `\nViolation Type: ${selectedViolationType}`;
+      }
+      if (selectedSubStatuses.length > 0) {
+        errorMsg += `\nSub-Filters: ${selectedSubStatuses.join(', ')}`;
+      }
+      errorMsg += '\n\nTry selecting "All" for violation type or clearing sub-filters.';
+      alert(errorMsg);
       return;
     }
 
@@ -1840,10 +1860,30 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
+    console.log('📊 Excel Export Debug:', {
+      selectedManager,
+      selectedViolationType,
+      selectedSubStatuses,
+      totalFilteredManagers: filteredDetailedManagerReportData.length,
+      filteredManagers: filteredDetailedManagerReportData.map((m: ManagerData) => m.managerName)
+    });
+
     // Get all detailed reports for this manager
-    const managerReports = filteredDetailedManagerReportData.filter(m => m.managerName === selectedManager);
+    const managerReports = filteredDetailedManagerReportData.filter((m: ManagerData) => m.managerName === selectedManager);
+
+    console.log('📊 Manager Reports Found:', managerReports.length);
+
     if (managerReports.length === 0) {
-      alert('No data found for the selected manager');
+      // Build helpful error message
+      let errorMsg = `No data found for manager "${selectedManager}"`;
+      if (selectedViolationType !== 'all') {
+        errorMsg += `\nViolation Type: ${selectedViolationType}`;
+      }
+      if (selectedSubStatuses.length > 0) {
+        errorMsg += `\nSub-Filters: ${selectedSubStatuses.join(', ')}`;
+      }
+      errorMsg += '\n\nTry selecting "All" for violation type or clearing sub-filters.';
+      alert(errorMsg);
       return;
     }
 
