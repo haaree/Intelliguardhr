@@ -83,6 +83,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const [selectedSubDepartment, setSelectedSubDepartment] = useState('All');
   const [lateExemptionFilter, setLateExemptionFilter] = useState<'all' | 'exempted' | 'non-exempted'>('all');
   const [selectedViolationType, setSelectedViolationType] = useState<string>('all');
+  const [selectedSubStatuses, setSelectedSubStatuses] = useState<string[]>([]);
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
@@ -386,6 +387,35 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     );
   }, [data, fromDate, toDate, selectedManager, selectedLegalEntity, selectedLocation, selectedDepartment, selectedSubDepartment]);
 
+  // Get available sub-statuses (Excel statuses) based on selected violation type
+  const availableSubStatuses = useMemo((): string[] => {
+    if (selectedViolationType === 'all' || !detailedManagerReportData.length) {
+      return [];
+    }
+
+    const statusSet = new Set<string>();
+
+    detailedManagerReportData.forEach(report => {
+      const detailsKey = selectedViolationType as keyof typeof report.details;
+      const records = report.details[detailsKey] as EnrichedRecord[];
+
+      records.forEach(record => {
+        if (record.excelStatus && record.excelStatus.trim()) {
+          statusSet.add(record.excelStatus.trim());
+        } else {
+          statusSet.add('Not Regularized');
+        }
+      });
+    });
+
+    return Array.from(statusSet).sort((a, b) => {
+      // Put "Not Regularized" at the end
+      if (a === 'Not Regularized') return 1;
+      if (b === 'Not Regularized') return -1;
+      return a.localeCompare(b);
+    });
+  }, [detailedManagerReportData, selectedViolationType]);
+
   // Consolidated data for GUI display - aggregate by manager name only
   const managerReportData = useMemo((): ManagerData[] => {
     if (!detailedManagerReportData.length) return [];
@@ -452,41 +482,56 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     );
   }, [detailedManagerReportData]);
 
-  // Filter manager data based on selected violation type
+  // Filter manager data based on selected violation type and sub-status
   const filteredManagerReportData = useMemo((): ManagerData[] => {
     if (selectedViolationType === 'all') {
       return managerReportData;
     }
 
-    // Filter to show only the selected violation type
+    // Helper function to filter records by sub-status
+    const filterRecordsBySubStatus = (records: EnrichedRecord[]): EnrichedRecord[] => {
+      if (selectedSubStatuses.length === 0) {
+        return records;
+      }
+      return records.filter(record => {
+        const excelStatus = record.excelStatus?.trim() || 'Not Regularized';
+        return selectedSubStatuses.includes(excelStatus);
+      });
+    };
+
+    // Filter to show only the selected violation type and sub-status
     return managerReportData.map((manager: ManagerData) => {
+      const detailsKey = selectedViolationType as keyof typeof manager.details;
+      const selectedRecords = manager.details[detailsKey] as EnrichedRecord[];
+      const filteredRecords = filterRecordsBySubStatus(selectedRecords);
+
       const filteredManager: ManagerData = {
         ...manager,
         violations: {
-          present: selectedViolationType === 'present' ? manager.violations.present : 0,
-          absent: selectedViolationType === 'absent' ? manager.violations.absent : 0,
-          offDay: selectedViolationType === 'offDay' ? manager.violations.offDay : 0,
-          workedOff: selectedViolationType === 'workedOff' ? manager.violations.workedOff : 0,
-          errors: selectedViolationType === 'errors' ? manager.violations.errors : 0,
-          lateEarly: selectedViolationType === 'lateEarly' ? manager.violations.lateEarly : 0,
-          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.violations.lessThan4hrs : 0,
-          hours4to7: selectedViolationType === 'hours4to7' ? manager.violations.hours4to7 : 0,
-          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.violations.shiftDeviation : 0,
-          missingPunch: selectedViolationType === 'missingPunch' ? manager.violations.missingPunch : 0,
-          otherViolations: selectedViolationType === 'otherViolations' ? manager.violations.otherViolations : 0
+          present: selectedViolationType === 'present' ? filteredRecords.length : 0,
+          absent: selectedViolationType === 'absent' ? filteredRecords.length : 0,
+          offDay: selectedViolationType === 'offDay' ? filteredRecords.length : 0,
+          workedOff: selectedViolationType === 'workedOff' ? filteredRecords.length : 0,
+          errors: selectedViolationType === 'errors' ? filteredRecords.length : 0,
+          lateEarly: selectedViolationType === 'lateEarly' ? filteredRecords.length : 0,
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? filteredRecords.length : 0,
+          hours4to7: selectedViolationType === 'hours4to7' ? filteredRecords.length : 0,
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? filteredRecords.length : 0,
+          missingPunch: selectedViolationType === 'missingPunch' ? filteredRecords.length : 0,
+          otherViolations: selectedViolationType === 'otherViolations' ? filteredRecords.length : 0
         },
         details: {
-          present: selectedViolationType === 'present' ? manager.details.present : [],
-          absent: selectedViolationType === 'absent' ? manager.details.absent : [],
-          offDay: selectedViolationType === 'offDay' ? manager.details.offDay : [],
-          workedOff: selectedViolationType === 'workedOff' ? manager.details.workedOff : [],
-          errors: selectedViolationType === 'errors' ? manager.details.errors : [],
-          lateEarly: selectedViolationType === 'lateEarly' ? manager.details.lateEarly : [],
-          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.details.lessThan4hrs : [],
-          hours4to7: selectedViolationType === 'hours4to7' ? manager.details.hours4to7 : [],
-          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.details.shiftDeviation : [],
-          missingPunch: selectedViolationType === 'missingPunch' ? manager.details.missingPunch : [],
-          otherViolations: selectedViolationType === 'otherViolations' ? manager.details.otherViolations : []
+          present: selectedViolationType === 'present' ? filteredRecords : [],
+          absent: selectedViolationType === 'absent' ? filteredRecords : [],
+          offDay: selectedViolationType === 'offDay' ? filteredRecords : [],
+          workedOff: selectedViolationType === 'workedOff' ? filteredRecords : [],
+          errors: selectedViolationType === 'errors' ? filteredRecords : [],
+          lateEarly: selectedViolationType === 'lateEarly' ? filteredRecords : [],
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? filteredRecords : [],
+          hours4to7: selectedViolationType === 'hours4to7' ? filteredRecords : [],
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? filteredRecords : [],
+          missingPunch: selectedViolationType === 'missingPunch' ? filteredRecords : [],
+          otherViolations: selectedViolationType === 'otherViolations' ? filteredRecords : []
         }
       };
       return filteredManager;
@@ -495,43 +540,58 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const totalViolations = (Object.values(manager.violations) as number[]).reduce((sum: number, val: number) => sum + val, 0);
       return totalViolations > 0;
     });
-  }, [managerReportData, selectedViolationType]);
+  }, [managerReportData, selectedViolationType, selectedSubStatuses]);
 
-  // Filter detailed manager data based on selected violation type (for exports)
+  // Filter detailed manager data based on selected violation type and sub-status (for exports)
   const filteredDetailedManagerReportData = useMemo((): ManagerData[] => {
     if (selectedViolationType === 'all') {
       return detailedManagerReportData;
     }
 
-    // Filter to show only the selected violation type
+    // Helper function to filter records by sub-status
+    const filterRecordsBySubStatus = (records: EnrichedRecord[]): EnrichedRecord[] => {
+      if (selectedSubStatuses.length === 0) {
+        return records;
+      }
+      return records.filter(record => {
+        const excelStatus = record.excelStatus?.trim() || 'Not Regularized';
+        return selectedSubStatuses.includes(excelStatus);
+      });
+    };
+
+    // Filter to show only the selected violation type and sub-status
     return detailedManagerReportData.map((manager: ManagerData) => {
+      const detailsKey = selectedViolationType as keyof typeof manager.details;
+      const selectedRecords = manager.details[detailsKey] as EnrichedRecord[];
+      const filteredRecords = filterRecordsBySubStatus(selectedRecords);
+
       const filteredManager: ManagerData = {
         ...manager,
         violations: {
-          present: selectedViolationType === 'present' ? manager.violations.present : 0,
-          absent: selectedViolationType === 'absent' ? manager.violations.absent : 0,
-          offDay: selectedViolationType === 'offDay' ? manager.violations.offDay : 0,
-          workedOff: selectedViolationType === 'workedOff' ? manager.violations.workedOff : 0,
-          errors: selectedViolationType === 'errors' ? manager.violations.errors : 0,
-          lateEarly: selectedViolationType === 'lateEarly' ? manager.violations.lateEarly : 0,
-          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.violations.lessThan4hrs : 0,
-          hours4to7: selectedViolationType === 'hours4to7' ? manager.violations.hours4to7 : 0,
-          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.violations.shiftDeviation : 0,
-          missingPunch: selectedViolationType === 'missingPunch' ? manager.violations.missingPunch : 0,
-          otherViolations: selectedViolationType === 'otherViolations' ? manager.violations.otherViolations : 0
+          present: selectedViolationType === 'present' ? filteredRecords.length : 0,
+          absent: selectedViolationType === 'absent' ? filteredRecords.length : 0,
+          offDay: selectedViolationType === 'offDay' ? filteredRecords.length : 0,
+          workedOff: selectedViolationType === 'workedOff' ? filteredRecords.length : 0,
+          errors: selectedViolationType === 'errors' ? filteredRecords.length : 0,
+          lateEarly: selectedViolationType === 'lateEarly' ? filteredRecords.length : 0,
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? filteredRecords.length : 0,
+          hours4to7: selectedViolationType === 'hours4to7' ? filteredRecords.length : 0,
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? filteredRecords.length : 0,
+          missingPunch: selectedViolationType === 'missingPunch' ? filteredRecords.length : 0,
+          otherViolations: selectedViolationType === 'otherViolations' ? filteredRecords.length : 0
         },
         details: {
-          present: selectedViolationType === 'present' ? manager.details.present : [],
-          absent: selectedViolationType === 'absent' ? manager.details.absent : [],
-          offDay: selectedViolationType === 'offDay' ? manager.details.offDay : [],
-          workedOff: selectedViolationType === 'workedOff' ? manager.details.workedOff : [],
-          errors: selectedViolationType === 'errors' ? manager.details.errors : [],
-          lateEarly: selectedViolationType === 'lateEarly' ? manager.details.lateEarly : [],
-          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.details.lessThan4hrs : [],
-          hours4to7: selectedViolationType === 'hours4to7' ? manager.details.hours4to7 : [],
-          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.details.shiftDeviation : [],
-          missingPunch: selectedViolationType === 'missingPunch' ? manager.details.missingPunch : [],
-          otherViolations: selectedViolationType === 'otherViolations' ? manager.details.otherViolations : []
+          present: selectedViolationType === 'present' ? filteredRecords : [],
+          absent: selectedViolationType === 'absent' ? filteredRecords : [],
+          offDay: selectedViolationType === 'offDay' ? filteredRecords : [],
+          workedOff: selectedViolationType === 'workedOff' ? filteredRecords : [],
+          errors: selectedViolationType === 'errors' ? filteredRecords : [],
+          lateEarly: selectedViolationType === 'lateEarly' ? filteredRecords : [],
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? filteredRecords : [],
+          hours4to7: selectedViolationType === 'hours4to7' ? filteredRecords : [],
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? filteredRecords : [],
+          missingPunch: selectedViolationType === 'missingPunch' ? filteredRecords : [],
+          otherViolations: selectedViolationType === 'otherViolations' ? filteredRecords : []
         }
       };
       return filteredManager;
@@ -540,7 +600,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const totalViolations = (Object.values(manager.violations) as number[]).reduce((sum: number, val: number) => sum + val, 0);
       return totalViolations > 0;
     });
-  }, [detailedManagerReportData, selectedViolationType]);
+  }, [detailedManagerReportData, selectedViolationType, selectedSubStatuses]);
 
   // Generate consolidated PDF for ALL reporting incharges (landscape, grouped by Legal Entity > Location)
   const generateAllInchargesConsolidatedPDF = () => {
@@ -2421,7 +2481,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
             </label>
             <select
               value={selectedViolationType}
-              onChange={(e) => setSelectedViolationType(e.target.value)}
+              onChange={(e) => {
+                setSelectedViolationType(e.target.value);
+                setSelectedSubStatuses([]); // Reset sub-status filter when violation type changes
+              }}
               className="w-full md:w-1/3 px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
             >
               <option value="all">All Violations</option>
@@ -2438,6 +2501,56 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               <option value="otherViolations">Other Violations</option>
             </select>
           </div>
+
+          {/* Sub-Status Filter (Excel Status) - Only show when a specific violation type is selected */}
+          {selectedViolationType !== 'all' && availableSubStatuses.length > 0 && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
+                  Excel Status Filter (Multi-Select)
+                </label>
+                {selectedSubStatuses.length > 0 && (
+                  <button
+                    onClick={() => setSelectedSubStatuses([])}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 uppercase tracking-widest"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {availableSubStatuses.map(status => (
+                  <label
+                    key={status}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedSubStatuses.includes(status)
+                        ? 'bg-blue-50 border-blue-500 text-blue-900'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedSubStatuses.includes(status)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedSubStatuses([...selectedSubStatuses, status]);
+                        } else {
+                          setSelectedSubStatuses(selectedSubStatuses.filter(s => s !== status));
+                        }
+                      }}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-semibold">{status}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                {selectedSubStatuses.length > 0
+                  ? `${selectedSubStatuses.length} status(es) selected`
+                  : 'Select one or more statuses to filter'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Summary Cards */}
