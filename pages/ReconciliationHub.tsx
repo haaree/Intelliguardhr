@@ -1299,27 +1299,48 @@ const ReconciliationHub: React.FC<ReconciliationHubProps> = ({
   };
 
   // Helper function to get occurrence count for late/early violations
-  const getOccurrenceCount = (record: ReconciliationRecord): number => {
-    const employeeNumber = record.employeeNumber;
-    const recordDate = new Date(record.date);
-    const recordMonth = recordDate.getMonth();
-    const recordYear = recordDate.getFullYear();
+  // PERFORMANCE: Pre-compute occurrence counts once instead of on every render
+  const occurrenceCountMap = useMemo(() => {
+    const map = new Map<string, number>();
 
-    // Count all late/early violations for this employee up to and including this date
-    const violationsUpToThisDate = auditRecords.filter(r => {
-      const rDate = new Date(r.date);
+    // Group late/early violations by employee and month
+    const violationsByEmployee = new Map<string, ReconciliationRecord[]>();
+    auditRecords.forEach(r => {
       const isLateOrEarly = (r.lateBy && r.lateBy !== '00:00') || (r.earlyBy && r.earlyBy !== '00:00');
-      return r.employeeNumber === employeeNumber &&
-             rDate.getMonth() === recordMonth &&
-             rDate.getFullYear() === recordYear &&
-             rDate <= recordDate &&
-             isLateOrEarly &&
-             categorizeAuditRecord(r) === 'lateearly';
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      if (isLateOrEarly && categorizeAuditRecord(r) === 'lateearly') {
+        const key = `${r.employeeNumber}`;
+        if (!violationsByEmployee.has(key)) {
+          violationsByEmployee.set(key, []);
+        }
+        violationsByEmployee.get(key)!.push(r);
+      }
+    });
 
-    // Find the index of this record in the sorted violations
-    const index = violationsUpToThisDate.findIndex(r => r.id === record.id);
-    return index + 1; // 1-indexed
+    // Sort and assign occurrence numbers
+    violationsByEmployee.forEach((violations, empKey) => {
+      violations.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      violations.forEach((record, index) => {
+        const recordDate = new Date(record.date);
+        const recordMonth = recordDate.getMonth();
+        const recordYear = recordDate.getFullYear();
+
+        // Count only violations in the same month/year up to this date
+        const countInMonth = violations.filter(v => {
+          const vDate = new Date(v.date);
+          return vDate.getMonth() === recordMonth &&
+                 vDate.getFullYear() === recordYear &&
+                 vDate <= recordDate;
+        }).length;
+
+        map.set(record.id, countInMonth);
+      });
+    });
+
+    return map;
+  }, [auditRecords]);
+
+  const getOccurrenceCount = (record: ReconciliationRecord): number => {
+    return occurrenceCountMap.get(record.id) || 0;
   };
 
   const filteredRecords = useMemo(() => {
