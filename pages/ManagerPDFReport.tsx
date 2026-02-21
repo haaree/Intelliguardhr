@@ -82,6 +82,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const [selectedDepartment, setSelectedDepartment] = useState('All');
   const [selectedSubDepartment, setSelectedSubDepartment] = useState('All');
   const [lateExemptionFilter, setLateExemptionFilter] = useState<'all' | 'exempted' | 'non-exempted'>('all');
+  const [selectedViolationType, setSelectedViolationType] = useState<string>('all');
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
@@ -451,9 +452,99 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     );
   }, [detailedManagerReportData]);
 
+  // Filter manager data based on selected violation type
+  const filteredManagerReportData = useMemo((): ManagerData[] => {
+    if (selectedViolationType === 'all') {
+      return managerReportData;
+    }
+
+    // Filter to show only the selected violation type
+    return managerReportData.map((manager: ManagerData) => {
+      const filteredManager: ManagerData = {
+        ...manager,
+        violations: {
+          present: selectedViolationType === 'present' ? manager.violations.present : 0,
+          absent: selectedViolationType === 'absent' ? manager.violations.absent : 0,
+          offDay: selectedViolationType === 'offDay' ? manager.violations.offDay : 0,
+          workedOff: selectedViolationType === 'workedOff' ? manager.violations.workedOff : 0,
+          errors: selectedViolationType === 'errors' ? manager.violations.errors : 0,
+          lateEarly: selectedViolationType === 'lateEarly' ? manager.violations.lateEarly : 0,
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.violations.lessThan4hrs : 0,
+          hours4to7: selectedViolationType === 'hours4to7' ? manager.violations.hours4to7 : 0,
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.violations.shiftDeviation : 0,
+          missingPunch: selectedViolationType === 'missingPunch' ? manager.violations.missingPunch : 0,
+          otherViolations: selectedViolationType === 'otherViolations' ? manager.violations.otherViolations : 0
+        },
+        details: {
+          present: selectedViolationType === 'present' ? manager.details.present : [],
+          absent: selectedViolationType === 'absent' ? manager.details.absent : [],
+          offDay: selectedViolationType === 'offDay' ? manager.details.offDay : [],
+          workedOff: selectedViolationType === 'workedOff' ? manager.details.workedOff : [],
+          errors: selectedViolationType === 'errors' ? manager.details.errors : [],
+          lateEarly: selectedViolationType === 'lateEarly' ? manager.details.lateEarly : [],
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.details.lessThan4hrs : [],
+          hours4to7: selectedViolationType === 'hours4to7' ? manager.details.hours4to7 : [],
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.details.shiftDeviation : [],
+          missingPunch: selectedViolationType === 'missingPunch' ? manager.details.missingPunch : [],
+          otherViolations: selectedViolationType === 'otherViolations' ? manager.details.otherViolations : []
+        }
+      };
+      return filteredManager;
+    }).filter((manager: ManagerData) => {
+      // Remove managers with no violations of the selected type
+      const totalViolations = (Object.values(manager.violations) as number[]).reduce((sum: number, val: number) => sum + val, 0);
+      return totalViolations > 0;
+    });
+  }, [managerReportData, selectedViolationType]);
+
+  // Filter detailed manager data based on selected violation type (for exports)
+  const filteredDetailedManagerReportData = useMemo((): ManagerData[] => {
+    if (selectedViolationType === 'all') {
+      return detailedManagerReportData;
+    }
+
+    // Filter to show only the selected violation type
+    return detailedManagerReportData.map((manager: ManagerData) => {
+      const filteredManager: ManagerData = {
+        ...manager,
+        violations: {
+          present: selectedViolationType === 'present' ? manager.violations.present : 0,
+          absent: selectedViolationType === 'absent' ? manager.violations.absent : 0,
+          offDay: selectedViolationType === 'offDay' ? manager.violations.offDay : 0,
+          workedOff: selectedViolationType === 'workedOff' ? manager.violations.workedOff : 0,
+          errors: selectedViolationType === 'errors' ? manager.violations.errors : 0,
+          lateEarly: selectedViolationType === 'lateEarly' ? manager.violations.lateEarly : 0,
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.violations.lessThan4hrs : 0,
+          hours4to7: selectedViolationType === 'hours4to7' ? manager.violations.hours4to7 : 0,
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.violations.shiftDeviation : 0,
+          missingPunch: selectedViolationType === 'missingPunch' ? manager.violations.missingPunch : 0,
+          otherViolations: selectedViolationType === 'otherViolations' ? manager.violations.otherViolations : 0
+        },
+        details: {
+          present: selectedViolationType === 'present' ? manager.details.present : [],
+          absent: selectedViolationType === 'absent' ? manager.details.absent : [],
+          offDay: selectedViolationType === 'offDay' ? manager.details.offDay : [],
+          workedOff: selectedViolationType === 'workedOff' ? manager.details.workedOff : [],
+          errors: selectedViolationType === 'errors' ? manager.details.errors : [],
+          lateEarly: selectedViolationType === 'lateEarly' ? manager.details.lateEarly : [],
+          lessThan4hrs: selectedViolationType === 'lessThan4hrs' ? manager.details.lessThan4hrs : [],
+          hours4to7: selectedViolationType === 'hours4to7' ? manager.details.hours4to7 : [],
+          shiftDeviation: selectedViolationType === 'shiftDeviation' ? manager.details.shiftDeviation : [],
+          missingPunch: selectedViolationType === 'missingPunch' ? manager.details.missingPunch : [],
+          otherViolations: selectedViolationType === 'otherViolations' ? manager.details.otherViolations : []
+        }
+      };
+      return filteredManager;
+    }).filter((manager: ManagerData) => {
+      // Remove managers with no violations of the selected type
+      const totalViolations = (Object.values(manager.violations) as number[]).reduce((sum: number, val: number) => sum + val, 0);
+      return totalViolations > 0;
+    });
+  }, [detailedManagerReportData, selectedViolationType]);
+
   // Generate consolidated PDF for ALL reporting incharges (landscape, grouped by Legal Entity > Location)
   const generateAllInchargesConsolidatedPDF = () => {
-    if (detailedManagerReportData.length === 0) {
+    if (filteredDetailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
       return;
     }
@@ -493,7 +584,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     const groupedData = new Map<string, Map<string, LocationData>>();
 
-    detailedManagerReportData.forEach(report => {
+    filteredDetailedManagerReportData.forEach(report => {
       const legalEntity = report.legalEntity || 'Unknown';
       const location = report.location || 'Unknown';
 
@@ -946,7 +1037,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     }
 
     // Get all detailed reports for this manager (all entity/location/dept combinations)
-    const managerReports = detailedManagerReportData.filter(m => m.managerName === selectedManager);
+    const managerReports = filteredDetailedManagerReportData.filter(m => m.managerName === selectedManager);
     if (managerReports.length === 0) {
       alert('No data found for selected manager in the date range');
       return;
@@ -963,14 +1054,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    if (detailedManagerReportData.length === 0) {
+    if (filteredDetailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
       return;
     }
 
     // Group reports by manager name
     const reportsByManager = new Map<string, ManagerData[]>();
-    detailedManagerReportData.forEach(report => {
+    filteredDetailedManagerReportData.forEach(report => {
       const existing = reportsByManager.get(report.managerName) || [];
       existing.push(report);
       reportsByManager.set(report.managerName, existing);
@@ -1014,7 +1105,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     const groupedData = new Map<string, Map<string, LocationData>>();
 
-    detailedManagerReportData.forEach(report => {
+    filteredDetailedManagerReportData.forEach(report => {
       const legalEntity = report.legalEntity || 'Unknown';
       const location = report.location || 'Unknown';
 
@@ -1412,7 +1503,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     }
 
     // Get all detailed reports for this manager
-    const managerReports = detailedManagerReportData.filter(m => m.managerName === selectedManager);
+    const managerReports = filteredDetailedManagerReportData.filter(m => m.managerName === selectedManager);
     if (managerReports.length === 0) {
       alert('No data found for the selected manager');
       return;
@@ -1429,14 +1520,14 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return;
     }
 
-    if (detailedManagerReportData.length === 0) {
+    if (filteredDetailedManagerReportData.length === 0) {
       alert('No data found for the selected date range');
       return;
     }
 
     // Group reports by manager name
     const reportsByManager = new Map<string, ManagerData[]>();
-    detailedManagerReportData.forEach(report => {
+    filteredDetailedManagerReportData.forEach(report => {
       const existing = reportsByManager.get(report.managerName) || [];
       existing.push(report);
       reportsByManager.set(report.managerName, existing);
@@ -2322,10 +2413,35 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               </div>
             </div>
           )}
+
+          {/* Violation Type Filter */}
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <label className="block text-xs font-black text-slate-700 uppercase tracking-widest mb-2">
+              Violation Type Filter
+            </label>
+            <select
+              value={selectedViolationType}
+              onChange={(e) => setSelectedViolationType(e.target.value)}
+              className="w-full md:w-1/3 px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
+            >
+              <option value="all">All Violations</option>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="offDay">Off Days</option>
+              <option value="workedOff">Worked Off</option>
+              <option value="errors">Errors</option>
+              <option value="lateEarly">Late/Early Occurrence</option>
+              <option value="lessThan4hrs">Worked &lt; 4 hrs</option>
+              <option value="hours4to7">Worked 4-7 hrs</option>
+              <option value="shiftDeviation">Shift Deviations</option>
+              <option value="missingPunch">Missing Punches</option>
+              <option value="otherViolations">Other Violations</option>
+            </select>
+          </div>
         </div>
 
         {/* Summary Cards */}
-        {fromDate && toDate && managerReportData.length > 0 && (
+        {fromDate && toDate && filteredManagerReportData.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
               <div className="flex items-center gap-3">
@@ -2334,7 +2450,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Managers</p>
-                  <p className="text-2xl font-black text-slate-900">{managerReportData.length}</p>
+                  <p className="text-2xl font-black text-slate-900">{filteredManagerReportData.length}</p>
                 </div>
               </div>
             </div>
@@ -2347,7 +2463,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 <div>
                   <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Total</p>
                   <p className="text-2xl font-black text-slate-900">
-                    {managerReportData.reduce((sum, m) =>
+                    {filteredManagerReportData.reduce((sum, m) =>
                       sum + Object.values(m.violations).reduce((s: number, v: any) => s + v, 0), 0
                     )}
                   </p>
@@ -2463,11 +2579,11 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         )}
 
         {/* Manager Summary Table */}
-        {fromDate && toDate && managerReportData.length > 0 && (
+        {fromDate && toDate && filteredManagerReportData.length > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-200">
               <p className="text-sm font-bold text-slate-700">
-                Manager Summary ({managerReportData.length} managers)
+                Manager Summary ({filteredManagerReportData.length} managers)
               </p>
             </div>
 
@@ -2491,7 +2607,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {managerReportData.map((manager, idx) => {
+                  {filteredManagerReportData.map((manager, idx) => {
                     const total = Object.values(manager.violations).reduce((sum: number, v: any) => sum + v, 0);
 
                     return (
@@ -2520,20 +2636,20 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 <tfoot className="bg-slate-100 font-bold">
                   <tr>
                     <td className="px-4 py-3 text-sm text-slate-900 font-black">TOTAL</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.present, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.absent, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.offDay, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.workedOff, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.errors, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.lateEarly, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.lessThan4hrs, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.hours4to7, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.shiftDeviation, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.missingPunch, 0)}</td>
-                    <td className="px-4 py-3 text-center text-sm text-slate-900">{managerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.otherViolations, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.present, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.absent, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.offDay, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.workedOff, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.errors, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.lateEarly, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.lessThan4hrs, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.hours4to7, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.shiftDeviation, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.missingPunch, 0)}</td>
+                    <td className="px-4 py-3 text-center text-sm text-slate-900">{filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + m.violations.otherViolations, 0)}</td>
                     <td className="px-4 py-3 text-center">
                       <span className="px-3 py-1 bg-rose-200 text-rose-900 rounded-lg text-sm font-black">
-                        {managerReportData.reduce((sum: number, m: ManagerData) => sum + (Object.values(m.violations) as number[]).reduce((s: number, v: number) => s + v, 0), 0)}
+                        {filteredManagerReportData.reduce((sum: number, m: ManagerData) => sum + (Object.values(m.violations) as number[]).reduce((s: number, v: number) => s + v, 0), 0)}
                       </span>
                     </td>
                   </tr>
@@ -2544,7 +2660,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         )}
 
         {/* Empty State */}
-        {fromDate && toDate && managerReportData.length === 0 && (
+        {fromDate && toDate && filteredManagerReportData.length === 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-12 text-center">
             <FileText size={48} className="mx-auto mb-4 text-slate-300" />
             <p className="text-lg font-bold text-slate-500">No Violation Data Found</p>
