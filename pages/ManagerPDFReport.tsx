@@ -520,6 +520,44 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
     });
   }, [detailedManagerReportData, selectedViolationType]);
 
+  // Calculate counts for each violation type
+  const violationTypeCounts = useMemo((): Record<string, number> => {
+    const counts: Record<string, number> = {
+      all: 0,
+      present: 0,
+      absent: 0,
+      offDay: 0,
+      workedOff: 0,
+      errors: 0,
+      lateEarly: 0,
+      lessThan4hrs: 0,
+      hours4to7: 0,
+      shiftDeviation: 0,
+      missingPunch: 0,
+      otherViolations: 0
+    };
+
+    detailedManagerReportData.forEach(report => {
+      counts.present += report.violations.present;
+      counts.absent += report.violations.absent;
+      counts.offDay += report.violations.offDay;
+      counts.workedOff += report.violations.workedOff;
+      counts.errors += report.violations.errors;
+      counts.lateEarly += report.violations.lateEarly;
+      counts.lessThan4hrs += report.violations.lessThan4hrs;
+      counts.hours4to7 += report.violations.hours4to7;
+      counts.shiftDeviation += report.violations.shiftDeviation;
+      counts.missingPunch += report.violations.missingPunch;
+      counts.otherViolations += report.violations.otherViolations;
+    });
+
+    counts.all = counts.present + counts.absent + counts.offDay + counts.workedOff +
+                 counts.errors + counts.lateEarly + counts.lessThan4hrs + counts.hours4to7 +
+                 counts.shiftDeviation + counts.missingPunch + counts.otherViolations;
+
+    return counts;
+  }, [detailedManagerReportData]);
+
   // Consolidated data for GUI display - aggregate by manager name only
   const managerReportData = useMemo((): ManagerData[] => {
     if (!detailedManagerReportData.length) return [];
@@ -655,6 +693,44 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       return totalViolations > 0;
     });
   }, [managerReportData, selectedViolationType, selectedSubStatuses]);
+
+  // Calculate counts for each sub-status option
+  const subStatusCounts = useMemo((): Record<string, number> => {
+    if (selectedViolationType === 'all' || !availableSubStatuses.length) {
+      return {};
+    }
+
+    const counts: Record<string, number> = {};
+
+    detailedManagerReportData.forEach(report => {
+      const detailsKey = selectedViolationType as keyof typeof report.details;
+      const records = report.details[detailsKey] as EnrichedRecord[];
+
+      records.forEach(record => {
+        let key: string;
+
+        if (selectedViolationType === 'present') {
+          // For Present, use hours categorization
+          key = categorizeHours(record.totalHours || '00:00');
+        } else {
+          // For other types, use Excel status
+          key = record.excelStatus?.trim() || 'Not Regularized';
+        }
+
+        counts[key] = (counts[key] || 0) + 1;
+      });
+    });
+
+    return counts;
+  }, [detailedManagerReportData, selectedViolationType, availableSubStatuses]);
+
+  // Calculate total filtered records count
+  const totalFilteredRecords = useMemo((): number => {
+    return filteredManagerReportData.reduce((total, manager) => {
+      const managerTotal = (Object.values(manager.violations) as number[]).reduce((sum, val) => sum + val, 0);
+      return total + managerTotal;
+    }, 0);
+  }, [filteredManagerReportData]);
 
   // Filter detailed manager data based on selected violation type and sub-status (for exports)
   const filteredDetailedManagerReportData = useMemo((): ManagerData[] => {
@@ -2677,19 +2753,54 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
               }}
               className="w-full md:w-1/3 px-4 py-2 border-2 border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm font-semibold"
             >
-              <option value="all">All Violations</option>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="offDay">Off Days</option>
-              <option value="workedOff">Worked Off</option>
-              <option value="errors">Errors</option>
-              <option value="lateEarly">Late/Early Occurrence</option>
-              <option value="lessThan4hrs">Worked &lt; 4 hrs</option>
-              <option value="hours4to7">Worked 4-7 hrs</option>
-              <option value="shiftDeviation">Shift Deviations</option>
-              <option value="missingPunch">Missing Punches</option>
-              <option value="otherViolations">Other Violations</option>
+              <option value="all">All Violations ({violationTypeCounts.all.toLocaleString()})</option>
+              <option value="present">Present ({violationTypeCounts.present.toLocaleString()})</option>
+              <option value="absent">Absent ({violationTypeCounts.absent.toLocaleString()})</option>
+              <option value="offDay">Off Days ({violationTypeCounts.offDay.toLocaleString()})</option>
+              <option value="workedOff">Worked Off ({violationTypeCounts.workedOff.toLocaleString()})</option>
+              <option value="errors">Errors ({violationTypeCounts.errors.toLocaleString()})</option>
+              <option value="lateEarly">Late/Early Occurrence ({violationTypeCounts.lateEarly.toLocaleString()})</option>
+              <option value="lessThan4hrs">Worked &lt; 4 hrs ({violationTypeCounts.lessThan4hrs.toLocaleString()})</option>
+              <option value="hours4to7">Worked 4-7 hrs ({violationTypeCounts.hours4to7.toLocaleString()})</option>
+              <option value="shiftDeviation">Shift Deviations ({violationTypeCounts.shiftDeviation.toLocaleString()})</option>
+              <option value="missingPunch">Missing Punches ({violationTypeCounts.missingPunch.toLocaleString()})</option>
+              <option value="otherViolations">Other Violations ({violationTypeCounts.otherViolations.toLocaleString()})</option>
             </select>
+
+            {/* Current Filter Summary */}
+            {fromDate && toDate && (
+              <div className="mt-3 flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-lg">
+                  <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Showing:</span>
+                  <span className="font-black text-blue-900">{totalFilteredRecords.toLocaleString()}</span>
+                  <span className="text-xs text-blue-600">records</span>
+                </div>
+                {selectedViolationType !== 'all' && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs font-semibold text-slate-600">Type:</span>
+                    <span className="font-bold text-slate-900">
+                      {selectedViolationType === 'present' ? 'Present' :
+                       selectedViolationType === 'absent' ? 'Absent' :
+                       selectedViolationType === 'offDay' ? 'Off Days' :
+                       selectedViolationType === 'workedOff' ? 'Worked Off' :
+                       selectedViolationType === 'errors' ? 'Errors' :
+                       selectedViolationType === 'lateEarly' ? 'Late/Early' :
+                       selectedViolationType === 'lessThan4hrs' ? 'Worked < 4 hrs' :
+                       selectedViolationType === 'hours4to7' ? 'Worked 4-7 hrs' :
+                       selectedViolationType === 'shiftDeviation' ? 'Shift Deviations' :
+                       selectedViolationType === 'missingPunch' ? 'Missing Punches' :
+                       selectedViolationType === 'otherViolations' ? 'Other Violations' : ''}
+                    </span>
+                  </div>
+                )}
+                {selectedSubStatuses.length > 0 && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-xs font-semibold text-green-600">Sub-filters:</span>
+                    <span className="font-bold text-green-900">{selectedSubStatuses.length} selected</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sub-Status Filter - Only show when a specific violation type is selected */}
@@ -2730,7 +2841,10 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                       }}
                       className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm font-semibold">{status}</span>
+                    <span className="text-sm font-semibold flex-1">{status}</span>
+                    <span className="text-xs font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                      {(subStatusCounts[status] || 0).toLocaleString()}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -2764,11 +2878,9 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                   <FileText size={24} className="text-rose-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Total</p>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Total Records</p>
                   <p className="text-2xl font-black text-slate-900">
-                    {filteredManagerReportData.reduce((sum, m) =>
-                      sum + Object.values(m.violations).reduce((s: number, v: any) => s + v, 0), 0
-                    )}
+                    {totalFilteredRecords.toLocaleString()}
                   </p>
                 </div>
               </div>
