@@ -329,6 +329,17 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       } else if (attStatus === 'Clean' || attStatus === 'P' || attStatus === 'Present') {
         managerData.details.present.push(enrichedRec);
         managerData.violations.present++;
+
+        // Debug: Log a sample present record
+        if (managerData.violations.present === 1) {
+          console.log('Sample Present Record:', {
+            employee: att.employeeNumber,
+            date: att.date,
+            status: attStatus,
+            totalHours: att.totalHours,
+            category: categorizeHours(att.totalHours || '00:00')
+          });
+        }
       } else if (attStatus === 'Worked Off' || attStatus === 'WOH') {
         managerData.details.workedOff.push(enrichedRec);
         managerData.violations.workedOff++;
@@ -382,9 +393,32 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       }
     });
 
-    return Array.from(reports.values()).sort((a, b) =>
+    const result = Array.from(reports.values()).sort((a, b) =>
       a.managerName.localeCompare(b.managerName)
     );
+
+    // Debug: Log total violations summary
+    const totalViolations = result.reduce((sum, report) => ({
+      present: sum.present + report.violations.present,
+      absent: sum.absent + report.violations.absent,
+      offDay: sum.offDay + report.violations.offDay,
+      workedOff: sum.workedOff + report.violations.workedOff,
+      errors: sum.errors + report.violations.errors,
+      lateEarly: sum.lateEarly + report.violations.lateEarly,
+      lessThan4hrs: sum.lessThan4hrs + report.violations.lessThan4hrs,
+      hours4to7: sum.hours4to7 + report.violations.hours4to7,
+      shiftDeviation: sum.shiftDeviation + report.violations.shiftDeviation,
+      missingPunch: sum.missingPunch + report.violations.missingPunch,
+      otherViolations: sum.otherViolations + report.violations.otherViolations
+    }), {
+      present: 0, absent: 0, offDay: 0, workedOff: 0, errors: 0,
+      lateEarly: 0, lessThan4hrs: 0, hours4to7: 0, shiftDeviation: 0,
+      missingPunch: 0, otherViolations: 0
+    });
+
+    console.log('Detailed Manager Report Data - Violation Totals:', totalViolations);
+
+    return result;
   }, [data, fromDate, toDate, selectedManager, selectedLegalEntity, selectedLocation, selectedDepartment, selectedSubDepartment]);
 
   // Helper function to convert HH:MM to decimal hours
