@@ -233,6 +233,12 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const detailedManagerReportData = useMemo((): ManagerData[] => {
     if (!fromDate || !toDate) return [];
 
+    // Create lookup maps for O(1) performance instead of O(n) find operations
+    const employeeMap = new Map(data.employees.map(emp => [emp.employeeNumber, emp]));
+    const reconciliationMap = new Map(
+      data.reconciliationRecords?.map(rec => [`${rec.employeeNumber}_${rec.date}`, rec]) || []
+    );
+
     const reports = new Map<string, ManagerData>();
 
     data.attendance.forEach(att => {
@@ -246,8 +252,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
         return;
       }
 
-      // Get employee details for filters
-      const employee = data.employees.find(e => e.employeeNumber === att.employeeNumber);
+      // Get employee details for filters - O(1) lookup instead of O(n)
+      const employee = employeeMap.get(att.employeeNumber);
 
       // Entity filters
       if (selectedLegalEntity !== 'All' && employee?.legalEntity !== selectedLegalEntity) return;
@@ -320,10 +326,8 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
       const managerData = reports.get(reportKey)!;
 
-      // Look up reconciliation record for this employee and date to get Excel upload status
-      const reconRecord = data.reconciliationRecords?.find(
-        rec => rec.employeeNumber === att.employeeNumber && rec.date === att.date
-      );
+      // Look up reconciliation record for this employee and date to get Excel upload status - O(1) lookup instead of O(n)
+      const reconRecord = reconciliationMap.get(`${att.employeeNumber}_${att.date}`);
 
       // Create an enriched record from attendance for display
       const enrichedRec: EnrichedRecord = {
