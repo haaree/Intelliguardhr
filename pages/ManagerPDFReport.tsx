@@ -1475,16 +1475,40 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
           sheetData.push([]);
         };
 
-        // Add all categories (excluding Present and Off Day to save space)
-        addCategory('Absent', locationData.absent);
-        addCategory('Worked Off', locationData.workedOff);
-        addCategory('Errors', locationData.errors);
-        addCategory('Late & Early Occurrence', locationData.lateEarly);
-        addCategory('Worked < 4 Hours', locationData.lessThan4hrs);
-        addCategory('Worked 4-7 Hours', locationData.hours4to7);
-        addCategory('Shift Deviation', locationData.shiftDeviation);
-        addCategory('Missing Punch', locationData.missingPunch);
-        addCategory('Others', locationData.otherViolations);
+        // Add all categories based on filter selection
+        if (selectedViolationType === 'present' || selectedViolationType === 'all') {
+          addCategory('Present', locationData.present);
+        }
+        if (selectedViolationType === 'absent' || selectedViolationType === 'all') {
+          addCategory('Absent', locationData.absent);
+        }
+        if (selectedViolationType === 'offDay' || selectedViolationType === 'all') {
+          addCategory('Off Day', locationData.offDay);
+        }
+        if (selectedViolationType === 'workedOff' || selectedViolationType === 'all') {
+          addCategory('Worked Off', locationData.workedOff);
+        }
+        if (selectedViolationType === 'errors' || selectedViolationType === 'all') {
+          addCategory('Errors', locationData.errors);
+        }
+        if (selectedViolationType === 'lateEarly' || selectedViolationType === 'all') {
+          addCategory('Late & Early Occurrence', locationData.lateEarly);
+        }
+        if (selectedViolationType === 'lessThan4hrs' || selectedViolationType === 'all') {
+          addCategory('Worked < 4 Hours', locationData.lessThan4hrs);
+        }
+        if (selectedViolationType === 'hours4to7' || selectedViolationType === 'all') {
+          addCategory('Worked 4-7 Hours', locationData.hours4to7);
+        }
+        if (selectedViolationType === 'shiftDeviation' || selectedViolationType === 'all') {
+          addCategory('Shift Deviation', locationData.shiftDeviation);
+        }
+        if (selectedViolationType === 'missingPunch' || selectedViolationType === 'all') {
+          addCategory('Missing Punch', locationData.missingPunch);
+        }
+        if (selectedViolationType === 'otherViolations' || selectedViolationType === 'all') {
+          addCategory('Others', locationData.otherViolations);
+        }
 
         if (sheetData.length === 0) return; // Skip if no data
 
@@ -1762,15 +1786,40 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       };
 
       // Add all detail sheets for this organizational unit
-      addDetailSheet('Absent', managerData.details.absent);
-      addDetailSheet('WorkedOff', managerData.details.workedOff);
-      addDetailSheet('Errors', managerData.details.errors, true);
-      addDetailSheet('LateEarly', managerData.details.lateEarly, true);
-      addDetailSheet('Less4hrs', managerData.details.lessThan4hrs, true);
-      addDetailSheet('4-7hrs', managerData.details.hours4to7, true);
-      addDetailSheet('ShiftDev', managerData.details.shiftDeviation, true);
-      addDetailSheet('MissPunch', managerData.details.missingPunch, true);
-      addDetailSheet('Others', managerData.details.otherViolations, true);
+      // Include all violation types based on filter selection
+      if (selectedViolationType === 'present' || selectedViolationType === 'all') {
+        addDetailSheet('Present', managerData.details.present);
+      }
+      if (selectedViolationType === 'absent' || selectedViolationType === 'all') {
+        addDetailSheet('Absent', managerData.details.absent);
+      }
+      if (selectedViolationType === 'offDay' || selectedViolationType === 'all') {
+        addDetailSheet('OffDay', managerData.details.offDay);
+      }
+      if (selectedViolationType === 'workedOff' || selectedViolationType === 'all') {
+        addDetailSheet('WorkedOff', managerData.details.workedOff);
+      }
+      if (selectedViolationType === 'errors' || selectedViolationType === 'all') {
+        addDetailSheet('Errors', managerData.details.errors, true);
+      }
+      if (selectedViolationType === 'lateEarly' || selectedViolationType === 'all') {
+        addDetailSheet('LateEarly', managerData.details.lateEarly, true);
+      }
+      if (selectedViolationType === 'lessThan4hrs' || selectedViolationType === 'all') {
+        addDetailSheet('Less4hrs', managerData.details.lessThan4hrs, true);
+      }
+      if (selectedViolationType === 'hours4to7' || selectedViolationType === 'all') {
+        addDetailSheet('4-7hrs', managerData.details.hours4to7, true);
+      }
+      if (selectedViolationType === 'shiftDeviation' || selectedViolationType === 'all') {
+        addDetailSheet('ShiftDev', managerData.details.shiftDeviation, true);
+      }
+      if (selectedViolationType === 'missingPunch' || selectedViolationType === 'all') {
+        addDetailSheet('MissPunch', managerData.details.missingPunch, true);
+      }
+      if (selectedViolationType === 'otherViolations' || selectedViolationType === 'all') {
+        addDetailSheet('Others', managerData.details.otherViolations, true);
+      }
     });
 
     // Save Excel file
