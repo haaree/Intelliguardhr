@@ -116,6 +116,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
   const [lateExemptionFilter, setLateExemptionFilter] = useState<'all' | 'exempted' | 'non-exempted'>('all');
   const [selectedViolationType, setSelectedViolationType] = useState<string>('all');
   const [selectedSubStatuses, setSelectedSubStatuses] = useState<string[]>([]);
+  const [selectedOccurrenceCount, setSelectedOccurrenceCount] = useState<string>('all'); // For late/early occurrence count filter
 
   const isAdmin = role === 'SaaS_Admin' || role === 'Admin';
 
@@ -716,23 +717,67 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
 
     // Helper function to filter records by sub-status
     const filterRecordsBySubStatus = (records: EnrichedRecord[]): EnrichedRecord[] => {
-      if (selectedSubStatuses.length === 0) {
-        return records;
+      // First, apply sub-status filter if selected
+      let filtered = records;
+
+      if (selectedSubStatuses.length > 0) {
+        // For "Present" and "Worked Off" violation types, filter by hours category
+        if (selectedViolationType === 'present' || selectedViolationType === 'workedOff') {
+          filtered = records.filter(record => {
+            const hoursCategory = categorizeHours(record.totalHours || '00:00');
+            return selectedSubStatuses.includes(hoursCategory);
+          });
+        } else {
+          // For other violation types (Absent, Late/Early, etc.), filter by Excel status
+          filtered = records.filter(record => {
+            const excelStatus = record.excelStatus?.trim() || 'Not Regularized';
+            return selectedSubStatuses.includes(excelStatus);
+          });
+        }
       }
 
-      // For "Present" and "Worked Off" violation types, filter by hours category
-      if (selectedViolationType === 'present' || selectedViolationType === 'workedOff') {
-        return records.filter(record => {
-          const hoursCategory = categorizeHours(record.totalHours || '00:00');
-          return selectedSubStatuses.includes(hoursCategory);
+      // For late/early violations, apply occurrence count filter
+      if (selectedViolationType === 'lateEarly' && selectedOccurrenceCount !== 'all') {
+        // Group by employee and sort by date
+        const byEmployee = new Map<string, EnrichedRecord[]>();
+
+        filtered.forEach(record => {
+          const empNum = record.employeeNumber;
+          if (!byEmployee.has(empNum)) {
+            byEmployee.set(empNum, []);
+          }
+          byEmployee.get(empNum)!.push(record);
+        });
+
+        // Sort each employee's records by date and assign occurrence number
+        const result: EnrichedRecord[] = [];
+        byEmployee.forEach((empRecords, empNum) => {
+          // Sort by date
+          empRecords.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+          // Filter based on selected occurrence count
+          empRecords.forEach((record, index) => {
+            const occurrenceNum = index + 1; // 1-based occurrence number
+
+            if (selectedOccurrenceCount === '1' && occurrenceNum === 1) {
+              result.push(record);
+            } else if (selectedOccurrenceCount === '2' && occurrenceNum === 2) {
+              result.push(record);
+            } else if (selectedOccurrenceCount === '2plus' && occurrenceNum >= 2) {
+              result.push(record);
+            }
+          });
+        });
+
+        // Sort final result by employee name, then date
+        filtered = result.sort((a, b) => {
+          const nameCompare = a.employeeName.localeCompare(b.employeeName);
+          if (nameCompare !== 0) return nameCompare;
+          return new Date(a.date).getTime() - new Date(b.date).getTime();
         });
       }
 
-      // For other violation types (Absent, Late/Early, etc.), filter by Excel status
-      return records.filter(record => {
-        const excelStatus = record.excelStatus?.trim() || 'Not Regularized';
-        return selectedSubStatuses.includes(excelStatus);
-      });
+      return filtered;
     };
 
     // Filter to show only the selected violation type and sub-status
@@ -776,7 +821,7 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
       const totalViolations = (Object.values(manager.violations) as number[]).reduce((sum: number, val: number) => sum + val, 0);
       return totalViolations > 0;
     });
-  }, [detailedManagerReportData, selectedViolationType, selectedSubStatuses]);
+  }, [detailedManagerReportData, selectedViolationType, selectedSubStatuses, selectedOccurrenceCount]);
 
   // Generate consolidated PDF for ALL reporting incharges (landscape, grouped by Legal Entity > Location)
   const generateAllInchargesConsolidatedPDF = () => {
@@ -2985,6 +3030,47 @@ const ManagerPDFReport: React.FC<ManagerPDFReportProps> = ({ data, role }) => {
                 {selectedSubStatuses.length > 0
                   ? `${selectedSubStatuses.length} status(es) selected`
                   : 'Select one or more statuses to filter'}
+              </p>
+            </div>
+          )}
+
+          {/* Late/Early Occurrence Count Filter - Only show when lateEarly is selected */}
+          {selectedViolationType === 'lateEarly' && (
+            <div className="mt-4 border-t border-slate-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
+                  Occurrence Count Filter
+                </label>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { value: 'all', label: 'All Occurrences' },
+                  { value: '1', label: '1st Occurrence' },
+                  { value: '2', label: '2nd Occurrence' },
+                  { value: '2plus', label: '2 or More' }
+                ].map(option => (
+                  <label
+                    key={option.value}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 cursor-pointer transition-all ${
+                      selectedOccurrenceCount === option.value
+                        ? 'bg-purple-50 border-purple-500 text-purple-900'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="occurrenceCount"
+                      value={option.value}
+                      checked={selectedOccurrenceCount === option.value}
+                      onChange={(e) => setSelectedOccurrenceCount(e.target.value)}
+                      className="w-4 h-4 text-purple-600 focus:ring-2 focus:ring-purple-500"
+                    />
+                    <span className="text-sm font-semibold">{option.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Filter late/early violations by occurrence count per employee. Results sorted by employee name and date.
               </p>
             </div>
           )}
