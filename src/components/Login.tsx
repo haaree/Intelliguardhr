@@ -13,20 +13,57 @@ export default function Login() {
     setError('');
 
     try {
+      // FALLBACK: Check for local superadmin credentials
+      if (email === 'admin' && password === 'admin') {
+        console.log('🔐 Using local superadmin fallback authentication');
+
+        // Create local admin session
+        const adminSession = {
+          user: {
+            id: 'local-admin-001',
+            email: 'admin@local',
+            role: 'SaaS_Admin',
+            user_metadata: {
+              full_name: 'Super Admin',
+              role: 'SaaS_Admin'
+            }
+          },
+          access_token: 'local-admin-token',
+          refresh_token: 'local-admin-refresh'
+        };
+
+        // Store in localStorage for persistence
+        localStorage.setItem('local_admin_session', JSON.stringify(adminSession));
+        localStorage.setItem('userRole', 'SaaS_Admin');
+        localStorage.setItem('userName', 'Super Admin');
+
+        console.log('✅ Local admin session created');
+
+        // Reload to trigger authentication
+        window.location.reload();
+        return;
+      }
+
+      // Try Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        setError(error.message);
+        // If Supabase fails, check if it's a connection error
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          setError('Cannot connect to authentication server. Use local admin credentials (username: admin, password: admin) as fallback.');
+        } else {
+          setError(error.message);
+        }
       } else if (data.user) {
         console.log('Logged in successfully:', data.user.email);
         // Authentication state change will be handled by ProtectedRoute
       }
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
       console.error('Login error:', err);
+      setError('Cannot connect to server. Use local admin credentials (username: admin, password: admin) as fallback.');
     } finally {
       setLoading(false);
     }

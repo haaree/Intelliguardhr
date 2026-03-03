@@ -129,11 +129,25 @@ export const authService = {
    */
   async logout() {
     try {
+      // Clear local admin session if exists
+      const localSession = localStorage.getItem('local_admin_session');
+      if (localSession) {
+        console.log('🔐 Clearing local admin session');
+        localStorage.removeItem('local_admin_session');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('userName');
+        return;
+      }
+
+      // Otherwise sign out from Supabase
       await supabase.auth.signOut();
       localStorage.removeItem('intelliguard_session');
     } catch (err) {
       console.error('Logout error:', err);
       localStorage.removeItem('intelliguard_session');
+      localStorage.removeItem('local_admin_session');
+      localStorage.removeItem('userRole');
+      localStorage.removeItem('userName');
     }
   }
 };
