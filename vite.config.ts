@@ -34,15 +34,13 @@ export default defineConfig(({ mode }) => {
       },
       build: {
         outDir: 'dist',
-        sourcemap: !isProduction,
-        minify: isProduction,
+        sourcemap: false,
+        minify: isProduction ? 'esbuild' : false,
+        target: 'es2020',
+        chunkSizeWarningLimit: 1000,
         rollupOptions: {
           output: {
-            manualChunks: {
-              'react-vendor': ['react', 'react-dom'],
-              'charts': ['recharts'],
-              'utils': ['xlsx', '@google/genai']
-            }
+            manualChunks: undefined
           }
         }
       },
