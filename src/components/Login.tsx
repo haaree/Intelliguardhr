@@ -14,14 +14,14 @@ export default function Login() {
 
     try {
       // FALLBACK: Check for local superadmin credentials
-      if (email === 'admin' && password === 'admin') {
+      if (email === 'admin@intelliguard.in' && password === 'admin') {
         console.log('🔐 Using local superadmin fallback authentication');
 
         // Create local admin session
         const adminSession = {
           user: {
             id: 'local-admin-001',
-            email: 'admin@local',
+            email: 'admin@intelliguard.in',
             role: 'SaaS_Admin',
             user_metadata: {
               full_name: 'Super Admin',
@@ -53,7 +53,7 @@ export default function Login() {
       if (error) {
         // If Supabase fails, check if it's a connection error
         if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          setError('Cannot connect to authentication server. Use local admin credentials (username: admin, password: admin) as fallback.');
+          setError('Cannot connect to authentication server. Use local admin credentials (email: admin@intelliguard.in, password: admin) as fallback.');
         } else {
           setError(error.message);
         }
@@ -63,7 +63,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('Cannot connect to server. Use local admin credentials (username: admin, password: admin) as fallback.');
+      setError('Cannot connect to server. Use local admin credentials (email: admin@intelliguard.in, password: admin) as fallback.');
     } finally {
       setLoading(false);
     }
