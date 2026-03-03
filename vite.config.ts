@@ -13,7 +13,6 @@ export default defineConfig(({ mode }) => {
         allowedHosts: [
           'asp.intelliguard.in',
           'localhost',
-          '.railway.app',
           '.pages.dev'
         ],
         hmr: isProduction ? false : {
@@ -50,7 +49,6 @@ export default defineConfig(({ mode }) => {
         allowedHosts: [
           'asp.intelliguard.in',
           'localhost',
-          '.railway.app',
           '.pages.dev'
         ]
       }
